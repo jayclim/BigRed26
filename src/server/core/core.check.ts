@@ -4,12 +4,13 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { FrameRequest, Route } from '../../../contracts/contracts.ts';
+import type { CoreAdapter, FrameRequest, Route } from '../../../contracts/contracts.ts';
 import { approvalProblems, createCore, emptyState, type Recognizer } from './core.ts';
 import { loadState, persistState } from './store.ts';
 import { mockRecognizer } from '../../shared/mockScenes.ts';
 import { fixtureRecognizer } from './actionFixture.ts';
 import { RouteSchema } from '../../../contracts/schemas.ts';
+import { reconcileGuide } from '../../features/guide/reconcileGuide.ts';
 
 const fixture = JSON.parse(readFileSync(new URL('../../../contracts/fixture.v1.json', import.meta.url), 'utf8'));
 const draft: Route = { ...fixture.route, status: 'draft' };
@@ -176,7 +177,7 @@ assert.equal(errCode(await manual('rock', staleManual)), 'STALE_FRAME');
 const manualSeq = must(await actionCore.reserveFrameSequence(actionSession.id)).sequence;
 ag = must(await manual('rock', manualSeq));
 assert.equal(ag.state, 'arrived'); assert.equal(ag.locale, 'es');
-assert.ok(ag.evidence[0].includes('Manual visitor confirmation') && ag.evidence[0].includes('No visual proof'));
+assert.ok(ag.evidence[0].includes('Confirmación manual del visitante') && ag.evidence[0].includes('Sin prueba visual'));
 assert.equal(errCode(await manual('rock', manualSeq)), 'STALE_FRAME', 'duplicate manual request');
 assert.equal(errCode(await manual('rock')), 'INVALID_INPUT', 'completed step is no longer active');
 assert.equal(actionCore.state.events.filter((e) => e.kind === 'manual_advance').length, 1);
@@ -202,10 +203,79 @@ const manualLanding = must(await actionCore.completeAction(raceSession.id, { rou
 assert.equal(manualLanding.checkpointId, 'floor-3'); assert.equal(manualLanding.locale, 'es');
 assert.deepEqual([manualLanding.state, manualLanding.direction, manualLanding.approachConfirmed], ['uncertain', null, false],
   'manual progress does not establish the next checkpoint approach');
-assert.ok(manualLanding.evidence[0].includes('No visual proof'));
+assert.ok(manualLanding.evidence[0].includes('Sin prueba visual'));
 releaseAction(); actionHold = null;
 assert.equal(errCode(await oldActionFrame), 'STALE_FRAME');
 assert.equal(must(await raceFrame('mock:floor-3:approach')).direction, 'forward', 'new approach evidence restores the next arrow');
+
+// The server commits B214, but the transport loses the reply. Recovery must select Lift A,
+// even though its manual guidance is uncertain; a later reorient observation is not progress.
+const repairCore = createCore({ recognizers: { mock: fixtureRecognizer } });
+must(await repairCore.saveDraft(actionDraft));
+must(await repairCore.approveRoute(actionDraft.id, 1, actionIds));
+const repairSession = must(await repairCore.startSession(actionDraft.id, 'en', 'mock'));
+const repairFrame = async (mediaId: string, sequence?: number) => repairCore.matchFrame({
+  sessionId: repairSession.id, routeVersion: 1,
+  sequence: sequence ?? must(await repairCore.reserveFrameSequence(repairSession.id)).sequence,
+  capturedAt: new Date().toISOString(), mediaId,
+});
+const lostResponseCore: CoreAdapter = { ...repairCore, completeAction: async (id, request) => {
+  must(await repairCore.completeAction(id, request)); // commit before the response is lost
+  return { ok: false, error: { code: 'PROVIDER_UNAVAILABLE', message: 'Response lost.', retryable: true } };
+} };
+const beforeLoss = must(await repairFrame('mock:door-b214:approach'));
+assert.equal(errCode(await lostResponseCore.completeAction(repairSession.id, {
+  ...must(await repairCore.reserveFrameSequence(repairSession.id)), checkpointId: 'door-b214',
+})), 'PROVIDER_UNAVAILABLE');
+const recovered = reconcileGuide(must(await repairCore.getSession(repairSession.id)),
+  must(await repairCore.currentGuidance(repairSession.id)), beforeLoss.sequence)!;
+assert.equal(recovered.checkpointId, 'elevator');
+assert.equal(recovered.guidance!.state, 'uncertain');
+assert.equal(recovered.guidance!.direction, null);
+assert.ok(recovered.guidance!.evidence[0].includes('Manual visitor confirmation'));
+// Existing saved decisions can contain the old English sentence. The manual event still
+// identifies the completed action, so refresh must render it in the selected locale.
+repairCore.state.sessions[repairSession.id].last!.evidence = [...recovered.guidance!.evidence];
+for (const locale of ['es', 'en', 'es'] as const) {
+  must(await repairCore.setLocale(repairSession.id, locale));
+  const refreshed = reconcileGuide(must(await repairCore.getSession(repairSession.id)),
+    must(await repairCore.currentGuidance(repairSession.id)), recovered.sequence)!;
+  assert.equal(refreshed.checkpointId, 'elevator');
+  assert.equal(refreshed.guidance!.locale, locale);
+  const evidence = refreshed.guidance!.evidence[0];
+  assert.ok(evidence.includes('Door B214') && evidence.includes('Lift A to Floor 3'), 'labels stay literal');
+  assert.ok(evidence.includes(locale === 'es' ? 'Sin prueba visual' : 'No visual proof'));
+  if (locale === 'es') assert.ok(!evidence.includes('Manual visitor confirmation'));
+}
+
+// Manual progress supplies no visual event. First recognition supplies exactly one, including retries.
+const elevatorConfirmations = () => repairCore.state.events.filter((e) =>
+  e.sessionId === repairSession.id && e.kind === 'checkpoint_confirmed' && e.checkpointId === 'elevator');
+const elevatorQuality = async () => must(await repairCore.routeQuality(actionDraft.id, 1, '1970-01-01T00:00:00.000Z', 'mock'))
+  .checkpoints.find((c) => c.checkpointId === 'elevator')!.confirmedSessions;
+assert.equal(elevatorConfirmations().length, 0);
+assert.equal(await elevatorQuality(), 0);
+assert.equal(repairCore.state.events.filter((e) => e.kind === 'manual_advance').length, 1);
+const firstElevatorView = must(await repairFrame('mock:elevator:entrance'));
+assert.equal(firstElevatorView.state, 'guiding');
+assert.equal(elevatorConfirmations().length, 1);
+assert.equal(await elevatorQuality(), 1);
+must(await repairFrame('mock:elevator:button'));
+assert.equal(errCode(await repairFrame('mock:elevator:entrance', firstElevatorView.sequence)), 'STALE_FRAME');
+assert.equal(elevatorConfirmations().length, 1);
+assert.equal(await elevatorQuality(), 1);
+const reorientView = must(await repairFrame('mock:floor-3:unknown-approach'));
+const reoriented = reconcileGuide(must(await repairCore.getSession(repairSession.id)), reorientView, recovered.sequence)!;
+assert.equal(reoriented.checkpointId, 'elevator', 'unconfirmed next view does not move the manual button');
+assert.equal(reoriented.guidance!.checkpointId, 'floor-3');
+must(await repairCore.completeAction(repairSession.id, {
+  ...must(await repairCore.reserveFrameSequence(repairSession.id)), checkpointId: recovered.checkpointId!,
+})); // recovered button completes Lift A, not the stale B214 action
+const afterRecovery = must(await repairCore.getSession(repairSession.id));
+assert.equal(afterRecovery.lastConfirmedCheckpointId, 'floor-3');
+assert.equal(reconcileGuide(repairSession, beforeLoss, afterRecovery.lastAcceptedSequence), null, 'stale refresh cannot undo progress');
+assert.equal(reconcileGuide(afterRecovery, beforeLoss, afterRecovery.lastAcceptedSequence)!.guidance, null,
+  'a progress change between reads cannot display an older action instruction');
 
 // Named target matching is case-insensitive; completing into a destination requires its own evidence.
 let customEvidence = 'b214';
@@ -264,4 +334,4 @@ try {
   rmSync(dir, { recursive: true, force: true }); // only this check's own mkdtemp directory
 }
 
-console.log('core check passed: approval, unknown scene, reorient, arrival, stale ordering, provider failure, locale preservation, safe store loading; action selection/completion, named targets, floor/approach checks, null arrows, manual freshness/race/events, bilingual action speech, immutable action versions');
+console.log('core check passed: approval, unknown scene, reorient, arrival, stale ordering, provider failure, locale preservation, safe store loading; action selection/completion, named targets, floor/approach checks, null arrows, manual freshness/race/events, lost-response reconciliation, visual confirmation counts after manual progress, bilingual manual evidence/action speech, immutable action versions');

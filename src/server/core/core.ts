@@ -43,6 +43,10 @@ const COPY = {
     en: (label: string, approach: string) => `I recognize ${label}. Turn until the view matches: ${approach}.`,
     es: (label: string, approach: string) => `Reconozco ${label}. Gira hasta que la vista coincida: ${approach}.`,
   },
+  manualAdvance: {
+    en: (from: string, to: string) => `Manual visitor confirmation: completed ${from}; advanced to ${to}. No visual proof.`,
+    es: (from: string, to: string) => `Confirmación manual del visitante: completó ${from}; avanzó a ${to}. Sin prueba visual.`,
+  },
 };
 
 /** Problems that block approval. Empty array means approvable. */
@@ -104,9 +108,13 @@ export function createCore(opts: {
   function render(s: Session, route: Route, d: Decision): Guidance {
     const L: Locale = s.locale;
     const cp = route.checkpoints.find((c) => c.id === d.checkpointId);
+    const manualEvent = state.events.find((e) => e.sessionId === s.id && e.sequence === d.sequence && e.kind === 'manual_advance');
+    const manualFrom = route.checkpoints.find((c) => c.id === manualEvent?.checkpointId);
+    const manualTo = manualFrom ? route.checkpoints[manualFrom.order + 1] : undefined;
     const base = {
       sessionId: s.id, sequence: d.sequence, routeVersion: s.routeVersion, mode: s.mode, locale: L,
-      evidence: d.evidence, processingMs: d.processingMs,
+      evidence: manualFrom && manualTo ? [COPY.manualAdvance[L](manualFrom.label, manualTo.label)] : d.evidence,
+      processingMs: d.processingMs,
     };
     const v = `${L}-v${s.routeVersion}`;
     if (d.state === 'guiding' && cp && d.nextCheckpointId)
@@ -120,11 +128,11 @@ export function createCore(opts: {
     else if (cp?.action) text = L === 'en'
       ? `Keep the current action at ${cp.action.target}. I cannot confirm this view. Check the approved target and approach.`
       : `Mantén la acción actual en ${cp.action.target}. No puedo confirmar esta vista. Comprueba el objetivo aprobado y la orientación.`;
-    else if (d.evidence.length && d.state === 'uncertain') text = COPY.notNearby[L](expectedNext(s, route)?.label ?? route.destinationLabel);
+    else if (base.evidence.length && d.state === 'uncertain') text = COPY.notNearby[L](expectedNext(s, route)?.label ?? route.destinationLabel);
     else text = COPY.unknown[L]();
-    const state = d.state === 'reorient' ? 'reorient' : d.state === 'off_route' ? 'off_route' : 'uncertain';
-    return { ...base, state, checkpointId: d.checkpointId, direction: null, approachConfirmed: false,
-      instructionId: `${state}-${d.checkpointId ?? 'none'}-${d.evidence.length ? 'seen' : 'unseen'}-${v}`, text };
+    const guidanceState = d.state === 'reorient' ? 'reorient' : d.state === 'off_route' ? 'off_route' : 'uncertain';
+    return { ...base, state: guidanceState, checkpointId: d.checkpointId, direction: null, approachConfirmed: false,
+      instructionId: `${guidanceState}-${d.checkpointId ?? 'none'}-${base.evidence.length ? 'seen' : 'unseen'}-${v}`, text };
   }
 
   function progressIndex(s: Session, route: Route) {
@@ -281,7 +289,9 @@ export function createCore(opts: {
       const d = decide(s, route, observed.value, req.sequence, processingMs);
       s.lastAcceptedSequence = req.sequence;
       if (d.state === 'guiding' || d.state === 'arrived') {
-        if (d.checkpointId !== s.lastConfirmedCheckpointId) record(s, 'checkpoint_confirmed', d.checkpointId, req.sequence, processingMs);
+        // The session cursor includes manual progress. Visual confirmation has its own event history.
+        if (!state.events.some((e) => e.sessionId === s.id && e.checkpointId === d.checkpointId && e.kind === 'checkpoint_confirmed'))
+          record(s, 'checkpoint_confirmed', d.checkpointId, req.sequence, processingMs);
         s.lastConfirmedCheckpointId = d.checkpointId;
       }
       rec.last = d;
@@ -317,7 +327,7 @@ export function createCore(opts: {
       if (!next) return fail('INVALID_INPUT', 'Action has no next checkpoint.');
       const d: Decision = {
         sequence: req.sequence, processingMs: 0,
-        evidence: [`Manual visitor confirmation: completed ${cp.label}; advanced to ${next.label}. No visual proof.`],
+        evidence: [], // render localized manual evidence from the separate manual_advance event
         // Manual completion supplies progress, but no approach proof for the next checkpoint.
         state: next.isDestination ? 'arrived' : 'uncertain', checkpointId: next.id,
         direction: null,

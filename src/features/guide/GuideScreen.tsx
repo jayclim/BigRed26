@@ -6,6 +6,7 @@ import { mockScenes } from '@/shared/mockScenes.ts';
 import actionFixture from '@contracts/fixture.actions.v1.json';
 import { Brand } from '@/ui/Brand.tsx';
 import { Camera } from './Camera.tsx';
+import { reconcileGuide } from './reconcileGuide.ts';
 
 export interface GuideScreenProps {
   core: CoreAdapter;
@@ -107,13 +108,30 @@ export function GuideScreen({ core, routeId, exitHref }: GuideScreenProps) {
     }
   }
 
+  async function refreshGuide(sessionId: Id) {
+    const g = await core.currentGuidance(sessionId);
+    const s = await core.getSession(sessionId);
+    if (!s.ok) return setProblem(s.error.message);
+    const refreshed = reconcileGuide(s.value, g.ok ? g.value : null, lastSeq.current);
+    if (!refreshed) return;
+    setSession(s.value);
+    setConfirmedId(refreshed.checkpointId);
+    lastSeq.current = refreshed.sequence;
+    setGuidance(refreshed.guidance);
+    if (!g.ok) setProblem(g.error.message);
+  }
+
   async function switchLocale() {
-    if (!session) return;
-    const r = await core.setLocale(session.id, session.locale === 'en' ? 'es' : 'en');
-    if (!r.ok) return setProblem(r.error.message);
-    setSession(r.value);
-    const g = await core.currentGuidance(session.id);
-    if (g.ok && g.value) accept(g.value);
+    if (!session || inFlight.current) return;
+    inFlight.current = true; setPending(true);
+    try {
+      const r = await core.setLocale(session.id, session.locale === 'en' ? 'es' : 'en');
+      if (!r.ok) return setProblem(r.error.message);
+      setSession(r.value);
+      await refreshGuide(session.id);
+    } finally {
+      inFlight.current = false; setPending(false);
+    }
   }
 
   async function completeAction() {
@@ -127,7 +145,11 @@ export function GuideScreen({ core, routeId, exitHref }: GuideScreenProps) {
         if (g.value.sequence >= lastSeq.current) setConfirmedId(g.value.checkpointId);
         accept(g.value);
       }
-      else if (g.error.code !== 'STALE_FRAME') setProblem(g.error.message);
+      else {
+        if (g.error.code !== 'STALE_FRAME') setProblem(g.error.message);
+        // A failed response does not mean the server rejected the manual advance.
+        await refreshGuide(session.id);
+      }
     } finally {
       inFlight.current = false; setPending(false);
     }
@@ -163,7 +185,7 @@ export function GuideScreen({ core, routeId, exitHref }: GuideScreenProps) {
               <button className="ctl" aria-pressed={sound} onClick={() => setSound((s) => !s)} title={t.speech}>
                 {sound ? t.soundOn : t.soundOff}
               </button>
-              <button className="ctl" onClick={switchLocale} lang={locale === 'en' ? 'es' : 'en'}>{t.other}</button>
+              <button className="ctl" disabled={pending} onClick={switchLocale} lang={locale === 'en' ? 'es' : 'en'}>{t.other}</button>
               <a className="ctl" href={exitHref}>{t.exit}</a>
             </div>
           </div>
