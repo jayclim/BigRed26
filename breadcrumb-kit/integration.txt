@@ -1,0 +1,60 @@
+OWNERSHIP AND CONTRACTS
+
+YOU / INTEGRATION OWNER
+Own src/server/core/**, src/app/api/**, contracts/**, database migrations, root package files, app shell, deployment and shared configuration. Implement CoreAdapter. Gemini calls and the route state machine live here. Register handlers that call the integrations teammate's adapters; do not rewrite those adapters.
+
+TEAMMATE A / INTERFACE
+Own src/features/creator/**, src/features/guide/**, src/features/quality/**, src/ui/** and feature-local fixtures. Export CreatorScreen, GuideScreen, QualityScreen. Receive adapters as props/dependencies. Own the design system within src/ui; root mounting belongs to you. Do not call providers directly or invent endpoints. Work against mocks until the real CoreAdapter is available.
+
+TEAMMATE B / INTEGRATIONS AND DEMO
+Own src/server/voice/**, src/server/messaging/**, src/demo/** and presentation assets. Implement VoiceAdapter and MessageAdapter. Supply a deterministic replay input adapter, never disguised as live. Keep SDK keys server-side. Collect/organize footage, obtain one consented iMessage test conversation, package the demo recording and final deck. Coordinate manual capture with teammate A if necessary.
+
+Shared files: only you edit contracts.ts, root package.json/lockfile, root layouts and public API registrations. Teammates request dependency changes in a short handoff note. Avoid multiple agents overwriting the lockfile. One branch/worktree per owner; integrate at least every 2–3 hours. Worktree commands depend on your actual repo and are intentionally not fabricated here.
+
+Recommended implementation: one TypeScript web app and one server API, with provider adapters. No microservices. Have coding agents inspect current package docs and pin a compatible stack when initializing. Camera must run from a phone-accessible HTTPS origin; test the actual browser permissions and audio autoplay behavior on target phones early.
+
+HTTP CONTRACT (PROPOSED)
+All JSON endpoints return Result<T>. Success HTTP 200 unless specified below; invalid input 400, not found 404, unapproved/stale state 409, rate limit 429, provider error 503. Error body uses contracts.ts codes. Never leak provider secrets in errors.
+POST /api/media: multipart 'file', supported video or JPEG/PNG; returns Result<{mediaId,mimeType}>. Team freezes limits based on actual host/provider support. Return playback URLs only via a controlled media resolver. Browser never uploads provider keys.
+POST /api/routes/build: {videoId,name}, HTTP 202 Result<BuildJob>.
+GET /api/builds/:id: Result<BuildJob>. UI polls with backoff; no fake processing percentage.
+GET /api/routes/:id?version=N: Result<Route>.
+PUT /api/routes/:id/draft: Route, Result<Route>. Reject stale version. Publishing creates immutable version snapshot.
+POST /api/routes/:id/approve: {version}, Result<Route>. Require all instructions reviewed; preserve provenance.
+POST /api/sessions: {routeId,locale,mode}, Result<Session>. Only approved route versions for navigation.
+GET /api/sessions/:id: Result<Session>.
+PATCH /api/sessions/:id/locale: {locale}, Result<Session>.
+POST /api/sessions/:id/frame-sequence: {}, Result<{sequence,routeVersion}>. Atomically reserve a sequence before submitting a frame, including messaging photo frames. Both input adapters use this same allocator.
+POST /api/sessions/:id/frame: FrameRequest, Result<Guidance>. Session ID in path must match body.
+POST /api/speech: SpeechRequest, Result<SpeechClip>.
+GET /api/routes/:id/quality?version=N&since=ISO&mode=live: Result<RouteQuality>.
+POST /api/integrations/photon/webhook: provider-specific ingress, signature verification and provider acknowledgement as required by current Photon documentation; normalize into IncomingPhotoHelp internally. Do not pretend the provider sends our internal types.
+
+SESSION AND GUIDANCE RULES
+Route versions are immutable once approved. Existing sessions keep their route version; changes apply to new sessions unless the user explicitly restarts.
+Only one camera match in flight; drop old queued frames. Client ignores responses with old sequence/version. Both browser and messaging adapters reserve sequence through the core method. Server atomically rejects stale sequences at commit, not only before a model request. A browser frame request and message photo request must be serialized by the same server session mechanism. A browser can reserve again after a stale rejection; it must not guess the next global sequence.
+Inspect a short recent frame window and candidates near last confirmed position. Require consistent evidence before changing a turn. Tune on real second-phone footage; 'two consistent frames' is a starting heuristic, not a correctness proof.
+App starts at recorded entrance. Match an approach before displaying a camera-relative turn. Location recognition alone does not prove orientation. A reorient state has no arrow.
+Unknown view => uncertain, no arrow. Positive evidence of a recognized wrong location can justify off_route; no universal rerouting from unseen corridors. Begin with uncertain as the conservative fallback.
+Arrival requires destination evidence. Do not advance on timers. Manual advancing must have visible control and create manual_advance events. Do not present manual advancement as model recognition.
+Voice reads only current guidance, cancels queued stale audio, deduplicates by instruction ID, and never blocks the camera UI. Changing locale yields new text/audio for the same route state.
+Record events with mode and route version. Metrics default to live only. Replay preserves original event timing but must not inflate live totals. Mock metrics visibly labelled. Session identifiers are pseudonymous; no need to store raw visitor video for analytics.
+
+DESIGN CONTRACT
+Warm near-white creator screen; dark camera chrome; vivid cyan as the primary guide accent; amber uncertainty; green arrival. Use one accent consistently. Large instruction text and a compact reference image; four controls at most: sound, language, help, exit.
+Three main screens: create/review; follow; arrival. Quality is a secondary organizer view.
+Gentle 200–300 ms transitions are an initial design target, respecting reduced motion. Keep arrows stable while requests process. On uncertainty remove the arrow and show a useful action such as 'Point toward the room sign'.
+No fake millimeter precision, moving floor arrows, confidence percentages or loading percentages. Avoid dashboard chrome around the visitor camera.
+Desktop demo: two generous panes for teach and follow, phone view large enough to read, matched reference shown briefly. Add a third small message view only during the Photon-specific demonstration.
+
+ACCEPTANCE HANDOFFS
+Core: same known route handles matched, uncertain, reorient and arrived responses; unknown scene cannot create a new turn; stale frames cannot regress state; provider timeout returns recoverable error.
+Interface: all contract states work against fixtures; route review editable; permission denied screen; sound toggle; captions; portrait phone layout; keyboard/focus usability for web controls. Include screenshots of each state.
+Integrations: exact approved text yields audible ElevenLabs clip; a failed provider returns retryable error; Photon demonstrably receives and replies to a real photo in a opted-in thread; duplicate webhook does not send duplicate replies; replay always carries replay label.
+Combined gate: second phone completes the short recorded route; unrelated view yields uncertainty; language switch preserves location; no UI freeze on delayed provider. Record observed results. Do not fabricate success rate.
+
+FEATURE FLAGS
+ENABLE_PHOTON, ENABLE_QUALITY_VIEW, ENABLE_VOICE, DEMO_INPUT=live|replay|mock. Live/replay/mock is visible on the presentation surface and travels through events. Sponsor availability should not prevent the core route guide from opening.
+
+HANDOFF NOTE EACH TEAMMATE WRITES
+Owned files; implemented behavior; exact run command; current contract version; required env variable names (never secret values); screenshots or short recording; known limitations; integration actions for owner. Commit only work actually done.

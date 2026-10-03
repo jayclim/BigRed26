@@ -1,0 +1,13 @@
+You are implementing the core engine and integrating Breadcrumb for a three-person BigRed//Hacks team. Read START-HERE.txt, strategy.txt, contracts.ts and integration.txt first. These describe a planned product, not existing functionality. Inspect the actual repository before editing.
+
+Your ownership: core server, public API registrations, contract files, database migrations, root config, app mounting and deployment. Other teammates own UI feature directories and provider voice/messaging adapters. Preserve their ownership. Use the frozen contracts; request changes explicitly and update fixtures together.
+
+Goal: one working, excellent camera-guided indoor route. Prove Gemini checkpoint extraction and cross-phone matching first. Build approval/editing into the route lifecycle. Restrict candidate checkpoints by session progress and require orientation/approach evidence before turning. Refuse to turn on unknown scenes. Provider output must undergo runtime validation. Use one TypeScript app. Keep secrets server-side.
+
+First deliverable: scaffold repo, v1 contracts, realistic mock adapter and feature entrypoints so teammates can start immediately. Second deliverable: end-to-end upload/build/review/approve/session/match. Third: integrate real UI and voice. Only then build optional Tiger Data event analysis. Do not add payments, native AR, campus mapping or unrelated sponsors.
+
+Ask the team for one real route video and independent follow footage. You may prepare mock fixtures while waiting, but label them. Consult current official SDK docs for chosen provider/model/package rather than inventing endpoints. Do not promise reliability based on a model's self-reported confidence.
+
+Verify the concrete risks: new-camera recognition, unknown scene, facing wrong way, stale response ordering, rate limit/timeout, arrival evidence and version consistency. Log actual measurements. Use replay as an explicitly labelled fallback, never as false live proof.
+
+Integrate teammate changes at least every 2–3 hours. Stop feature additions by agreed cutoff and focus on the demo. Return a handoff with changed files, run commands, observed tests, limitations and environment variable names without secrets. Do not claim an integration exists before exercising the real API.

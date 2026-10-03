@@ -1,0 +1,13 @@
+You own Breadcrumb's ElevenLabs adapter, optional Photon messaging adapter, replay inputs and presentation assets. Read all shared kit files, especially contracts.ts, integration.txt and judging.txt. Inspect existing repo before editing.
+
+Only edit src/server/voice/**, src/server/messaging/**, src/demo/** and presentation assets. Integration owner registers endpoints and controls root config. Supply small adapters with exact agreed types. Consult current official provider docs and validate actual account/device access before promising capabilities.
+
+Priority 1: VoiceAdapter.synthesize. Speak the exact approved instruction in the requested language using ElevenLabs. Cache using text+voice+locale. Client must cancel stale clips and deduplicate instructions. Provider failure must not block navigation. Ship captions and mute through the UI owner. A simple TTS implementation is sufficient before any live conversational voice extension.
+
+Priority 2: prove one real inbound/outbound iMessage photo through Photon. Check its event eligibility and account setup with the team. Normalize attachments and route/session identity, invoke the shared core, reply with grounded guidance. Verify webhook authenticity, deduplicate provider message IDs and serialize frame sequence with the core owner. Start with one consented demo conversation. Do not send unsolicited messages. A web link alone is insufficient for our intended strong Photon story. Cut Photon if access or photo round trip remains blocked at first integration checkpoint.
+
+Priority 3: replay adapter using a real second-phone recording as frame input to the recognition engine. Mark Replay visibly. A separate simulated UI fixture must say Mock. Never swap stored predictions into a purported live model demo.
+
+Organize human capture: one short teaching route, second-phone follow pass, uncertain view, destination sign. Create a 45–60-second recording of the functioning app for emergency playback. Preserve the distinction between live input, replay input processed now and an already-recorded demo.
+
+Prepare final presentation from judging.txt, using actual app screenshots and implemented features. Use editable slide text. Do not fabricate results or screenshots. Export a PDF; the team must put it in Google Drive and ensure judges can view it. Package real evidence per sponsor and rehearse the two-minute first round and four-minute final. Explain missing integrations honestly in the handoff.

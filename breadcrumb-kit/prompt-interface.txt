@@ -1,0 +1,11 @@
+You own Breadcrumb's creator and visitor UI. Read START-HERE.txt, contracts.ts and integration.txt. Inspect the repository and use its installed stack. Ask the integration owner for missing shared files rather than recreating them incompatibly.
+
+Only edit src/features/creator/**, src/features/guide/**, src/features/quality/**, src/ui/** and your local fixtures. Export CreatorScreen, GuideScreen, QualityScreen. Consume CoreAdapter and VoiceAdapter via dependency injection. Do not edit root layouts, lockfiles, shared contracts or API route registration without owner agreement. Never put provider keys in browser code.
+
+Create a polished camera-first experience: upload/record a short route, editable landmark strip and directions, approval/share link, camera guidance, uncertainty/reorientation, destination arrival. Use warm white for creation, dark camera chrome, cyan guide accent, amber uncertainty, restrained green arrival. Use strong typography and generous space, stable large arrows, short instructions and a reference thumbnail. Captions, mute, language and help are functional. Avoid a generic dashboard feel or fake spatial AR.
+
+Build every state against the fixture adapter first, with visible MOCK label. Include upload/processing/error, camera permission failure, guiding, uncertain, reorient, arrived and audio-disabled. Processing must not freeze the UI. Do not advance route state yourself based on elapsed time. Ignore stale server responses. Only guiding with approachConfirmed=true may show a directional arrow. Drop the arrow in uncertain/off_route/reorient. Let the core decide state.
+
+Implement responsive phone layout and a legible desktop demo layout. Test actual mobile camera and audio activation with the team. Add quality view only after core screens work; use checkpoint counts and session timeline, not a fabricated spatial heatmap.
+
+First handoff: navigable mock screens and screenshots. Second: actual adapter wired end-to-end. Final: polished empty/error/recovery states and full demo capture. Give integration owner component signatures, run instructions, changed files and known limitations. Real API integration belongs to the corresponding adapters.

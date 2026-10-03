@@ -1,0 +1,21 @@
+BREADCRUMB — BIGRED//HACKS BUILD AND JUDGING KIT
+Prepared October 3, 2026. Planning materials and interface definitions, not an implemented app.
+
+Promise: Record a route once. Let the next visitor follow it through their camera.
+First audience: event hosts and visitors finding a room inside an unfamiliar building.
+Build target: one real, short route, approximately four checkpoints, one camera-guided journey, English plus one tested language, explicit uncertainty, arrival confirmation.
+
+Read in order:
+1. strategy.txt: verified judging information, prize targets, scope and schedule.
+2. contracts.ts: shared types and adapter interfaces. The integration owner freezes v1.
+3. integration.txt: endpoint semantics, ownership, errors, acceptance conditions.
+4. prompt-master.txt, prompt-interface.txt, prompt-integrations.txt: give one to each teammate's coding agent alongside the shared files.
+5. judging.txt: two-minute presentation script, slide brief, Q&A and submission checklist.
+
+What exists: a plan, contracts, a synthetic fixture, task prompts and a presentation storyboard.
+What does not exist yet: application implementation, route footage, tested recognition accuracy, actual sponsor integrations, finished deck or deployed URL.
+Use the fixture only in visibly labelled MOCK mode. Replace the fictional signs/rooms with your own recorded route.
+
+The team must still provide API access, one walkthrough, an independent second-phone pass, deployment setup and final submission. Budget about 60–90 minutes of distributed hands-on capture/testing/rehearsal as a planning estimate, plus debugging if device behavior demands it. Coding can be delegated heavily; camera behavior still needs real-device evidence.
+
+Recommended entry set: BigRed main, Design, Software, Gemini, ElevenLabs, People's Choice. Add Photon after access and end-to-end photo messaging work. Add Tiger Data after a useful checkpoint-analytics screen works. Domain entry is conditional on eligible registration. Award stacking and additional Devpost rules remain unverified.

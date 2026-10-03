@@ -1,0 +1,176 @@
+:root {
+  --paper: #fbf8f3;
+  --paper-2: #f3eee6;
+  --ink: #1d2729;
+  --muted: #5b686b;
+  --rule: #e2dbd0;
+  --cyan: #19c3dc;
+  --cyan-ink: #076a7c;
+  --amber: #f3a93c;
+  --amber-ink: #8a5300;
+  --green: #3dbe74;
+  --green-ink: #1c6b40;
+  --danger-ink: #a12a1f;
+  --night: #0c1417;
+  --night-2: #17242b;
+  --night-rule: #2a3a42;
+  --on-night: #eef4f5;
+  --on-night-muted: #9fb0b6;
+  --ease: 240ms cubic-bezier(.2, .7, .2, 1);
+  font-size: 17px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--paper); color: var(--ink); font-family: var(--font-body), system-ui, sans-serif; line-height: 1.5; }
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--cyan-ink); }
+:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; border-radius: 6px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+
+/* Buttons */
+.btn {
+  border: 1.5px solid var(--ink); background: transparent; border-radius: 999px;
+  padding: .55rem 1.1rem; cursor: pointer; font-weight: 700; transition: background var(--ease), color var(--ease);
+}
+.btn:hover { background: var(--paper-2); }
+.btn-primary { background: var(--ink); color: var(--paper); }
+.btn-primary:hover { background: #33403f; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Brand: the trail motif plus the name, set small so the route and instruction stay dominant */
+.brand { display: inline-flex; align-items: center; gap: .5rem; font-weight: 700; font-size: 1.05rem; letter-spacing: -.005em; }
+.brand svg { width: 2.6rem; height: auto; flex: none; }
+@media (max-width: 480px) { .brand-compact .brand-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); } }
+
+/* Mode label: deliberately loud, never confused with guidance colors */
+.mock-badge {
+  display: inline-flex; align-items: center; gap: .4rem; font-weight: 700; letter-spacing: .02em;
+  padding: .2rem .7rem; border-radius: 6px; border: 2px dashed currentColor;
+}
+
+/* Creator */
+.creator { max-width: 960px; margin: 0 auto; padding: 2rem 1.25rem 6rem; }
+.creator header { display: grid; gap: .6rem; margin-bottom: 2rem; }
+.creator-top { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding-bottom: 1.25rem; margin-bottom: .5rem; border-bottom: 1px solid var(--rule); }
+.creator h1 { font-size: clamp(1.9rem, 4vw, 2.6rem); line-height: 1.1; margin: 0; letter-spacing: -.01em; }
+.creator .lede { color: var(--muted); max-width: 62ch; margin: 0; }
+.status { font-weight: 700; }
+.status[data-status='approved'] { color: var(--green-ink); }
+.status[data-status='draft'] { color: var(--amber-ink); }
+.notice { border-left: 4px solid var(--rule); padding: .4rem .9rem; color: var(--muted); max-width: 70ch; }
+.notice.error { border-color: var(--danger-ink); color: var(--danger-ink); }
+.notice.ok { border-color: var(--green); color: var(--green-ink); }
+
+/* The trail: the route's checkpoint sequence is the signature element */
+.trail { list-style: none; margin: 0; padding: 0; }
+.trail > li { display: grid; grid-template-columns: 3.25rem 1fr; gap: 1rem; position: relative; padding-bottom: 1.75rem; }
+.trail > li::before {
+  content: ''; position: absolute; left: calc(1.625rem - 2px); top: 3.25rem; bottom: 0;
+  border-left: 4px dotted var(--cyan);
+}
+.trail > li:last-child::before { display: none; }
+.trail .node {
+  width: 3.25rem; height: 3.25rem; border-radius: 50%; display: grid; place-items: center;
+  background: var(--paper); border: 3px solid var(--cyan); font-weight: 700; font-size: 1.2rem;
+}
+.trail .node.dest { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.step { background: #fff; border: 1px solid var(--rule); border-radius: 14px; padding: 1rem 1.1rem; display: grid; gap: .75rem; }
+.step h2 { margin: 0; font-size: 1.25rem; display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+.step .meta { color: var(--muted); font-size: .9rem; margin: 0; }
+.step label { display: grid; gap: .25rem; font-weight: 700; font-size: .92rem; }
+.step textarea, .step select {
+  border: 1.5px solid var(--rule); border-radius: 10px; padding: .55rem .7rem; background: var(--paper); font-weight: 400; font-size: 1rem;
+}
+.step textarea { resize: vertical; min-height: 3.2rem; }
+.step .langs { display: grid; gap: .75rem; grid-template-columns: 1fr 1fr; }
+@media (max-width: 640px) { .step .langs { grid-template-columns: 1fr; } }
+.step .review { display: flex; gap: .5rem; align-items: center; font-weight: 700; }
+.step .review input { width: 1.25rem; height: 1.25rem; accent-color: var(--green); }
+.dir-tag { display: inline-flex; align-items: center; gap: .3rem; color: var(--cyan-ink); font-size: .95rem; }
+
+.approve-bar {
+  position: sticky; bottom: 0; background: var(--paper); border-top: 1px solid var(--rule);
+  padding: 1rem 0; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;
+}
+.share { background: #fff; border: 2px solid var(--green); border-radius: 14px; padding: 1.1rem; display: grid; gap: .6rem; margin-bottom: 2rem; }
+.share h2 { margin: 0; font-size: 1.2rem; }
+.share code { font-size: 1.05rem; word-break: break-all; background: var(--paper-2); padding: .3rem .5rem; border-radius: 6px; }
+.row { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
+
+/* Guide (dark camera view) */
+.guide-page { min-height: 100dvh; background: var(--night); color: var(--on-night); }
+.guide-layout { display: grid; gap: 1.25rem; padding: 1rem; max-width: 1100px; margin: 0 auto; }
+@media (min-width: 900px) { .guide-layout { grid-template-columns: minmax(360px, 460px) 1fr; align-items: start; padding: 1.5rem; } }
+.guide { display: grid; gap: .9rem; }
+.guide-top { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+.guide-top .controls { display: flex; gap: .4rem; }
+.ctl {
+  background: var(--night-2); border: 1px solid var(--night-rule); color: var(--on-night); border-radius: 999px;
+  padding: .45rem .9rem; font-weight: 700; cursor: pointer; text-decoration: none; font-size: .95rem;
+}
+.ctl[aria-pressed='true'] { border-color: var(--cyan); color: var(--cyan); }
+.ctl:disabled { opacity: .5; cursor: not-allowed; }
+
+.stage {
+  position: relative; aspect-ratio: 3 / 4; max-height: min(52dvh, 34rem); width: 100%; border-radius: 18px; overflow: hidden;
+  background: var(--night-2); border: 1px solid var(--night-rule); display: grid; place-items: center;
+}
+@media (max-width: 899px) { .stage { aspect-ratio: auto; max-height: none; min-height: 30dvh; } }
+.stage video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.stage .placeholder { padding: 3.6rem 1.25rem 1.5rem; /* clears the Mock label */ text-align: center; color: var(--on-night-muted); display: grid; gap: .8rem; justify-items: center; max-width: 32ch; }
+.stage-label {
+  position: absolute; top: .6rem; left: .6rem; margin: 0; display: flex; align-items: center; gap: .55rem;
+  background: rgb(12 20 23 / .82); padding: .3rem .7rem .3rem .3rem; border-radius: 10px; font-size: .85rem; color: var(--on-night);
+}
+.stage-label .mock-badge { padding: .05rem .55rem; }
+.stage .cam-stop { position: absolute; right: .6rem; bottom: .6rem; }
+
+.crumbs { list-style: none; display: flex; align-items: center; margin: 0; padding: 0; }
+.crumbs li { display: flex; align-items: center; flex: 1; min-width: 0; }
+.crumbs li:last-child { flex: none; }
+.crumbs .dot {
+  width: 1.15rem; height: 1.15rem; border-radius: 50%; border: 2.5px solid var(--night-rule); flex: none;
+  transition: background var(--ease), border-color var(--ease);
+}
+.crumbs .dot[data-s='done'] { background: var(--cyan); border-color: var(--cyan); }
+.crumbs .dot[data-s='arrived'] { background: var(--green); border-color: var(--green); }
+.crumbs .dot[data-s='next'] { border-color: var(--cyan); }
+.crumbs .link { flex: 1; height: 0; border-top: 3px dotted var(--night-rule); margin: 0 .3rem; }
+.crumbs .link[data-s='done'] { border-top-color: var(--cyan); }
+.crumb-labels { display: flex; justify-content: space-between; font-size: .8rem; color: var(--on-night-muted); margin-top: .3rem; gap: .5rem; }
+
+.card {
+  border-radius: 18px; padding: 1.1rem 1.2rem; display: grid; grid-template-columns: auto 1fr; gap: 1rem; align-items: center;
+  background: var(--night-2); border: 2px solid var(--night-rule); transition: border-color var(--ease), background var(--ease);
+  min-height: 7.5rem;
+}
+.card[data-state='guiding'] { border-color: var(--cyan); }
+.card[data-state='uncertain'], .card[data-state='reorient'], .card[data-state='off_route'] { border-color: var(--amber); }
+.card[data-state='arrived'] { border-color: var(--green); background: #12301f; }
+.card .say { font-size: clamp(1.65rem, 7vw, 2.2rem); line-height: 1.15; text-wrap: balance; font-weight: 700; margin: 0; }
+.card .state { font-weight: 700; font-size: .9rem; margin: 0 0 .25rem; }
+.card[data-state='guiding'] .state { color: var(--cyan); }
+.card[data-state='uncertain'] .state, .card[data-state='reorient'] .state, .card[data-state='off_route'] .state { color: var(--amber); }
+.card[data-state='arrived'] .state { color: var(--green); }
+.card .evidence { margin: .4rem 0 0; font-size: .82rem; color: var(--on-night-muted); }
+.sign { width: 4.5rem; height: 4.5rem; display: grid; place-items: center; }
+.sign svg { width: 100%; height: 100%; transition: transform var(--ease); }
+.sign-empty { width: 4.5rem; height: 4.5rem; border-radius: 50%; border: 3px dashed var(--amber); display: grid; place-items: center; color: var(--amber); font-weight: 700; font-size: 1.6rem; }
+.banner { border-radius: 12px; padding: .6rem .9rem; background: #3a2a12; color: #ffd9a1; font-size: .92rem; }
+
+/* Mock observation picker: visually separate from the camera */
+.mock-panel { background: #f6f1e8; color: var(--ink); border-radius: 18px; padding: 1.1rem; display: grid; gap: .8rem; border: 3px dashed #c9bda9; }
+.mock-panel h2 { margin: 0; font-size: 1.15rem; }
+.mock-panel p { margin: 0; color: var(--muted); font-size: .92rem; }
+.mock-panel fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: .45rem; }
+.mock-panel legend { font-weight: 700; margin-bottom: .35rem; }
+.scene { text-align: left; border: 1.5px solid #cfc4b3; background: #fff; border-radius: 10px; padding: .55rem .8rem; cursor: pointer; }
+.scene:hover:not(:disabled) { border-color: var(--ink); }
+.scene:disabled { opacity: .5; cursor: progress; }
+.scene-grid { display: grid; gap: .45rem; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.center-msg { min-height: 100dvh; display: grid; place-items: center; padding: 2rem; text-align: center; }

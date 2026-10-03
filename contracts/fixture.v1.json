@@ -1,0 +1,27 @@
+{
+  "fixtureOnly": true,
+  "mode": "mock",
+  "route": {
+    "schemaVersion": 1,
+    "id": "demo-route",
+    "version": 1,
+    "name": "Example entrance to room 204",
+    "startDescription": "Fictional main entrance, facing into the building",
+    "destinationLabel": "Room 204",
+    "sourceVideoId": "replace-with-real-video",
+    "status": "approved",
+    "accessNotes": [],
+    "checkpoints": [
+      {"id":"entrance","order":0,"label":"Entrance","referenceViews":[],"identifyingEvidence":["Example entrance sign"],"approachDescription":"Facing inside","instruction":{"en":"Continue to the blue mural.","es":"Continúa hasta el mural azul."},"direction":"forward","isDestination":false},
+      {"id":"mural","order":1,"label":"Blue mural","referenceViews":[],"identifyingEvidence":["Blue mural beside 201"],"approachDescription":"Approaching from entrance","instruction":{"en":"Turn left at the mural.","es":"Gira a la izquierda en el mural."},"direction":"left","isDestination":false},
+      {"id":"destination","order":2,"label":"Room 204","referenceViews":[],"identifyingEvidence":["Room number 204"],"approachDescription":"Facing the door","instruction":{"en":"You have arrived at room 204.","es":"Has llegado a la sala 204."},"direction":null,"isDestination":true}
+    ]
+  },
+  "session": {"id":"demo-session","routeId":"demo-route","routeVersion":1,"locale":"en","mode":"mock","lastConfirmedCheckpointId":null,"lastAcceptedSequence":0},
+  "guidanceExamples": [
+    {"sessionId":"demo-session","sequence":1,"routeVersion":1,"mode":"mock","locale":"en","instructionId":"mural-en-v1","text":"Turn left at the mural.","evidence":["Synthetic fixture: blue mural and room 201"],"processingMs":0,"state":"guiding","checkpointId":"mural","nextCheckpointId":"destination","direction":"left","approachConfirmed":true},
+    {"sessionId":"demo-session","sequence":2,"routeVersion":1,"mode":"mock","locale":"en","instructionId":"uncertain-en-v1","text":"Point toward a room sign so I can check your location.","evidence":[],"processingMs":0,"state":"uncertain","checkpointId":null,"direction":null,"approachConfirmed":false},
+    {"sessionId":"demo-session","sequence":3,"routeVersion":1,"mode":"mock","locale":"en","instructionId":"reorient-en-v1","text":"I recognize the mural. Face it from the entrance side to continue.","evidence":["Synthetic fixture: mural recognized, approach unknown"],"processingMs":0,"state":"reorient","checkpointId":"mural","direction":null,"approachConfirmed":false},
+    {"sessionId":"demo-session","sequence":4,"routeVersion":1,"mode":"mock","locale":"en","instructionId":"arrival-en-v1","text":"You have arrived at room 204.","evidence":["Synthetic fixture: door marked 204"],"processingMs":0,"state":"arrived","checkpointId":"destination","direction":null,"approachConfirmed":true}
+  ]
+}

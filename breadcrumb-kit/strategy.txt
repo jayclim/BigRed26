@@ -1,0 +1,111 @@
+BREADCRUMB: PRIZE STRATEGY
+
+VERIFIED EVENT INFORMATION
+Organizer guide: https://docs.google.com/document/d/1vokzpAsvmQqu62QP_InjNWLkyw-wguj1_4NvOxA0kIY/edit
+Theme brief: https://docs.google.com/document/d/1NHrE-zrTy1DDI-0d1FkQAStY7yizpfoao3BqESUHHM0/edit
+MLH prizes: https://www.mlh.com/events/bigred-hacks-2026/prizes
+These were read October 3, 2026. Recommendations below are our strategy, not official scoring weights or estimates of winning probability.
+
+The main BigRed track has three winners. Its stated criteria are technical, design, creativity, overall impact and theme adherence. No numerical weights were available in the accessible organizer guide.
+Software: one winner, overall software and technical skill.
+Design: two winners, visual presentation and UI/UX.
+Hardware: one winner, hardware functionality and technical skill.
+Beginner: two winners, projects by first-time hackathon participants. Confirm team eligibility before entering.
+People's Choice: one winner, Devpost upvotes after submission opens for voting.
+Wayfinding, Exploration and Discovery, and Accessibility are suggested theme directions. The theme brief explicitly calls them ideation guidance. Do not claim they are three separate cash awards.
+Guide advertises $7,000+ total; per-organizer-track cash amounts are not specified there.
+
+Submission: Sunday October 4, 8:30 AM Ithaca local time, no late submissions.
+First judging: 9 AM, two-minute presentation and two-minute Q&A, 2–4 judges.
+Finals: top five main-track teams, four-minute presentation and two-minute Q&A, scheduled 11:30 AM.
+Required deliverables include full project GitHub/Google Drive link and a Google Drive link to a PDF presentation.
+The guide labels its schedule EST; plan by the venue's local clock rather than converting that label literally during daylight saving time.
+
+UNVERIFIED DETAILS
+Devpost main/rules/judging pages could not be retrieved. Photon event guidelines linked from the organizer guide could not be retrieved. Thus exact sponsor-specific scoring, award stacking, AI-code disclosure rules and any additional submission fields are not verified.
+Ask organizers: Can one project win main, side and multiple sponsor awards? Is there a numeric rubric or additional Devpost eligibility rule? What are the AI-assisted coding and attribution requirements? For Beginner, must every member be first-time?
+Ask Photon: Is photo-instruction exchange through iMessage plus a camera-guide web link eligible? What are the event judging criteria and prizes? Does your prize-matching program apply to this event, which awards count, and what registration is required?
+Do not assume the broad Photon prize-matching promotion guarantees money here.
+
+CORE DESIGN DECISION
+Build a polished guide that recognizes a taught route, answers uncertainty, and communicates in the visitor's chosen language. Every sponsor should own a useful part of that experience.
+Do not promise general indoor positioning, spatially anchored AR, reliable guidance for blind pedestrians, obstacle avoidance, automatic accessible routing, or global wrong-turn recovery. Those require additional engineering and validation.
+Directional overlays can look excellent without being presented as floor-anchored AR. A discreet 'camera guide' description is accurate.
+
+RUBRIC MAPPING
+Technical: show automatic extraction, evidence-based matching across different footage, route-state logic and rejection of an unrelated scene. Expose reference/current frames and evidence in a judge-only view.
+Design: immediate camera-first interface, big readable directions, few controls, stable arrows, one-handed use, pleasant arrival. Processing, denied permission, uncertainty and offline states must also look intentional.
+Creativity: turn one person's walkthrough into reusable visual route memory that responds to another person's view. Do not claim first-ever indoor AR or visual navigation.
+Impact: target an organizer repeatedly helping visitors find the same room. Ask one independent visitor to try it and report the observed result, without invented time-saved percentages.
+Theme: real physical wayfinding is central. Language choice and simpler instructions support the Accessibility direction. Exploration is an extension, not a necessary extra feature.
+
+SPONSOR PLANS — FIT ASSESSMENTS ARE OUR JUDGMENT
+
+GEMINI — PRIMARY, VERY STRONG FIT
+MLH requirement: meaningful Gemini API use. Prize: MLH swag kits.
+Use: video-to-checkpoint drafting; compare visitor frames to recorded reference views; interpret visible signs and narrow route questions; translate confirmed instructions.
+Judge moment: new second-phone footage, recognized mural/room sign, matching reference visible, saved instruction updates. Then an unrelated frame produces uncertainty rather than a confident turn.
+Competitive argument: one multimodal system transfers knowledge from a recorded journey into a different person's live context; route state gives its outputs operational meaning.
+Evidence: real API use, source timestamps, reference frame, extracted sign text, measured request-to-guidance latency. Do not call model confidence a calibrated accuracy percentage.
+Cut risk: keep candidate matching to nearby checkpoints. Full-building localization is not required.
+Docs: https://ai.google.dev/gemini-api/docs/video-understanding ; https://ai.google.dev/gemini-api/docs/image-understanding ; https://ai.google.dev/gemini-api/docs/structured-output
+
+ELEVENLABS — PRIMARY, STRONG FIT
+MLH requirement: integrated autonomous audio experience. Prize: wireless earbuds.
+Use: spoken landmark guidance, calm clarification when lost/uncertain, visitor language selection. Cache routine audio by exact approved text, locale and voice; generate a short contextual clarification on demand.
+Judge moment: visitor switches language; on-screen text and voice change while the confirmed turn stays the same. 'Is this the door?' receives a brief, grounded spoken answer if implemented.
+Competitive argument: audio reduces the need to continually read the display; it is part of wayfinding, not merely a promotional voiceover.
+Evidence: hear actual provider-generated audio on the phone; show a fresh contextual response as well as cached clips. Captions and mute must remain available.
+Cut risk: implement TTS first. Conversational voice is a stretch; a text question with spoken response still demonstrates useful audio. Do not split voice across Grok and ElevenLabs.
+Docs: https://elevenlabs.io/docs/overview/capabilities/text-to-speech
+
+PHOTON — CONDITIONAL, STRONG PRODUCT FIT IF ACTUALLY WORKING
+Event guide names 'Agents in iMessage using Photon'; detailed event rubric/prize not verified.
+Use: visitor texts destination or an existing route code, receives a route link; visitor sends a photo and asks 'Am I at the right door?', agent uses the same engine/session to send grounded instructions. This photo conversation must work inside Messages, not just link to an unrelated website.
+Judge moment: real iMessage photo, real incoming webhook, same route state, a contextual reply. Use one opt-in teammate/device during the demo.
+Competitive argument: visitors can request help in an existing conversation, and a host can share route knowledge with minimal onboarding.
+Evidence: real messages and provider delivery, attachment handling and session continuity. Confirm device/account access early; primary user may be on Android, so obtain an actual iMessage-capable test device.
+Cut condition: if a real photo round trip is not working by first integration checkpoint, defer Photon; keep link/QR sharing for the core product.
+Primary capabilities: https://photon.codes/ ; event guidelines https://somethingreat.notion.site/Hackathon-Guidelines-for-Photon-3dce443f36bb803696daf4135f063cd1
+
+TIGER DATA — CONDITIONAL, MODERATE FIT UNTIL ANALYTICS CHANGE THE PRODUCT
+MLH highlights innovative, impactful, performance-driven use of its Postgres/time-series capabilities. Prize: Stream Deck Mini.
+Use: route/checkpoint records plus timestamped recognition, uncertainty, replay, manual-help and arrival events. Query a route-quality view that identifies where guidance needs improvement.
+Judge moment: an uncertainty event appears in the session timeline; the corresponding checkpoint's help-request count updates; organizer adds a clearer reference image and publishes a new route version. Demonstrate the revised guide on another pass if time permits.
+Competitive argument: the system helps organizers repair confusing instructions based on actual navigation events.
+Evidence: actual SQL over real event records, grouping by checkpoint and route version; a time-series feature such as a hypertable/aggregation should materially serve the view. Consult current Tiger Data docs before choosing exact SQL.
+Do not display a spatial heatmap without real positions or a measured floorplan. Use a checkpoint sequence with event counts. Separate real sessions, replayed sessions and synthetic load data. A slow user is not necessarily confused: label measures as dwell time or help requests, not inferred emotional state.
+Cut condition: storage alone is weak prize differentiation. Defer submission if the quality view is not functional. Do not invent millions of users/events.
+
+GODADDY — LOW-EFFORT CONDITIONAL ENTRY
+MLH lists best domain name, prize digital gift card, requires eligible registration. Brainstorm: followcrumb, leaveatrail, breadcrumbguide; availability and eligible extensions unverified. Use the event's provided code only after checking current terms. Do not buy without team authorization. Make the domain useful on the demo/QR and submission.
+
+TRACKS TO SKIP FOR THIS PRODUCT
+Capital One: organizer requires innovative banking/financial use of Nessie mock financial endpoints. A budget label or token payment feature does not make indoor guidance a strong financial-life entry.
+SpaceX: organizer asks for real space data, Cursor development, Grok Imagine or Voice; Grok Bot collaboration is a bonus. Merely using GPS, Cursor or space decoration is not a compelling entry. A real space-data feature would redirect the product and compete for time with the useful demo.
+Solana: route NFTs or gratuitous micro-payments add onboarding and do not solve the visitor's core need. Skip unless the team intentionally chooses a different product.
+Presage: face-sensing is a poor fit with an outward-facing navigation camera. Do not infer stress or safety from an unvalidated signal just to enter.
+Hardware: a smartphone camera alone is a weak case for substantial hardware engineering.
+Beginner: conditional on genuine eligibility, not on how much code an agent writes.
+
+SCOPE AND ORDER
+P0: one real route; generated editable draft; confirmed directions; camera capture; local sequence matching; uncertainty; arrival; polished mobile flow; two-language voice; replay fallback with visible label.
+P1: Photon photo help after real access is proved; Tiger checkpoint-quality view after actual events exist.
+P2: second destination on the same recorded path; another language; one verified branch. Stop P2 if P0 still needs polish.
+Exclude: payments, wallets, face biometrics, native AR, full campus maps, open-ended navigation chat, background location tracking and native mobile app packaging.
+
+PROPOSED BUILD ALLOCATION (NOT OFFICIAL RUBRIC)
+About 40% attention to visitor/creator experience, 35% to the working recognition/guidance path, 15% to useful sponsor extensions, 10% to demo/submission. Shift time toward the main demo if integrations slip.
+T+0 to 45 min: freeze contracts/fixtures, scaffold repository, assign ownership, verify keys and devices.
+T+45 min to 3 h: independent work against mocks; collect real route assets; prove first Gemini match.
+T+3 h: integrate one end-to-end route early. Publish app to a phone-accessible HTTPS URL.
+T+3 to 7 h: polish core states, add ElevenLabs, test second-phone footage. Recheck Photon go/no-go.
+T+7 to 11 h: sponsor extensions only if core is stable; record a complete real demo as fallback.
+T+11 h onward: freeze features, repair device issues, improve transitions, create final PDF from actual screenshots and rehearse.
+Absolute target: Saturday 11 PM feature freeze; Sunday 6:30 AM submission freeze; Sunday 7:30 AM submit, leaving one hour before official 8:30 AM deadline. These are suggested buffers, not event deadlines. Leave room for sleep and breaks.
+
+MINIMUM HANDS-ON WORK
+One teammate records a 45–90-second route, pausing at distinctive signs and turns. Another uses a second phone and different walking pace, plus an unrelated view. Capture 2–3 additional angles if needed. Use an ordinary route without filming bystanders unnecessarily. Review extracted instructions. Rehearse both live and replay modes. This physical verification cannot be replaced by generated mock footage.
+
+NO GUARANTEE OF WINNING
+The strategy aligns evidence with published criteria. Competitive strength depends on execution, competing teams and judges. Eligibility, good fit and likely victory are separate claims.

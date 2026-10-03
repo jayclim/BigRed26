@@ -1,0 +1,13 @@
+node_modules/
+.next/
+.data/
+.env*
+!.env.example
+next-env.d.ts
+*.tsbuildinfo
+.overnight/
+.worktrees/
+.claude/settings.local.json
+.cursor/cli.json
+.DS_Store
+media/

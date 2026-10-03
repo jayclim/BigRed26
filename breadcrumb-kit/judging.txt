@@ -1,0 +1,69 @@
+PRESENTATION AND DEMO PLAN
+This is a storyboard and conditional script, not a finished deck or evidence that the features are built. Reconcile every present-tense claim with the implementation before submitting.
+
+FIRST ROUND: TWO MINUTES + TWO MINUTES Q&A
+0:00–0:15 — Open with the actual product and a familiar problem.
+0:15–0:35 — Show a short route recording becoming a reviewed checkpoint guide. Use an already-processed example if upload processing is slow; say it was processed earlier.
+0:35–1:15 — Show independent follow footage/live camera, one match, one uncertainty/recovery and arrival. Keep the route short. A seated judge must be able to see the entire interaction; do not depend on making them leave the table.
+1:15–1:35 — Language switch and one grounded spoken response. If Photon is stable, show a real photo message as an alternate way to ask for help. Do not cram every sponsor into this slot.
+1:35–1:50 — Explain the technical core using source frame and current frame side by side: recognition plus route state and orientation handling.
+1:50–2:00 — Name who benefits and the next concrete extension. Stop on time.
+
+CORE SCRIPT — ADAPT TO WHAT IS BUILT
+"Finding the building is often easy. Finding the right room inside it can mean calling the host at every turn.
+
+Breadcrumb lets the host record that walk once, then gives visitors a guide that responds to what their camera sees.
+
+Here is our recording. Gemini turns it into landmark checkpoints, and the host reviews the directions before sharing the route.
+
+Now this is a different phone following it. It recognizes the landmark and gives the next instruction. When the view is unclear, it asks for a better look instead of inventing a turn. When the destination sign appears, it confirms arrival.
+
+The visitor can also hear the guide in their chosen language, using ElevenLabs. [Demonstrate the implemented language switch.]
+
+The technical core combines visual evidence with progress along an approved route. Recognizing a place alone does not establish which way you face, so uncertain orientation pauses directional guidance.
+
+We built this for event hosts and visitors in unfamiliar buildings. One recorded walk becomes reusable directions people can actually check against their surroundings."
+
+Do not say 'live camera' if presenting replay. Use 'this is a recorded second-phone walk being processed by our engine' for actual replay processing. For a finished video say 'this is a recording of the app working'. Use cached voice honestly; caching approved instructions is a sensible engineering choice.
+
+DECK: FIVE CORE SLIDES, TWO OPTIONAL BACKUP SLIDES
+Design: restrained, high-contrast, large phone screenshots. Minimal copy. Actual screenshots carry the story. Avoid sponsor logo wallpaper. Roughly 42–56 pt titles, 24–30 pt body, at most 30–40 words per main slide. Match the app's typography and cyan accent.
+1. Breadcrumb. 'Record a route once. Guide the next visitor through their camera.' Team names added by team. One hero screenshot of the real guide.
+2. Finding the room. Show the host's existing problem and who benefits. One short statement and a photo of the actual confusing junction. No invented market stats.
+3. Teach once. Show video frame, reviewed checkpoint strip and share link. Mention review so generated directions are not implied to be infallible.
+4. Follow with confidence. Make the demo/viewer screenshot dominant. Three tiny captions only: recognize, clarify, arrive. Switch to app for most of this segment.
+5. How it works and where it helps. One compact architecture diagram: footage/checkpoints, live matching plus route state, camera/text/voice outputs. Explain event-host use and the concrete next step. If used, show one real observed result with sample size, never an invented accuracy number.
+Backup 6. Sponsor evidence: real Gemini references; ElevenLabs clips; Photon thread if working; Tiger Data event query if working.
+Backup 7. Scope and next steps: one recorded forward route today; route networks and broader testing next. Distinguish future spatial AR and accessibility validation from implemented work.
+
+FINALS: FOUR MINUTES + TWO MINUTES Q&A
+Use the same five slides. Add more live interaction, a visitor question, and 30 seconds explaining evidence/uncertainty. Give 20 seconds to a useful route-quality improvement if implemented. Preserve time for a concise technical explanation; do not turn the final into a provider list.
+
+SPONSOR-SPECIFIC MINI DEMOS (20–30 SECONDS EACH)
+Gemini: show teacher/current views, extracted sign evidence and a negative example. Explain constrained checkpoint candidates.
+ElevenLabs: change language and hear current guidance; ask for clarification and hear a new response if implemented. Explain reduced screen-reading and caching.
+Photon: visitor photo in actual iMessage, core-grounded reply in the same thread. Show that destination/session context persists. Eligibility still requires confirmation against event rules.
+Tiger Data: actual uncertainty event reaches a checkpoint timeline; SQL groups trouble spots; organizer edits the reference and publishes a version. Explain what the metric measures.
+Design: demonstrate one-handed flow and the uncertain state. Explain why arrows disappear when the system cannot establish an approach.
+Software: show response-order handling, route versions, provider isolation and real device tests briefly.
+
+Q&A
+Why not a video? A video requires the visitor to find the matching moment. Our implemented advantage must be matching their current view and responding to uncertainty. If matching fails, acknowledge the limitation.
+Is this real AR? We overlay guidance on the camera. Floor/world-anchored AR is a future extension unless actually built.
+Can it reroute anywhere? No. The initial prototype follows an approved recorded path. Unknown views trigger clarification. A connected verified route graph would be needed for arbitrary rerouting.
+Does it work for blind people? We offer spoken guidance and readable captions; we have not validated this as a blind mobility or obstacle-avoidance aid.
+What if the hallway looks similar? Use sign text, multiple reference angles, temporal evidence and route context; fall back to uncertainty when ambiguous.
+What did AI code? Accurately disclose the tools and substantial generated components; explain your architecture, integration and testing contributions. Follow event policy once confirmed.
+How accurate is it? Give only measured observations with the number of trials. Distinguish route completion, false matches and response latency.
+What does Tiger Data add? Only claim the quality-feedback loop if it works. Generic persistence alone is not our competitive argument.
+
+DEMO FALLBACKS
+A: real phone camera and real API responses.
+B: visibly labelled replay of independent second-phone footage, processed by the same engine.
+C: plainly labelled recording of a previously completed app demonstration.
+Mock mode is for UI development and illustration, clearly labelled, never a substitute for claimed working recognition.
+Preload the approved route and cache standard audio. Do not require live video upload processing during a two-minute pitch. Carry a local copy of the PDF and demo video.
+
+SUBMISSION CHECKLIST
+Working app URL and route link; repository link with actual implementation; short clear description; only implemented/eligible tracks selected; exact sponsor roles; honest AI tool attribution; actual screenshot and short demo; Google Drive PDF link; judge-view permissions checked; all team names correct; submit by suggested 7:30 AM Sunday buffer (official deadline 8:30 AM); retain confirmation.
+People's Choice: readable thumbnail, one-line pitch, 20–30-second captioned demo and a QR to try the route. Invite genuine participant votes under event rules. No fake accounts or automated votes.
