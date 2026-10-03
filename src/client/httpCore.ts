@@ -32,6 +32,7 @@ export const httpCore: CoreAdapter = {
   setLocale: (id, locale) => call('PATCH', `/api/sessions/${e(id)}/locale`, { locale }),
   reserveFrameSequence: (id) => call('POST', `/api/sessions/${e(id)}/frame-sequence`, {}),
   matchFrame: (frame) => call('POST', `/api/sessions/${e(frame.sessionId)}/frame`, frame),
+  completeAction: (id, request) => call('POST', `/api/sessions/${e(id)}/complete-action`, request),
   currentGuidance: (id) => call('GET', `/api/sessions/${e(id)}/guidance`),
   routeQuality: (id, version, since, mode) =>
     call('GET', `/api/routes/${e(id)}/quality?version=${version}&since=${e(since)}&mode=${mode}`),

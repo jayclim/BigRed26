@@ -13,7 +13,7 @@ Delegate only through native `Agent(subagent_type="codex:codex-rescue")` from th
 
 Give each worker a `[LUNA]` or `[SOL]` label and a self-contained contract: objective, context, owned paths, invariants, exclusions, acceptance checks and a report of changed files, checks, failures and uncertainty. Use one implementer by default. Preserve concurrent edits; assigned workers do not start more agents.
 
-Use synchronous foreground rescue with `--fresh --wait --model <model>` and effort unset. Never set `run_in_background`, use `--background` or poll a live rescue. Treat the native Agent result as completion.
+Use synchronous foreground rescue with `--fresh --wait --model <model>` and effort unset. Pass native `run_in_background:false` explicitly; never true or omitted on this host (omission defaults to async). Never use `--background` or poll a live rescue. Treat the native Agent result as completion.
 
 A background ID is an enforcement failure; a background ID or empty result is a failed handoff. Stop new dispatch, preserve work and save recovery information under the protocol. Do not retry blindly. Reuse an ephemeral session only after the runtime confirms that it exists; otherwise use a saved handoff and fresh worker.
 

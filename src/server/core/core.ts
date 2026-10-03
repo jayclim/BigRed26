@@ -2,10 +2,10 @@
 // Pure logic over a plain state object; persistence and HTTP live elsewhere (instance.ts, http.ts).
 import { randomUUID } from 'node:crypto';
 import type {
-  CoreAdapter, ErrorCode, EventKind, FrameRequest, Guidance, Id, Locale, Mode,
+  Checkpoint, CoreAdapter, ErrorCode, EventKind, FrameRequest, Guidance, Id, Locale, Mode,
   NavigationEvent, Result, Route, Session,
 } from '../../../contracts/contracts.ts';
-import { FrameRequestSchema, RouteSchema } from '../../../contracts/schemas.ts';
+import { FrameRequestSchema, ManualCompletionBodySchema, RouteSchema } from '../../../contracts/schemas.ts';
 
 /** What a recognizer reports about one frame. The core, not the recognizer, decides guidance. */
 export type Observation =
@@ -43,6 +43,10 @@ const COPY = {
     en: (label: string, approach: string) => `I recognize ${label}. Turn until the view matches: ${approach}.`,
     es: (label: string, approach: string) => `Reconozco ${label}. Gira hasta que la vista coincida: ${approach}.`,
   },
+  manualAdvance: {
+    en: (from: string, to: string) => `Manual visitor confirmation: completed ${from}; advanced to ${to}. No visual proof.`,
+    es: (from: string, to: string) => `Confirmación manual del visitante: completó ${from}; avanzó a ${to}. Sin prueba visual.`,
+  },
 };
 
 /** Problems that block approval. Empty array means approvable. */
@@ -52,12 +56,32 @@ export function approvalProblems(route: Route): string[] {
   cps.forEach((c, i) => {
     if (c.order !== i) p.push(`Checkpoint "${c.label}" is out of order.`);
     if (!c.instruction.en.trim() || !c.instruction.es.trim()) p.push(`"${c.label}" needs both English and Spanish instructions.`);
-    if (!c.isDestination && c.direction === null) p.push(`"${c.label}" needs a direction.`);
+    if (!c.isDestination && c.direction === null && !c.action) p.push(`"${c.label}" needs a direction or an action.`);
     if (c.isDestination && c.direction !== null) p.push(`Destination "${c.label}" must not have a direction.`);
+    if (c.isDestination && c.action) p.push(`Destination "${c.label}" must not have an action.`);
+    if (c.action) {
+      const a = c.action;
+      if (!a.target.trim()) p.push(`"${c.label}" needs an action target.`);
+      if (!a.completion.en.trim() || !a.completion.es.trim()) p.push(`"${c.label}" needs both completion locales.`);
+      if (a.steps.some((step) => !step.en.trim() || !step.es.trim())) p.push(`"${c.label}" needs both locales for every action step.`);
+      if (a.kind === 'elevator' && !a.targetFloor?.trim()) p.push(`"${c.label}" needs an elevator target floor.`);
+    }
     if (c.isDestination !== (i === cps.length - 1)) p.push('Exactly one destination, as the last checkpoint.');
   });
   if (new Set(cps.map((c) => c.id)).size !== cps.length) p.push('Checkpoint ids must be unique.');
   return [...new Set(p)];
+}
+
+/** One approved instruction for display/speech, including literal signs and localized qualifiers. */
+function instructionText(cp: Checkpoint, locale: Locale): string {
+  const a = cp.action;
+  if (!a) return cp.instruction[locale];
+  const side = a.side === null ? '' : locale === 'es'
+    ? `Lado: ${a.side === 'right' ? 'derecho' : 'izquierdo'}.`
+    : `Side: ${a.side}.`;
+  return [cp.instruction[locale], `${locale === 'es' ? 'Referencia' : 'Target'}: ${a.target}.`, side,
+    a.targetFloor ? `${locale === 'es' ? 'Piso' : 'Floor'}: ${a.targetFloor}.` : '',
+    ...a.steps.map((step) => step[locale]), a.completion[locale]].filter(Boolean).join(' ');
 }
 
 export function createCore(opts: {
@@ -84,24 +108,31 @@ export function createCore(opts: {
   function render(s: Session, route: Route, d: Decision): Guidance {
     const L: Locale = s.locale;
     const cp = route.checkpoints.find((c) => c.id === d.checkpointId);
+    const manualEvent = state.events.find((e) => e.sessionId === s.id && e.sequence === d.sequence && e.kind === 'manual_advance');
+    const manualFrom = route.checkpoints.find((c) => c.id === manualEvent?.checkpointId);
+    const manualTo = manualFrom ? route.checkpoints[manualFrom.order + 1] : undefined;
     const base = {
       sessionId: s.id, sequence: d.sequence, routeVersion: s.routeVersion, mode: s.mode, locale: L,
-      evidence: d.evidence, processingMs: d.processingMs,
+      evidence: manualFrom && manualTo ? [COPY.manualAdvance[L](manualFrom.label, manualTo.label)] : d.evidence,
+      processingMs: d.processingMs,
     };
     const v = `${L}-v${s.routeVersion}`;
-    if (d.state === 'guiding' && cp && d.direction && d.nextCheckpointId)
+    if (d.state === 'guiding' && cp && d.nextCheckpointId)
       return { ...base, state: 'guiding', checkpointId: cp.id, nextCheckpointId: d.nextCheckpointId,
-        direction: d.direction, approachConfirmed: true, instructionId: `${cp.id}-${v}`, text: cp.instruction[L] };
+        direction: d.direction, approachConfirmed: true, instructionId: `${cp.id}-${v}`, text: instructionText(cp, L) };
     if (d.state === 'arrived' && cp)
       return { ...base, state: 'arrived', checkpointId: cp.id, direction: null, approachConfirmed: true,
         instructionId: `${cp.id}-${v}`, text: cp.instruction[L] };
     let text: string;
     if (d.state === 'reorient' && cp) text = COPY.reorient[L](cp.label, cp.approachDescription);
-    else if (d.evidence.length && d.state === 'uncertain') text = COPY.notNearby[L](expectedNext(s, route)?.label ?? route.destinationLabel);
+    else if (cp?.action) text = L === 'en'
+      ? `Keep the current action at ${cp.action.target}. I cannot confirm this view. Check the approved target and approach.`
+      : `Mantén la acción actual en ${cp.action.target}. No puedo confirmar esta vista. Comprueba el objetivo aprobado y la orientación.`;
+    else if (base.evidence.length && d.state === 'uncertain') text = COPY.notNearby[L](expectedNext(s, route)?.label ?? route.destinationLabel);
     else text = COPY.unknown[L]();
-    const state = d.state === 'reorient' ? 'reorient' : d.state === 'off_route' ? 'off_route' : 'uncertain';
-    return { ...base, state, checkpointId: d.checkpointId, direction: null, approachConfirmed: false,
-      instructionId: `${state}-${d.checkpointId ?? 'none'}-${d.evidence.length ? 'seen' : 'unseen'}-${v}`, text };
+    const guidanceState = d.state === 'reorient' ? 'reorient' : d.state === 'off_route' ? 'off_route' : 'uncertain';
+    return { ...base, state: guidanceState, checkpointId: d.checkpointId, direction: null, approachConfirmed: false,
+      instructionId: `${guidanceState}-${d.checkpointId ?? 'none'}-${base.evidence.length ? 'seen' : 'unseen'}-${v}`, text };
   }
 
   function progressIndex(s: Session, route: Route) {
@@ -122,10 +153,16 @@ export function createCore(opts: {
     if (i < 0 || i < Math.max(p, 0) || i > p + 1)
       return { ...base, state: 'uncertain', checkpointId: s.lastConfirmedCheckpointId };
     const cp = route.checkpoints[i];
+    if (cp.action && !o.evidence.some((e) => e.toLowerCase().includes(cp.action!.target.trim().toLowerCase())))
+      return { ...base, state: 'uncertain', checkpointId: s.lastConfirmedCheckpointId };
+    // Completing an action against a legacy next step still needs that step's approved identifying evidence.
+    if (i === p + 1 && route.checkpoints[p]?.action && !cp.action && !cp.identifyingEvidence.some((target) =>
+      target.trim() && o.evidence.some((e) => e.toLowerCase().includes(target.trim().toLowerCase()))))
+      return { ...base, state: 'uncertain', checkpointId: s.lastConfirmedCheckpointId };
     if (!o.approachConfirmed) return { ...base, state: 'reorient', checkpointId: cp.id };
     if (cp.isDestination) return { ...base, state: 'arrived', checkpointId: cp.id };
     const next = route.checkpoints[i + 1];
-    if (!cp.direction || !next) return { ...base, state: 'uncertain', checkpointId: s.lastConfirmedCheckpointId };
+    if ((!cp.direction && !cp.action) || !next) return { ...base, state: 'uncertain', checkpointId: s.lastConfirmedCheckpointId };
     return { ...base, state: 'guiding', checkpointId: cp.id, direction: cp.direction, nextCheckpointId: next.id };
   }
 
@@ -252,7 +289,9 @@ export function createCore(opts: {
       const d = decide(s, route, observed.value, req.sequence, processingMs);
       s.lastAcceptedSequence = req.sequence;
       if (d.state === 'guiding' || d.state === 'arrived') {
-        if (d.checkpointId !== s.lastConfirmedCheckpointId) record(s, 'checkpoint_confirmed', d.checkpointId, req.sequence, processingMs);
+        // The session cursor includes manual progress. Visual confirmation has its own event history.
+        if (!state.events.some((e) => e.sessionId === s.id && e.checkpointId === d.checkpointId && e.kind === 'checkpoint_confirmed'))
+          record(s, 'checkpoint_confirmed', d.checkpointId, req.sequence, processingMs);
         s.lastConfirmedCheckpointId = d.checkpointId;
       }
       rec.last = d;
@@ -267,6 +306,38 @@ export function createCore(opts: {
       if (!r.ok) return r;
       const { session: s, last } = r.value;
       return ok(last ? render(s, state.routes[s.routeId][s.routeVersion - 1], last) : null);
+    },
+
+    async completeAction(sessionId, input) {
+      const parsed = ManualCompletionBodySchema.safeParse(input);
+      if (!parsed.success) return fail('INVALID_INPUT', parsed.error.issues[0]?.message ?? 'Invalid manual completion.');
+      const req = parsed.data;
+      const r = sessionOf(sessionId);
+      if (!r.ok) return r;
+      const rec = r.value;
+      const s = rec.session;
+      if (req.routeVersion !== s.routeVersion) return fail('STALE_VERSION', 'Manual completion is for a different route version.');
+      if (req.sequence > rec.reservedSequence) return fail('INVALID_INPUT', 'Reserve a frame sequence first.');
+      if (req.sequence <= s.lastAcceptedSequence) return fail('STALE_FRAME', 'A newer request was already accepted.', true);
+      const route = state.routes[s.routeId][s.routeVersion - 1];
+      const cp = route.checkpoints[progressIndex(s, route)];
+      if (!cp?.action || cp.id !== req.checkpointId)
+        return fail('INVALID_INPUT', 'Manual completion requires the currently active action checkpoint.');
+      const next = route.checkpoints[cp.order + 1];
+      if (!next) return fail('INVALID_INPUT', 'Action has no next checkpoint.');
+      const d: Decision = {
+        sequence: req.sequence, processingMs: 0,
+        evidence: [], // render localized manual evidence from the separate manual_advance event
+        // Manual completion supplies progress, but no approach proof for the next checkpoint.
+        state: next.isDestination ? 'arrived' : 'uncertain', checkpointId: next.id,
+        direction: null,
+      };
+      s.lastAcceptedSequence = req.sequence;
+      s.lastConfirmedCheckpointId = next.id;
+      rec.last = d;
+      record(s, 'manual_advance', cp.id, req.sequence, 0);
+      save();
+      return ok(render(s, route, d));
     },
 
     async routeQuality(routeId, version, since, mode) {

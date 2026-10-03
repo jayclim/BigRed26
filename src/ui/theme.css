@@ -83,11 +83,17 @@ a { color: var(--cyan-ink); }
 .step h2 { margin: 0; font-size: 1.25rem; display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
 .step .meta { color: var(--muted); font-size: .9rem; margin: 0; }
 .step label { display: grid; gap: .25rem; font-weight: 700; font-size: .92rem; }
-.step textarea, .step select {
+.step textarea, .step select, .step input:not([type='checkbox']) {
   border: 1.5px solid var(--rule); border-radius: 10px; padding: .55rem .7rem; background: var(--paper); font-weight: 400; font-size: 1rem;
 }
 .step textarea { resize: vertical; min-height: 3.2rem; }
 .step .langs { display: grid; gap: .75rem; grid-template-columns: 1fr 1fr; }
+.step, .step label, .step .langs > *, .card > div { min-width: 0; }
+.step textarea, .step select, .step input:not([type='checkbox']) { width: 100%; }
+.action-editor { margin: 0; border: 1px solid var(--rule); border-radius: 10px; padding: .75rem; display: grid; gap: .75rem; min-width: 0; }
+.action-editor legend { font-weight: 700; }
+.action-edit-steps { margin: 0; padding-left: 1.25rem; display: grid; gap: .9rem; }
+.action-edit-steps .row { margin-top: .4rem; }
 @media (max-width: 640px) { .step .langs { grid-template-columns: 1fr; } }
 .step .review { display: flex; gap: .5rem; align-items: center; font-weight: 700; }
 .step .review input { width: 1.25rem; height: 1.25rem; accent-color: var(--green); }
@@ -158,6 +164,11 @@ a { color: var(--cyan-ink); }
 .card[data-state='uncertain'] .state, .card[data-state='reorient'] .state, .card[data-state='off_route'] .state { color: var(--amber); }
 .card[data-state='arrived'] .state { color: var(--green); }
 .card .evidence { margin: .4rem 0 0; font-size: .82rem; color: var(--on-night-muted); }
+.card[data-state='guiding'][data-arrow='none'] { grid-template-columns: 1fr; }
+.action-details { margin-top: .65rem; overflow-wrap: anywhere; }
+.action-details p { margin: .35rem 0; }
+.action-details ol { margin: .6rem 0; padding-left: 1.35rem; }
+.action-details li { margin: .35rem 0; }
 .sign { width: 4.5rem; height: 4.5rem; display: grid; place-items: center; }
 .sign svg { width: 100%; height: 100%; transition: transform var(--ease); }
 .sign-empty { width: 4.5rem; height: 4.5rem; border-radius: 50%; border: 3px dashed var(--amber); display: grid; place-items: center; color: var(--amber); font-weight: 700; font-size: 1.6rem; }

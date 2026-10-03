@@ -3,7 +3,8 @@
 import { resolve } from 'node:path';
 import type { CoreAdapter, Result, Route } from '../../../contracts/contracts.ts';
 import fixture from '../../../contracts/fixture.v1.json';
-import { mockRecognizer } from '../../shared/mockScenes.ts';
+import actionFixture from '../../../contracts/fixture.actions.v1.json';
+import { fixtureRecognizer } from './actionFixture.ts';
 import { createCore, emptyState } from './core.ts';
 import { loadState, persistState } from './store.ts';
 
@@ -13,6 +14,7 @@ function seed() {
   const state = emptyState();
   // The kit's fictional example starts as an unreviewed draft so the creator flow begins at review.
   state.routes[fixture.route.id] = [{ ...(fixture.route as Route), status: 'draft' }];
+  state.routes[actionFixture.route.id] = [structuredClone(actionFixture.route) as Route];
   return state;
 }
 
@@ -29,7 +31,7 @@ function build(): CoreAdapter {
     state: loaded.state,
     persist: (state) => persistState(file, state),
     // Live (Gemini) and replay recognizers register here in the next milestone. Absent = start fails honestly.
-    recognizers: { mock: mockRecognizer },
+    recognizers: { mock: fixtureRecognizer },
   });
 }
 
