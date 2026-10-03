@@ -40,7 +40,7 @@ The harness uses ports 3119 and 3120. The smoke uses port 3118 by default, or it
 
 Host: Windows 11, Node 24.21.0, after `npm ci` from the existing lockfile. Run by the Claude lead on 2026-10-03.
 
-- `node src/server/voice/voice.check.ts`: PASS, "voice checks passed (46 cases; no network calls)". Covers exact text, cache hit/miss, locale and provider voice isolation, concurrent dedupe, invalid text/locale/token/instructionId, missing credentials, timeout, 429, non-OK body privacy/cancellation, invalid/empty/oversized audio, no partial cache files, ElevenLabs request shape through stubbed fetch, httpVoice error mapping, direct POST 200/400/503, direct GET 200/400/404 and oversized streamed bodies.
+- `node src/server/voice/voice.check.ts`: PASS, "voice checks passed (46 cases; no network calls)". Covers exact text, cache hit/miss, locale and provider voice isolation, concurrent dedupe, invalid text/locale/token/instructionId, missing credentials, timeout, 429, non-OK body privacy/cancellation, invalid/empty/oversized audio rejected before any cache write, ElevenLabs request shape through stubbed fetch, httpVoice error mapping, direct POST 200/400/503, direct GET 200/400/404 and oversized streamed bodies.
 - `npm run check`: PASS (core, media, extraction 32 cases).
 - `npm run typecheck`: PASS.
 - `npm run build`: PASS. Routes include `ƒ /api/speech` and `ƒ /api/speech/[id]`.
@@ -59,6 +59,15 @@ This evidence is transport and decode only, with a generated tone. It is not Ele
 3. Add `node src/server/voice/voice.check.ts` to the shared check script. Add `node scripts/voice-smoke.mjs` to CI after build. Review the exact diff before integration.
 4. Add server-only .env.example entries for BREADCRUMB_ELEVENLABS_VOICE (disabled by default), ELEVENLABS_API_KEY (blank), ELEVENLABS_VOICE_ID (optional), and BREADCRUMB_VOICE_DIR (optional). BREADCRUMB_DATA_FILE already defines the default data location. Never use NEXT_PUBLIC for credentials.
 5. Start `node scripts/voice-harness.mjs`, open its printed URL, and click Play. Record actual browser playback. Keep generated tone evidence separate from real ElevenLabs evidence.
+
+## Independent review
+
+A fresh [SOL] review (`gpt-6.1-sol`, official Codex plugin) checked exact head `b4ba8a2` on 2026-10-03. Verdict: no blocking defect. It confirmed contract and httpCore mapping, unchanged text, no path traversal in GET IDs, no key or provider-body exposure, a full deadline, correct 429 and missing-credential codes, and owned paths only. Its sandbox had Node 22.15, so it could not rerun the runtime checks; `npm.cmd run typecheck` passed there.
+
+Non-blocking findings, not fixed in this PR:
+
+- Medium: distinct texts start independent provider calls with no total limit. Each call can hold up to 2 MB. Add an admission limit that returns retryable RATE_LIMITED before enabled synthesis is used outside controlled local tests.
+- Low: the checks do not inject write or rename failures. Temp-file cleanup after a failed write is in the code (`finally` removes the temp file) but is not tested.
 
 ## Limits and next action
 
