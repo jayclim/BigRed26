@@ -59,3 +59,9 @@ Local commit: **uncommitted**. Staging the nine owned files failed with `fatal: 
 - No real footage, near-100 MB HTTP transfer, codec decoding, concurrent-load or crash-recovery test was run. Native `formData()` still buffers bodies within the enforced cap in memory. The two renames are not one transaction; a process crash between them can leave an orphan video. Reported write failures are cleaned up.
 - Local disk is for the local Node app. Vercel Functions cap request bodies at 4.5 MB; hosted upload needs direct-to-storage later. No hosted storage or provider integration is implemented.
 - Next action: the host lead runs the updated HTTP smoke and rendered 390 px success/error and route-switch checks, reviews the repair, and publishes it. Then **item 2b, Gemini draft extraction from stored media**, with validated editable drafts that remain unapproved until human review.
+
+## Host checks, repair 3834abc (lead 9a13c7fb, 2026-10-03)
+
+- PASS on host (Node 24.11.1): `npm run check`, `npm run typecheck`, `node scripts/smoke-api.mjs`. The smoke sent a real chunked request with no Content-Length above `MAX_MEDIA_REQUEST_BYTES`: 400 INVALID_INPUT, media directory unchanged. Worker sandbox: `npm run build` PASS.
+- Browser (CDP, 390x844 and 1280x800): the focused client error message was fully visible above the sticky approve bar without a forced scroll (390: top 360, bottom 484, bar top 720). Recovery ("Choose another file") moved focus to the file input. Switching to the detailed-action fixture reset the panel to idle.
+- Limit: the run's fixture files were missing, so every selection was a 0-byte file. The server-error, success and preview states were not reached in this run. Recheck them with regenerated fixtures (synthetic test pattern only, not route footage).
