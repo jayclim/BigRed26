@@ -207,9 +207,9 @@ voicePlayback.ts has no React imports or DOM globals at import time.
 It forwards the exact accepted Guidance.text, locale and instructionId.
 DEFAULT_VOICE_ID is the exported guide token 'default'.
 Native audio plays the returned audioUrl. No browser speech fallback runs with an adapter.
-Instruction id, locale and text form the deduplication key. Sequence changes do not replay speech.
+Session id, instruction id, locale and text form the deduplication key. Sequence changes do not replay successful speech.
 Only the current key is deduplicated, as with browser speech. A, B, A speaks A again.
-A failed key is not retried until the instruction changes or sound is turned off and on.
+A failure clears the current key. The next speak call can retry the same instruction.
 A new instruction cancels old audio. Mute, locale changes and unmount cancel obsolete work.
 Cancellation pauses audio, clears its src and invalidates late results with a generation token.
 Mute clears deduplication. Enabling sound again speaks the current instruction once.
@@ -244,7 +244,48 @@ The labeling check reads source. It does not establish rendered layout or browse
 
 ## Review repair
 
-2026-10-03, PR #14, base head df0580a: a new voice adapter object recreated the player. This cleared the current key and repeated the same instruction. The player now starts in the mount effect and is disposed in cleanup. Each effect setup creates a fresh player, including React Strict Mode setup after cleanup. speak receives the adapter per call. A replacement adapter keeps the current key and clip. A new instruction uses the supplied adapter. Removing the adapter stops generated audio before browser speech runs. Cleanup also cancels browser speech. Generation tokens still reject late results after cancellation. Two new check groups cover adapter replacement without a pause or repeat request, and late synthesis from X after a new instruction through Y. Actual local results: voicePlayback.check.ts passed all 9 groups; checkView.check.ts passed all 8 groups; npm run check passed core, media and extraction (32 extraction cases, no network calls); npm run typecheck passed with tsc --noEmit. All four commands exited 0. No check failed. The worker ran no build or browser check. Host rerun by the lead on the repaired tree: the same four commands passed, npm run build passed, node scripts/follow-camera.check.mjs 3153 passed all 8 groups, and the scratch CDP render passed at 390x844 and 1280x800 for the browser-speech states. Strict Mode behavior and the generated-voice component path were inspected in source only. No provider or phone check was run.
+2026-10-03, PR #14, base head df0580a: a new voice adapter object recreated the player. This cleared the current key and repeated the same instruction. The player now starts in the mount effect and is disposed in cleanup. Each effect setup creates a fresh player, including React Strict Mode setup after cleanup. speak receives the adapter per call. At this repair, a replacement adapter kept the current key and clip, including pending synthesis. The next review repair below corrects pending synthesis. A new instruction uses the supplied adapter. Removing the adapter stops generated audio before browser speech runs. Cleanup also cancels browser speech. Generation tokens still reject late results after cancellation. Two new check groups cover adapter replacement without a pause or repeat request, and late synthesis from X after a new instruction through Y. Actual local results: voicePlayback.check.ts passed all 9 groups; checkView.check.ts passed all 8 groups; npm run check passed core, media and extraction (32 extraction cases, no network calls); npm run typecheck passed with tsc --noEmit. All four commands exited 0. No check failed. The worker ran no build or browser check. Host rerun by the lead on the repaired tree: the same four commands passed, npm run build passed, node scripts/follow-camera.check.mjs 3153 passed all 8 groups, and the scratch CDP render passed at 390x844 and 1280x800 for the browser-speech states. Strict Mode behavior and the generated-voice component path were inspected in source only. No provider or phone check was run.
+
+## Review repair: pending adapter, session key and retry
+
+2026-10-03, PR #14. Verified branch feat/follow-voice and base head 8e5a53c before edits.
+Only voicePlayback.ts, voicePlayback.check.ts and this receipt changed.
+The untracked PR14-REVIEW-for-Jayden.md was left alone. No commit, push, agent or network/provider call was made.
+
+Findings: P2 suppressed Y when X was still synthesizing the same key. X could then set unavailable or play its old clip.
+P3 omitted session id from the key. Identical guidance for S2 could be suppressed while S1 later played.
+P3 is hardening. This path is not reachable in the current GuideScreen.
+UR1 kept the key after synthesize ok:false, synthesize throw or play() rejection. Repeated checks can keep instructionId stable, so those failures blocked retries.
+
+The player now stores the current key and adapter. The key includes session id.
+Same-key calls are deduplicated when audio exists or the pending adapter is unchanged.
+A replaced pending adapter cancels the old generation before requesting the new adapter.
+Current failures clear the key. The stale-result guard stays before the ok:false branch with no await between them.
+The catch branch cancels and clears current only for the current generation. stop clears current too.
+Audio stays set after natural completion. dispose and GuideScreen are unchanged.
+No sequence counter, timer or export was added.
+
+Seven new check groups cover X throwing, X returning ok:false, X returning ok, session changes and each of the three failure/retry paths.
+They also check one request for the same pending adapter, stale X not clearing pending Y, replacement after failure at the same sequence, and deduplication after a successful retry.
+The guidance helper now accepts a session id. All nine existing groups keep their meaning.
+
+Before the fix, the new tests ran against unchanged 8e5a53c voicePlayback.ts on Node v26.8.2.
+All nine existing groups passed. The command exited 1 with `Regression failures (45)`.
+The failures covered every new path: replacement Y not requested, obsolete X setting status or playing (for throw, ok:false and ok), the S2 session request and late S1 audio, and every same-instruction retry case (3 failure kinds x same adapter at sequence+1 or new adapter at the same sequence). The lead shortened the full list of 45 messages to this summary.
+
+The status assertion compares the full status list with []. In the X ok case it also detects an obsolete success callback.
+After the exact player fix, actual local results were:
+
+| Command | Actual result |
+| --- | --- |
+| node src/features/guide/voicePlayback.check.ts | Exit 0. Nine existing PASS lines, seven regression CHECK lines, then `PASS all 7 regression groups`. Zero failed assertions. |
+| node src/features/guide/checkView.check.ts | Exit 0. All eight PASS lines. |
+| npm run check | Exit 0. `core check passed`, `media checks passed`, `extraction checks passed (32 cases; no network calls)`. Deadline diagnostics: metadata never read 21.3 ms; metadata late read 21.2 ms; media never read 21.2 ms; media late read 20.2 ms. Each used timeoutMs=20, generate=0, save=0. |
+| npm run typecheck | Exit 0. `tsc --noEmit`. No EPERM; incremental false was not needed. |
+| git diff --check | Exit 0. No output. |
+
+The worker ran no build, browser, provider or phone check. Host rerun by the lead (2026-10-03): with the 8e5a53c player, the new tests report `Regression failures (45)`. With the fix, voicePlayback.check.ts passed all 9 existing groups plus all 7 regression groups. checkView.check.ts (8 groups), npm run check, npm run typecheck and npm run build passed. node scripts/follow-camera.check.mjs 3153 passed 8 groups. The scratch CDP browser-speech render passed at 390x844 and 1280x800. The branch does not include main's #13 theme yet, so the render reflects the older stylesheet. No provider or phone check was run.
+Next action: a fresh independent review of the exact head. After #11 and #12 merge, rebase on main and rerun these checks.
 
 ## Limitations
 
@@ -253,13 +294,16 @@ Generated-voice UI states (Generated voice label, Voice unavailable status) were
 audio.play() runs after the synthesize promise, outside the tap gesture. Mobile Safari may reject it. The rejection shows Voice unavailable and does not change navigation. Phone behavior is unverified.
 Real provider success, browser autoplay permission and physical phone audio remain unverified.
 A synthesis request cannot be aborted through the current VoiceAdapter contract.
-Late results are ignored. Part C owns provider deadlines and audio delivery.
+At 8e5a53c, late results were not ignored for a replaced pending adapter or a changed session. After this fix, those late results are ignored. Part C owns provider deadlines and audio delivery.
+Retries happen only when GuideScreen's speak effect runs again: a new Guidance object, sound toggle, locale change or adapter change. There is no timer. Player tests cannot prove React effect frequency.
+If the adapter changes while the old clip's play() is still starting and that play() then fails, the new adapter is not called until the next effect run.
 The existing action caption can differ from the full accepted guidance text. This PR preserves it.
 No Next API was added or changed. No dependency or shared contract was changed.
 
 ## Integration requests
 
 The integration owner wires voice={httpVoice} in src/app/follow/[routeId]/page.tsx only after Part C's src/client/voice.ts exists and both PRs pass.
+Pass the stable module-level httpVoice. Do not create an adapter object per render. A new object each render would keep replacing pending requests.
 Add node src/features/guide/voicePlayback.check.ts to npm run check and CI.
 Part C maps DEFAULT_VOICE_ID to a server-side voice id. That mapping is Part C's concern.
 

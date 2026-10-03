@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs';
 import type { Guidance, Result, SpeechClip, SpeechRequest, VoiceAdapter } from '../../../contracts/contracts.ts';
 import { createVoicePlayer, DEFAULT_VOICE_ID, type AudioLike, type VoiceStatus } from './voicePlayback.ts';
 
-const guidance = (instructionId = 'A', locale: 'en' | 'es' = 'en', text = '  Turn left.\nKeep B214.  ', sequence = 1): Guidance => ({
-  instructionId, locale, text, sequence, sessionId: 'session', routeVersion: 1, mode: 'mock',
+const guidance = (instructionId = 'A', locale: 'en' | 'es' = 'en', text = '  Turn left.\nKeep B214.  ', sequence = 1, sessionId = 'session'): Guidance => ({
+  instructionId, locale, text, sequence, sessionId, routeVersion: 1, mode: 'mock',
   state: 'uncertain', checkpointId: null, direction: null, approachConfirmed: false, evidence: [], processingMs: 0,
 });
 const clip = (url: string): Result<SpeechClip> => ({ ok: true, value: { audioUrl: url, provider: 'elevenlabs', cached: false } });
@@ -120,3 +120,74 @@ function harness(synthesize: VoiceAdapter['synthesize'] = async (r) => clip(r.in
   assert(source.includes('<p className="say">'));
   console.log('PASS source assertion: visible bilingual browser label and caption retained');
 }
+
+// Collect regression failures so the unchanged player reports every affected path.
+const regressionFailures: string[] = [];
+function expectEqual(actual: unknown, expected: unknown, message: string) {
+  try { assert.deepEqual(actual, expected, message); }
+  catch { regressionFailures.push(message); console.log(`FAIL ${message}`); }
+}
+for (const outcome of ['throw', 'ok:false', 'ok'] as const) {
+  const x = deferred<Result<SpeechClip>>(); const y = deferred<Result<SpeechClip>>();
+  const h = harness(() => x.promise); const requestsY: SpeechRequest[] = [];
+  const voiceY: VoiceAdapter = { synthesize: (r) => { requestsY.push(r); return y.promise; } };
+  const old = h.player.speak(h.voice, guidance());
+  await h.player.speak(h.voice, guidance());
+  expectEqual(h.requests.length, 1, `${outcome}: same pending adapter requests once`);
+  const next = h.player.speak(voiceY, guidance());
+  expectEqual(requestsY.length, 1, `${outcome}: replacement Y requested once`);
+  if (outcome === 'throw') x.reject(new Error('Obsolete provider error'));
+  else x.resolve(outcome === 'ok' ? clip('X') : fail);
+  await old;
+  expectEqual(h.audios.length, 0, `${outcome}: obsolete X creates no audio`);
+  expectEqual(h.statuses, [], `${outcome}: obsolete X does not set unavailable`);
+  await h.player.speak(voiceY, guidance());
+  expectEqual(requestsY.length, 1, `${outcome}: obsolete X cannot clear pending Y dedupe`);
+  y.resolve(clip('Y')); await next;
+  expectEqual(h.audios.map((a) => [a.src, a.plays]), [['Y', 1]], `${outcome}: only Y clip plays`);
+  expectEqual(h.statuses.at(-1), null, `${outcome}: Y success clears status`);
+  console.log(`CHECK pending adapter replacement: X ${outcome}`);
+}
+{
+  const slow = deferred<Result<SpeechClip>>();
+  const h = harness(() => h.requests.length === 1 ? slow.promise : Promise.resolve(clip('S2')));
+  const old = h.player.speak(h.voice, guidance('A', 'en', guidance().text, 1, 'S1'));
+  await h.player.speak(h.voice, guidance('A', 'en', guidance().text, 1, 'S2'));
+  expectEqual(h.requests.length, 2, 'session: S2 requested with identical instruction, locale and text');
+  slow.resolve(clip('S1')); await old;
+  expectEqual(h.audios.map((a) => [a.src, a.plays]), [['S2', 1]], 'session: late S1 creates no audio and only S2 plays');
+  console.log('CHECK session key isolation');
+}
+for (const failure of ['ok:false', 'throw', 'play'] as const) {
+  for (const replace of [false, true]) {
+    let fails = true; const statuses: VoiceStatus[] = [];
+    const requests: SpeechRequest[] = []; const audios: Array<AudioLike & { plays: number }> = [];
+    const voice: VoiceAdapter = { synthesize: async (r) => {
+      requests.push(r);
+      if (fails && failure === 'throw') throw new Error('Private provider error');
+      return fails && failure === 'ok:false' ? fail : clip('retry');
+    } };
+    const player = createVoicePlayer({ createAudio: (src) => {
+      const audio = { src, plays: 0, pause() {}, async play() {
+        this.plays++; if (fails && failure === 'play') throw new Error('Private audio error');
+      } }; audios.push(audio); return audio;
+    }, onStatus: (s) => statuses.push(s) });
+    await player.speak(voice, guidance());
+    expectEqual(statuses.at(-1), 'unavailable', `${failure}: failure sets unavailable`);
+    fails = false;
+    const retryVoice = replace ? { synthesize: voice.synthesize } : voice;
+    const retryGuidance = { ...guidance(), sequence: replace ? 1 : 2 };
+    const label = `${failure}, ${replace ? 'new adapter same sequence' : 'same adapter sequence+1'}`;
+    await player.speak(retryVoice, retryGuidance);
+    expectEqual(requests.length, 2, `${label}: same instruction retries`);
+    expectEqual(audios.at(-1)?.src, 'retry', `${label}: retry clip retained`);
+    expectEqual(audios.at(-1)?.plays, 1, `${label}: retry clip plays once`);
+    expectEqual(statuses.at(-1), null, `${label}: retry clears status`);
+    await player.speak(retryVoice, retryGuidance);
+    await player.speak(retryVoice, { ...retryGuidance, sequence: retryGuidance.sequence + 1 });
+    expectEqual(requests.length, 2, `${label}: successful retry stays deduplicated`);
+  }
+  console.log(`CHECK same-instruction retry: ${failure}`);
+}
+assert.equal(regressionFailures.length, 0, `Regression failures (${regressionFailures.length}):\n${regressionFailures.join('\n')}`);
+console.log('PASS all 7 regression groups');
