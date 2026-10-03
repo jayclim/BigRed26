@@ -13,6 +13,7 @@ import { reconcileGuide } from './reconcileGuide.ts';
 
 export interface GuideScreenProps {
   core: CoreAdapter;
+  /** Read once at mount. Remount the screen to change mode. */
   mode?: Mode;
   uploadFrame?: typeof realUploadFrame;
   routeId: Id;
@@ -226,7 +227,7 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
               <a className="ctl" href={exitHref}>{t.exit}</a>
             </div>
           </div>
-          <Camera locale={locale} busy={pending} onCheck={mode === 'mock' ? undefined : checkCamera}>
+          <Camera locale={locale} busy={pending} onCheck={mode === 'live' ? checkCamera : undefined}>
             <p className="stage-label"><span className={`${styles.badge} ${styles[mode]}`}>{t[mode]}</span> {t.notes[mode]}</p>
           </Camera>
 

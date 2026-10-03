@@ -13,14 +13,15 @@ const out = mkdtempSync(join(tmpdir(), 'breadcrumb-follow-shots-'));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const ok = (value) => ({ ok: true, value });
 let observation = 'target', uploads = 0, matches = 0, pendingRelease;
-const core = createCore({ state: emptyState(), recognizers: { live: async (route) => {
+const recognize = async (route) => {
   matches++;
   const observed = observation;
   await new Promise((r) => { pendingRelease = r; });
   pendingRelease = undefined;
   return observed === 'unknown' ? ok({ kind: 'unknown', evidence: [] })
     : ok({ kind: 'checkpoint', checkpointId: route.checkpoints[0].id, approachConfirmed: true, evidence: ['Synthetic entrance'] });
-} } });
+};
+const core = createCore({ state: emptyState(), recognizers: { live: recognize, replay: recognize } });
 assert((await core.saveDraft({ ...fixture, status: 'draft' })).ok);
 assert((await core.approveRoute(fixture.id, 1, fixture.checkpoints.map((c) => c.id))).ok);
 async function browser(denied = false) {
@@ -92,10 +93,15 @@ try {
   }
   console.log('PASS production live/replay fail honestly without mock fallback');
   await p.live();
+  await p.size(390, 844); await p.go('?mode=replay');
+  assert(await p.evaluate("document.querySelector('.stage-label').textContent.includes('Replay') && !document.querySelector('.mock-panel')"));
+  await p.click('Start camera'); await p.wait("document.querySelector('video').videoWidth > 0");
+  assert(await p.evaluate("![...document.querySelectorAll('button')].some(b => b.textContent === 'Check this view')"));
+  console.log('PASS replay label and preview-only camera with no mock panel or check button');
   for (const [width, height] of [[390, 844], [1280, 800]]) {
     const sessionsBefore = Object.keys(core.state.sessions).length;
     await p.size(width, height); await p.go('?mode=live');
-    assert.equal(Object.keys(core.state.sessions).length, sessionsBefore + 1, 'Strict Mode starts one session');
+    assert.equal(Object.keys(core.state.sessions).length, sessionsBefore + 1, 'one session start per page load (production build)');
     assert(await p.evaluate("document.querySelector('.stage-label').textContent.includes('Live') && !document.querySelector('.mock-panel')"));
     // Use real CDP keyboard input to reach and activate camera controls.
     for (let i = 0; i < 20; i++) {

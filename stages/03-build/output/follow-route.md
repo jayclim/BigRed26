@@ -6,12 +6,13 @@ Branch: feat/follow-camera. The integration owner merges.
 ## Changes
 
 GuideScreen accepts an optional mode and uploadFrame adapter.
+The mode prop is read once at mount. Remount GuideScreen to change the mode.
 The start effect reads mode from the query when the prop is absent.
 A started ref permits one session start under React Strict Mode.
 The effect sets mounted true and cleanup sets it false. Late guide results use this mounted ref.
 Missing or invalid mode uses mock. There is no fallback from live or replay.
 Mode labels and notes have distinct local colors and English and Spanish text.
-The mock panel appears only in mock mode. Its camera remains preview only.
+Camera checks run only in live mode. Replay and mock are preview-only, and the mock panel appears only in mock mode.
 
 One explicit camera check captures one JPEG. The longest side is at most 640 pixels.
 JPEG quality is 0.7. One shared limit is 512 KiB.
@@ -49,7 +50,7 @@ Concurrent saves are serialized in the process. readFrame rejects unsafe ids bef
 
 ## Actual checks
 
-Host checks on 2026-10-03 (macOS, Node 24.21.0, local Chrome) after the repair. All passed.
+Host checks on 2026-10-03 (macOS, Node 24.21.0, local Chrome) after the review repair (live-only camera checks). All passed.
 The worker sandbox blocked localhost servers (listen EPERM) and the Google font fetch, so the lead ran every command on the host.
 
 | Command | Actual result |
@@ -59,9 +60,9 @@ The worker sandbox blocked localhost servers (listen EPERM) and the Google font 
 | node src/server/frames/frames.check.ts | PASS. JPEG validation, opaque ids, safe reads, age retention, concurrent count cap, direct handler validation. |
 | node src/features/guide/checkView.check.ts | PASS. Target direction, unknown, wrong approach, upload and recognizer failures, one flight, unmount drop, stale ordering, locale, pinned v1, explicit manual completion, capture bounds. |
 | npm run build | PASS. /api/frames is a dynamic route. |
-| node scripts/smoke-api.mjs 3141 | PASS. One earlier host run before the repair failed once and passed on two reruns; the failure output was not kept. |
-| node scripts/follow-frames.check.mjs 3142 | PASS. Valid upload stored in a temp directory; wrong type, oversize and chunked oversize, missing and unknown session, empty and non-JPEG bodies rejected with Result envelopes. |
-| node scripts/follow-camera.check.mjs 3143 | PASS. 390x844 and 1280x800: default mock badge, panel and pick; production live and replay fail honestly; live label without mock panel; one upload per double click; busy button; core guidance shown; locale keeps cursor; unknown removes the arrow; stop keeps the late accepted result and clears the stream; no control overlap; keyboard Tab and Enter; denied camera alert and Try again. 6 synthetic uploads, 6 recognitions. |
+| node scripts/smoke-api.mjs 3151 | PASS. One earlier host run before the repair failed once and passed on two reruns; the failure output was not kept. |
+| node scripts/follow-frames.check.mjs 3152 | PASS. Valid upload stored in a temp directory; wrong type, oversize and chunked oversize, missing and unknown session, empty and non-JPEG bodies rejected with Result envelopes. |
+| node scripts/follow-camera.check.mjs 3153 | PASS. 390x844 and 1280x800: default mock badge, panel and pick; production live and replay fail honestly; replay label with a preview-only camera and no check button; live label without mock panel; one upload per double click; busy button; core guidance shown; locale keeps cursor; unknown removes the arrow; stop keeps the late accepted result and clears the stream; no control overlap; keyboard Tab and Enter; denied camera alert and Try again. 6 synthetic uploads, 6 recognitions. |
 
 The lead reviewed screenshots of mock and live at 390 and 1280 and the denied state at 390.
 The live and denied states use CDP Fetch interception with a script-local core and an injected recognizer. This is UI and lifecycle evidence, not recognition evidence.
