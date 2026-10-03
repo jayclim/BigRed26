@@ -18,6 +18,7 @@ No route recording is needed to implement the next code slices. After waking, su
 |---|---|---|
 | 0 | Publish the local baseline and add PR checks | Public repo has the reviewed baseline; CI checks a feature PR. |
 | 1 | Guard unattended runs | Fresh usage is parsed; missing usage, thresholds, deadline and blocked states stop dispatch; no duplicate worker jobs. |
+| 1a | Support detailed route actions | Implement [the accepted action scope](../stages/01-scope/output/complex-route-guidance.md): named doors, ordered floor transitions, side-specific instructions, optional arrows and evidence-based completion. |
 | 2 | Teach a route from uploaded media | Bounded input validation and storage, editable extraction draft, useful errors. Use official APIs and existing contracts. |
 | 3 | Gemini draft extraction | Structured checkpoint output is validated and stays unapproved until human review. Record real provider response separately from synthetic fixture checks. |
 | 4 | Live frame matching | Approved route context, bounded frame rate, stale-response rejection, unknown/reorient states, no unsupported turn or arrival. |

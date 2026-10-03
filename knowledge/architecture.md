@@ -1,6 +1,6 @@
 # Architecture and route knowledge
 
-Status: engineering direction plus inspected initial implementation, 2026-10-03. Recheck source before editing; the first build is active.
+Status: engineering direction plus inspected mock implementation, 2026-10-03. The detailed-action requirement below is accepted scope; it is not yet implemented. Recheck source before editing.
 
 ## Two kinds of knowledge
 
@@ -29,3 +29,15 @@ Local JSON persistence is a first-build choice for one Node process, unsuitable 
 ## Camera boundary
 
 Localhost works on this computer. A separate phone needs a reachable secure origin, permission and user activation for audio. Desktop browser checks do not establish physical-phone camera/audio behavior.
+
+## Action-aware route steps
+
+**Observed gap, 2026-10-03:** `Checkpoint.instruction` already stores full bilingual text, with identifying evidence, approach text and reference views. However, `Direction` has only five arrow directions. `Guidance` requires a direction for `guiding`, and `approvalProblems` rejects a non-destination checkpoint with no direction. Rich text is supported; action-specific progression is not.
+
+**Required direction:** separate the action from an optional spatial cue. Preserve an identifiable target, relative position or sign, an action, and a completion condition. Model floor changes explicitly when needed. Do not turn "take the elevator to floor 3" into an `up` arrow and claim the action is supported. Reuse ordered checkpoints and existing evidence/version/sequence rules; the integration owner chooses the smallest compatible contract change before provider work depends on it.
+
+For an elevator, distinguish locating the correct elevator, taking it to the approved floor, and confirming the exit on that floor. A view of the entrance, a selected button or elapsed time does not establish arrival on floor 3. A floor sign or another approved target-floor landmark can supply evidence; an explicit visitor confirmation is a separate manual event. Camera loss inside the elevator must not reset progress or silently complete the action.
+
+For a door, check the approved sign/landmark and approach before instructing passage; verify the expected next view before completing the passage. For a side-specific terrain instruction, retain the taught viewpoint and reference imagery. Do not infer a traversable or climbable surface solely because the text or image names it.
+
+Creator review must expose these action details. Localization and speech must preserve sign labels, floor numbers, side qualifiers and action order. A confirmed action may have no arrow. An uncertain match still cannot produce an unsupported directional cue.
