@@ -155,11 +155,23 @@ node scripts/smoke-api.mjs was not run. This change adds no HTTP handler and cha
 
 ### Review repair: blank evidence
 
-2026-10-03, PR #12: after trimming, each evidence item must contain at least one visible character. Whitespace, control or format characters, and Unicode separators do not count. A rejected item rejects the full provider output as retryable `PROVIDER_UNAVAILABLE`, including when the item is mixed with valid evidence. Rejected examples include `\u200b`, `\u200d\u200c`, `\u2060`, `\u00ad`, `\u200e`, tabs/newlines and spaces. Preserved examples include `Room 204`, `Salida`, `→`, `Room\u200b204` and `👩‍💻`. This rule is runtime-only: provider JSON Schema remains unchanged and shows only `minLength: 1`. The existing JSON Schema `minLength: 1` assertion remains.
+2026-10-03, PR #12: after trimming, each evidence item must contain at least one character outside whitespace, \p{C}, \p{Z}, Default_Ignorable_Code_Point and U+2800. A rejected item rejects the full provider output as retryable `PROVIDER_UNAVAILABLE`, including when the item is mixed with valid evidence. Rejected examples include `\u200b`, `\u200d\u200c`, `\u2060`, `\u00ad`, `\u200e`, tabs/newlines and spaces. Preserved examples include `Room 204`, `Salida`, `→`, `Room\u200b204` and `👩‍💻`. Commit 6f5feb0 added `minLength: 1` to provider JSON Schema evidence items (`{"type":"string","minLength":1,"maxLength":200}`). Trim and the visibility rule are runtime-only. The JSON Schema `minLength: 1` assertion remains.
 
 Before the fix, a temporary schema assertion for `['\u200b']` failed with `AssertionError [ERR_ASSERTION]: Expected values to be strictly equal: true !== false` (`actual: true`, `expected: false`). After the fix, `node src/server/recognition/recognizer.check.ts` passed all six groups, including the entrance rejection cases with unchanged checkpoint and guidance, destination mixed evidence, preserved schema examples and JSON Schema assertion. `npm run check` passed core, media and extraction (32 cases; no network calls). `npm run typecheck` passed (`tsc --noEmit`). No real fetch or provider call was used.
 
 Actual checks in this worktree: `node src/server/recognition/recognizer.check.ts` passed all six groups, including the new blank-evidence group; `npm run check` passed core, media and extraction (32 cases, no network calls); `npm run typecheck` passed (`tsc --noEmit`).
+
+### Review repair: default-ignorable evidence
+
+2026-10-03, PR #12, P2/P3: the previous regex accepted evidence made only of default-ignorable characters outside \p{C} and \p{Z}. The rule now also excludes Default_Ignorable_Code_Point and U+2800. The lead chose to reject U+2800 because it renders blank. Braille U+2801–U+28FF remains accepted.
+
+The blank-evidence group rejects `\u034f`, `\ufe0f`, `\u3164`, `\u115f`, `\u1160`, `\uffa0` and `\u2800`, alone and beside `Room 204`. Each returns retryable `PROVIDER_UNAVAILABLE` through matchFrame with checkpoint and guidance unchanged. Schema checks still accept `Room 204`, `\u2192`, `\ud83d\udc69\u200d\ud83d\udcbb`, `Room\u200b204`, `\u00e9`, `\u4e2d`, `\u0301` and `\u2801`.
+
+Actual checks in this worktree (Node 26.8.2): `node src/server/recognition/recognizer.check.ts` passed all six groups. With only the regex temporarily restored to its previous value, the same command failed on the first new rejection case (`\u034f`): matchFrame accepted it; `AssertionError [ERR_ASSERTION]`, `true !== false`, exit 1. The repaired regex was restored and the check passed again. `npm run check` passed core, media and extraction (32 cases; no network calls). `npm run typecheck` passed (`tsc --noEmit`). No network or real provider call was made.
+
+Host rerun by the lead (Node 24.21.0, after merging main 9b65316): a direct regex probe shows all seven rejected code points pass the previous rule and fail the new one; the eight preserved examples pass. recognizer.check.ts passed all six groups; npm run check, npm run typecheck and npm run build passed in this worktree. smoke-api was not run because no HTTP handler changed.
+
+Full closure still needs core matching against `identifyingEvidence`. This remains an integration-owner decision. Next action: owner reviews this repair and decides the core evidence rule.
 
 ## Design details and limitations
 
