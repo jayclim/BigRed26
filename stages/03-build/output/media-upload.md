@@ -1,6 +1,6 @@
 # Local route video upload (queue item 2a)
 
-Status: implemented; PR #6 repair passes sandbox code gates, 2026-10-03. Earlier host HTTP/browser evidence below predates the repair; fresh host checks are pending. Draft extraction is pending. Worktree: `media-upload`; branch: `feat/media-upload`. Published as a draft PR by lead 61afc312; no provider call or deployment was made.
+Status: locally verified, 2026-10-03. Code repair `3834abc` (docs `1a65ec9`) passes host code gates, HTTP smoke, rendered 390/1280 checks (synthetic video only) and an independent [SOL] repair review (APPROVE). Squash-merged through PR #6; the merge hash is in `.overnight/media-handoff.json`. Draft extraction is pending. Worktree: `media-upload`; branch: `feat/media-upload`. Published as a draft PR by lead 61afc312; no provider call or deployment was made.
 
 ## Behavior and choices
 
@@ -50,18 +50,25 @@ The first `npm run check` attempt used the default Node 19.8.1 and failed with `
 
 The smoke script now generates an over-limit multipart body in memory through a `ReadableStream` with `duplex: 'half'` and no Content-Length. It expects HTTP 400 `INVALID_INPUT` from the body cap and an unchanged media directory. Its header-only synthetic bytes are not playable footage. HTTP and a fresh rendered 390 px success/error and route-switch check remain for the host lead.
 
-Local commit: **uncommitted**. Staging the nine owned files failed with `fatal: Unable to create '/Users/jaydenl/Dev/Hackathon/BigRed 2026/.git/worktrees/media-upload/index.lock': Operation not permitted`. No index change or commit was made. The host lead must stage, commit and publish the diff after verification.
+The worker could not commit (sandbox `index.lock` permission). The host lead committed and pushed the repair as `1a65ec9`.
 
 ## Limits, handoff and next action
 
 - **Ignore fix:** root `.gitignore` now uses `/media/` (was `media/`), so `src/app/api/media/` and `src/server/media/` are tracked; root `media/` and `.data/` stay ignored.
-- The earlier 390 px sticky-bar overlap is repaired by centering newly focused messages in code; rendered verification of the repair is pending. No screen-reader, physical-phone or real-footage playback evidence is claimed.
+- The earlier 390 px sticky-bar overlap is repaired; rendered checks at 390 and 1280 px confirm it (see the final section). No screen-reader, physical-phone or real-footage playback evidence is claimed.
 - No real footage, near-100 MB HTTP transfer, codec decoding, concurrent-load or crash-recovery test was run. Native `formData()` still buffers bodies within the enforced cap in memory. The two renames are not one transaction; a process crash between them can leave an orphan video. Reported write failures are cleaned up.
 - Local disk is for the local Node app. Vercel Functions cap request bodies at 4.5 MB; hosted upload needs direct-to-storage later. No hosted storage or provider integration is implemented.
-- Next action: the host lead runs the updated HTTP smoke and rendered 390 px success/error and route-switch checks, reviews the repair, and publishes it. Then **item 2b, Gemini draft extraction from stored media**, with validated editable drafts that remain unapproved until human review.
+- Next action: **item 2b, Gemini draft extraction from stored media**, with validated editable drafts that remain unapproved until human review. No paid provider or Cursor call until spending caps are verified.
 
 ## Host checks, repair 3834abc (lead 9a13c7fb, 2026-10-03)
 
 - PASS on host (Node 24.11.1): `npm run check`, `npm run typecheck`, `node scripts/smoke-api.mjs`. The smoke sent a real chunked request with no Content-Length above `MAX_MEDIA_REQUEST_BYTES`: 400 INVALID_INPUT, media directory unchanged. Worker sandbox: `npm run build` PASS.
 - Browser (CDP, 390x844 and 1280x800): the focused client error message was fully visible above the sticky approve bar without a forced scroll (390: top 360, bottom 484, bar top 720). Recovery ("Choose another file") moved focus to the file input. Switching to the detailed-action fixture reset the panel to idle.
 - Limit: the run's fixture files were missing, so every selection was a 0-byte file. The server-error, success and preview states were not reached in this run. Recheck them with regenerated fixtures (synthetic test pattern only, not route footage).
+
+## Final host UI check and repair review, `1a65ec9` (lead 3d71f12c, 2026-10-03T10:25:18Z)
+
+- Headless Chrome via CDP on the normal production build of `1a65ec9`, isolated data/media dirs, 390x844 mobile and 1280x800: **35/35 PASS**. Synthetic fixtures only (17 B `.txt`, 1,960 B bad-signature `.mp4`, 8,350 B ffmpeg test pattern); no route footage.
+- Both sizes: the focused client error, server error and success messages are inside the panel and fully visible above the sticky bar. Selected size text matches the real file size. Preview: `readyState` 4, duration 1 s, 320x240, no error. Server rejection leaves storage unchanged. Success stores exactly one `<id>.<ext>` + `<id>.json` pair whose id matches the shown media id. Route switch resets the panel to idle with no preview. No horizontal overflow.
+- The previous run (lead df3312f2) reported 6 failures. All were harness assertion bugs, not app defects: `/0 bytes/` matched `1,960 bytes` and `8,350 bytes`, and the storage count counted files instead of video+metadata pairs. The harness now checks the parsed byte count against the fixture size, the error text, and complete pairs by id. No tested requirement was weakened.
+- Independent [SOL] `gpt-6.1-sol` read-only review of `da0e692..1a65ec9` (native Agent `a05016ddd8d319016`, foreground, completed): **APPROVE**, no blocking findings. All four repair points confirmed.
