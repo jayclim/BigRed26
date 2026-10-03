@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createCore, emptyState } from '../core/core.ts';
-import { DEFAULT_GEMINI_MODEL, draftJsonSchema, extractDraft, geminiGenerate, MAX_INLINE_REQUEST_BYTES, type Generate } from './extraction.ts';
+import { DEFAULT_GEMINI_MODEL, draftJsonSchema, extractDraft, geminiGenerate, MAX_INLINE_REQUEST_BYTES, MAX_PROVIDER_RESPONSE_BYTES, type Generate } from './extraction.ts';
 import type { Result, Route } from '../../../contracts/contracts.ts';
 
 const directory = await mkdtemp(join(tmpdir(), 'breadcrumb-extraction-'));
@@ -32,12 +32,19 @@ function failure(result: Result<Route>, code = 'PROVIDER_UNAVAILABLE', retryable
   return result.error;
 }
 try {
-  await writeFile(join(directory, `${mediaId}.json`), JSON.stringify({
+  const metadata = {
     id: mediaId, originalName: 'synthetic.mp4', type: 'video/mp4', size: bytes.length, uploadedAt: new Date().toISOString(),
-  }));
+  };
+  const metadataPath = join(directory, `${mediaId}.json`);
+  await writeFile(metadataPath, JSON.stringify(metadata));
   await writeFile(join(directory, `${mediaId}.mp4`), bytes);
   const state = emptyState();
-  const core = createCore({ state, recognizers: {} });
+  const memoryCore = createCore({ state, recognizers: {} });
+  let saves = 0;
+  const core = { ...memoryCore, saveDraft: async (draft: Route) => {
+    saves++;
+    return memoryCore.saveDraft(draft);
+  } };
   let generated = 0;
   const generate: Generate = async (video, signal) => {
     generated++;
@@ -57,6 +64,16 @@ try {
     assert.match(failure(await run(geminiGenerate(config))).message, /not enabled/);
   }
   assert.equal(fetches, 0);
+  const adapter = geminiGenerate({ enabled: '1', apiKey: 'fixture-key' });
+  await writeFile(metadataPath, JSON.stringify({ ...metadata, size: bytes.length + 1 }));
+  assert.equal(failure(await run(adapter), 'PROVIDER_UNAVAILABLE', true).message,
+    'Stored video size does not match its metadata. Upload the video again.');
+  await writeFile(metadataPath, JSON.stringify({ ...metadata, size: MAX_INLINE_REQUEST_BYTES }));
+  assert.match(failure(await run(adapter), 'INVALID_INPUT', false).message, /20 MB/);
+  await writeFile(metadataPath, JSON.stringify(metadata));
+  assert.equal(fetches, 0);
+  assert.equal(saves, 0);
+  assert.deepEqual(state.routes, {});
   failure(await run(async () => { throw new Error('secret-provider-body'); }), 'PROVIDER_UNAVAILABLE', true);
   const keepAlive = setInterval(() => {}, 100); // AbortSignal.timeout uses an unref'ed timer
   try {
@@ -117,12 +134,81 @@ try {
       { type: 'model_output', content: [{ type: 'text', text: JSON.stringify(fixture) }] },
     ] });
   };
-  const adapter = geminiGenerate({ enabled: '1', apiKey: 'fixture-key' });
   assert.equal((await run(adapter)).ok, true);
   assert.equal(fetches, 1);
   // Base64 overhead, not raw file size, determines the inline request limit.
   await assert.rejects(adapter({ bytes: Buffer.alloc(Math.ceil(MAX_INLINE_REQUEST_BYTES * 0.75)), type: 'video/mp4' }, new AbortController().signal), /20 MB/);
   assert.equal(fetches, 1);
+  const savesBeforeResponseFailures = saves;
+  const routesBeforeResponseFailures = structuredClone(state.routes);
+  // Valid JSON with extra padding must be rejected before the full envelope is read or parsed.
+  const paddedEnvelope = Buffer.from(JSON.stringify({ status: 'completed', steps: [
+    { type: 'model_output', content: [{ type: 'text', text: JSON.stringify(fixture) }] },
+  ], padding: `secret-provider-body${' '.repeat(MAX_PROVIDER_RESPONSE_BYTES * 2)}` }));
+  let offset = 0;
+  let oversizedCancelled = 0;
+  const oversizedBody = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (offset === paddedEnvelope.byteLength) return controller.close();
+      const end = Math.min(offset + 64 * 1024, paddedEnvelope.byteLength);
+      controller.enqueue(paddedEnvelope.subarray(offset, end));
+      offset = end;
+    },
+    cancel() {
+      oversizedCancelled++;
+      return new Promise<void>(() => {}); // Source cleanup must not delay rejection.
+    },
+  });
+  globalThis.fetch = async () => { fetches++; return new Response(oversizedBody); };
+  const oversizedError = failure(await run(adapter), 'PROVIDER_UNAVAILABLE', true);
+  assert.equal(oversizedError.message, 'Gemini did not return a completed extraction. Retry the video.');
+  assert.doesNotMatch(oversizedError.message, /secret/);
+  assert.equal(oversizedCancelled, 1);
+  assert.equal(oversizedBody.locked, false);
+  assert.ok(offset < paddedEnvelope.byteLength);
+  assert.equal(saves, savesBeforeResponseFailures);
+  assert.deepEqual(state.routes, routesBeforeResponseFailures);
+  for (const body of [null, 'secret-provider-body: invalid JSON']) {
+    globalThis.fetch = async () => { fetches++; return new Response(body); };
+    assert.equal(failure(await run(adapter), 'PROVIDER_UNAVAILABLE', true).message, oversizedError.message);
+  }
+  for (const mode of ['abort', 'timeout']) {
+    const controller = new AbortController();
+    let readStarted!: () => void;
+    const reading = new Promise<void>((resolve) => { readStarted = resolve; });
+    let firstChunk = true;
+    let stalledCancelled = 0;
+    const stalledBody = new ReadableStream<Uint8Array>({
+      pull(stream) {
+        if (firstChunk) {
+          firstChunk = false;
+          stream.enqueue(new TextEncoder().encode('{"status":'));
+        } else readStarted(); // Leave the next read pending.
+      },
+      cancel() {
+        stalledCancelled++;
+        return new Promise<void>(() => {});
+      },
+    }, { highWaterMark: 0 });
+    globalThis.fetch = async () => { fetches++; return new Response(stalledBody); };
+    let guard: ReturnType<typeof setTimeout> | undefined;
+    const watchdog = new Promise<never>((_resolve, reject) => {
+      guard = setTimeout(() => reject(new Error(`${mode} did not stop the body read promptly`)), 1000);
+    });
+    try {
+      const pending = run(adapter, { signal: controller.signal, timeoutMs: mode === 'timeout' ? 100 : 1000 });
+      await Promise.race([reading, watchdog]);
+      if (mode === 'abort') controller.abort();
+      const cancelled = failure(await Promise.race([pending, watchdog]), 'PROVIDER_UNAVAILABLE', true);
+      assert.match(cancelled.message, /cancelled or timed out/);
+      assert.equal(stalledCancelled, 1);
+      assert.equal(stalledBody.locked, false);
+      assert.equal(saves, savesBeforeResponseFailures);
+      assert.deepEqual(state.routes, routesBeforeResponseFailures);
+    } finally { clearTimeout(guard); }
+  }
+  assert.equal(saves, savesBeforeResponseFailures);
+  assert.deepEqual(state.routes, routesBeforeResponseFailures);
   globalThis.fetch = async () => new Response('secret-provider-body', { status: 429 });
   const providerError = failure(await run(adapter), 'PROVIDER_UNAVAILABLE', true);
   assert.match(providerError.message, /HTTP 429/);
