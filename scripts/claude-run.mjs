@@ -335,7 +335,7 @@ export async function guard(mode, promptFile, {
     if (mode === 'probe') args.push('--tools', '', '--disallowedTools', '*');
     else args.push('--append-system-prompt',
       `You are one fresh, bounded Claude lead. Read AGENTS.md and the current task packet. Delegate all coding through the official Codex plugin and codex:codex-rescue with --model gpt-6.1-sol --fresh; leave effort unset. Never invoke direct Codex CLI tasks. Inspect existing plugin jobs before dispatch. Record each owned Codex job ID and its status in .overnight/${metadata.sessionId}.jobs.md as soon as it starts. Missing permissions or context is a blocker: report the exact failure. Do not bypass permissions or change user/global config. End within 12 lead turns and 20 minutes, before 2026-10-03T16:00:00Z. Save a checkpoint and stop on STOP, unknown usage, paid usage or the 55% weekly/95% five-hour dispatch threshold.`);
-    args.push(prompt);
+    args.push('--', prompt);
     metadata.log = resolve(dir, `${metadata.sessionId}.log`);
     logFd = openSync(metadata.log, 'wx', 0o600);
     const child = spawnProcess('claude', args, { cwd, env, shell: false, stdio: ['ignore', 'pipe', 'pipe'] });

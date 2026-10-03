@@ -88,6 +88,19 @@ function run(f, fake, mode = 'run', env = {}) {
     { cwd: f.cwd, now: f.now, spawnProcess: fake.spawnProcess, tickMs: 5, env });
 }
 
+for (const mode of ['probe', 'run']) {
+  test(`${mode} launch ends with a prompt argument terminator and the exact prompt`, async (t) => {
+    const f = fixture(t, { cached: mode === 'run' });
+    const fake = fakeCLI();
+    assert.equal((await run(f, fake, mode)).status, 'completed');
+    assert.equal(fake.modelCalls().length, 1);
+    const prompt = mode === 'probe'
+      ? 'Reply with OK once. Do not use tools or perform any implementation task. This request only refreshes subscription usage telemetry.'
+      : readFileSync(resolve(f.cwd, 'prompt.txt'), 'utf8');
+    assert.deepEqual(fake.modelCalls()[0].args.slice(-2), ['--', prompt]);
+  });
+}
+
 test('valid start: one fresh lead, bounded flags, plugin instruction, private sanitized storage', async (t) => {
   const f = fixture(t);
   const telemetry = event();
