@@ -16,7 +16,7 @@ No route recording is needed to implement the next code slices. After waking, su
 
 | Order | Slice | Acceptance evidence |
 |---|---|---|
-| 0 | Publish the local baseline and add PR checks | Baseline published. CI workflow added on feat/ci-checks; hosted CI evidence pending on the PR. |
+| 0 | Publish the local baseline and add PR checks | Done. Baseline published. CI installed by PR #3; hosted run 37107022203 passed on `3f5b829` (job `checks`, 33s). |
 | 1 | Guard unattended runs | Done: 31 fake-process checks and one real host probe pass. Plugin job recovery remains a manual, owned-job check. |
 | 1a | Support detailed route actions | Implement [the accepted action scope](../stages/01-scope/output/complex-route-guidance.md): named doors, ordered floor transitions, side-specific instructions, optional arrows and evidence-based completion. Must precede provider slices. |
 | 2 | Teach a route from uploaded media | Bounded input validation and storage, editable extraction draft, useful errors. Use official APIs and existing contracts. |
@@ -89,4 +89,4 @@ Cursor should do real work: inspect a PR, find UX defects, verify an error path 
 
 ## Current launch state
 
-The guard passes 31 fake-process checks. The real Node 24 probe at 2026-10-03T07:20:31Z exited 0: five-hour 0.02, seven-day 0.17, no overage, one assistant turn. Root `npm run check`, `npm run typecheck` and `npm run build` pass. The heartbeat `breadcrumb-mvp-until-noon` is active every 20 minutes until 2026-10-03T16:00Z. CI workflow added on feat/ci-checks; hosted CI evidence pending on the PR. No footage, API file or Cursor sign-in is available. See [the guard receipt](../stages/03-build/output/overnight-guard.md) and `PROGRESS.md`.
+The guard passes 31 fake-process checks. The real Node 24 probe at 2026-10-03T07:20:31Z exited 0: five-hour 0.02, seven-day 0.17, no overage, one assistant turn. Root `npm run check`, `npm run typecheck` and `npm run build` pass. The heartbeat `breadcrumb-mvp-until-noon` is active every 20 minutes until 2026-10-03T16:00Z. CI installed by PR #3; hosted run 37107022203 passed on `3f5b829` (job `checks`, 33s). No footage, API file or Cursor sign-in is available. See [the guard receipt](../stages/03-build/output/overnight-guard.md) and `PROGRESS.md`.

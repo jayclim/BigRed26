@@ -26,10 +26,9 @@ Local results on this Mac: Node 24.11.1, npm 11.6.2. `node_modules` was absent;
 | `node scripts/smoke-api.mjs` | FAIL, exit 1. The sandbox denied `0.0.0.0:3107`; `next start` exited 1 before HTTP assertions ran. |
 | YAML validation with installed Python PyYAML | PASS, exit 0. The file parsed. Triggers, permission, concurrency, runner, timeout, action versions, Node version, cache, and command order matched the requirements. |
 
-Limits: hosted Ubuntu has not run this workflow. Hosted CI evidence is pending
-on the PR commit. The build needs public Google Fonts access. Local font access
-failed, and the sandbox denied local listeners. The failed build also leaves the
-production server checks incomplete. No browser/UI checks or provider evidence
+Limits: the build needs public Google Fonts access. Local font access
+failed in the worker sandbox, which also denied local listeners. The failed build left the
+sandbox server checks incomplete; the host rerun below passed them. No browser/UI checks or provider evidence
 were produced. No scripts or application files were changed.
 
 Host lead rerun, same worktree, outside the worker sandbox: `npm run build` PASS
@@ -40,5 +39,11 @@ rejected without touching existing server); `node scripts/smoke-api.mjs` PASS
 Commit status: the worker sandbox denied `git add` (worktree `index.lock`). The
 host lead staged the four owned paths, committed and opened the PR.
 
-Next action: the lead opens a PR, observes hosted CI on that commit, and obtains
-an independent review. This task does not push or open the PR.
+Hosted CI, observed 2026-10-03: PR #3 head `3f5b829` ran workflow `CI`, job
+`checks`, on `ubuntu-latest`; it passed in 33s
+(https://github.com/jayclim/BigRed26/actions/runs/37107022203/job/111157440429).
+The controller reviewed the exact head and found no blocking issues. Hosted CI
+covers core, typecheck, build, guard and server smoke checks only. It does not
+cover browser/UI, real devices or providers.
+
+Next action: queue item 1a, detailed route actions.
