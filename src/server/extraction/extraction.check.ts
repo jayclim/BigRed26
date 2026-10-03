@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createCore, emptyState } from '../core/core.ts';
@@ -74,6 +74,50 @@ try {
   assert.equal(fetches, 0);
   assert.equal(saves, 0);
   assert.deepEqual(state.routes, {});
+  for (const phase of ['metadata', 'media']) {
+    for (const mode of ['never', 'late']) {
+      let reads = 0;
+      let deadlineGenerates = 0;
+      let deadlineSaves = 0;
+      let resolveRead: ((value: string | Buffer) => void) | undefined;
+      const injectedRead = ((...args: Parameters<typeof readFile>) => {
+        reads++;
+        if (phase === 'media' && args[0] === metadataPath) return readFile(...args);
+        // Ignore the signal to reproduce a stalled filesystem operation.
+        return new Promise<string | Buffer>((resolve) => {
+          if (mode === 'late') resolveRead = resolve;
+        });
+      }) as typeof readFile;
+      let guard: ReturnType<typeof setTimeout> | undefined;
+      const watchdog = new Promise<never>((_resolve, reject) => {
+        guard = setTimeout(() => reject(new Error(`${phase} ${mode} read exceeded the 150 ms deadline guard`)), 150);
+      });
+      try {
+        const started = performance.now();
+        const pending = extractDraft(mediaId, {
+          directory, timeoutMs: 20, readFile: injectedRead,
+          generate: async () => { deadlineGenerates++; return fixture; },
+          core: { saveDraft: async (draft) => { deadlineSaves++; return { ok: true, value: draft }; } },
+        });
+        const error = failure(await Promise.race([pending, watchdog]), 'PROVIDER_UNAVAILABLE', true);
+        const elapsedMs = performance.now() - started;
+        assert.equal(error.message, 'Gemini extraction was cancelled or timed out. Retry the video.');
+        assert.ok(elapsedMs < 150, `${phase} ${mode} read took ${elapsedMs.toFixed(1)} ms`);
+        assert.equal(reads, phase === 'metadata' ? 1 : 2);
+        assert.equal(deadlineGenerates, 0);
+        assert.equal(deadlineSaves, 0);
+        if (mode === 'late') {
+          assert.ok(resolveRead);
+          resolveRead(phase === 'metadata' ? JSON.stringify(metadata) : bytes);
+          await new Promise<void>((resolve) => setImmediate(resolve));
+          assert.equal(reads, phase === 'metadata' ? 1 : 2);
+          assert.equal(deadlineGenerates, 0);
+          assert.equal(deadlineSaves, 0);
+        }
+        console.log(`${phase} ${mode} read: ${elapsedMs.toFixed(1)} ms (timeoutMs=20; generate=0; save=0)`);
+      } finally { clearTimeout(guard); }
+    }
+  }
   failure(await run(async () => { throw new Error('secret-provider-body'); }), 'PROVIDER_UNAVAILABLE', true);
   const keepAlive = setInterval(() => {}, 100); // AbortSignal.timeout uses an unref'ed timer
   try {

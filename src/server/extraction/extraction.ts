@@ -127,45 +127,52 @@ export async function extractDraft(mediaId: string, deps: {
   directory?: string;
   timeoutMs?: number;
   signal?: AbortSignal;
+  readFile?: typeof readFile;
   core?: Pick<CoreAdapter, 'saveDraft'>; // isolated fixture checks use an in-memory core
 }): Promise<Result<Route>> {
   if (!UUID.test(mediaId)) return fail('INVALID_INPUT', 'Media id must be a UUID.');
   const signal = AbortSignal.any([AbortSignal.timeout(deps.timeoutMs ?? 60_000), ...(deps.signal ? [deps.signal] : [])]);
   const directory = deps.directory ?? mediaDirectory();
+  const read = deps.readFile ?? readFile;
   let video: { bytes: Buffer; type: MediaType };
-  try {
-    signal.throwIfAborted();
-    const metadata = JSON.parse(await readFile(join(directory, `${mediaId}.json`), { encoding: 'utf8', signal }));
-    const type: unknown = metadata.type;
-    if (metadata.id !== mediaId || typeof type !== 'string' || !isMediaType(type) || !Number.isSafeInteger(metadata.size) || metadata.size <= 0)
-      return fail('PROVIDER_UNAVAILABLE', 'Stored video metadata is invalid. Upload the video again.', true);
-    if (metadata.size >= MAX_INLINE_REQUEST_BYTES) return fail('INVALID_INPUT', LIMIT_MESSAGE);
-    const file = join(directory, `${mediaId}.${MEDIA_EXTENSIONS[type]}`);
-    const bytes = await readFile(file, { signal });
-    signal.throwIfAborted();
-    if (bytes.byteLength !== metadata.size) return fail('PROVIDER_UNAVAILABLE', 'Stored video size does not match its metadata. Upload the video again.', true);
-    video = { bytes, type };
-  } catch (error) {
-    if (signal.aborted) return fail('PROVIDER_UNAVAILABLE', 'Gemini extraction was cancelled or timed out. Retry the video.', true);
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return fail('NOT_FOUND', 'Stored video not found.');
-    return fail('PROVIDER_UNAVAILABLE', 'Stored video could not be read. Upload it again or check local storage.', true);
-  }
-
   let output: unknown;
   let onAbort: (() => void) | undefined;
+  // Bound reads and injected providers even when they do not observe their signal.
+  const cancelled = new Promise<never>((_resolve, reject) => {
+    onAbort = () => reject(signal.reason);
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+  void cancelled.catch(() => {});
   try {
-    signal.throwIfAborted();
-    // Also bound injected providers which do not observe their signal.
-    const cancelled = new Promise<never>((_resolve, reject) => {
-      onAbort = () => reject(signal.reason);
-      signal.addEventListener('abort', onAbort, { once: true });
-    });
-    output = await Promise.race([deps.generate(video, signal), cancelled]);
-    signal.throwIfAborted();
-  } catch (error) {
-    if (signal.aborted) return fail('PROVIDER_UNAVAILABLE', 'Gemini extraction was cancelled or timed out. Retry the video.', true);
-    if (error instanceof ExtractionError) return fail(error.code, error.message, error.retryable);
-    return fail('PROVIDER_UNAVAILABLE', 'Gemini extraction failed. Retry the video.', true);
+    try {
+      signal.throwIfAborted();
+      const metadataText = await Promise.race([read(join(directory, `${mediaId}.json`), { encoding: 'utf8', signal }), cancelled]);
+      signal.throwIfAborted();
+      const metadata = JSON.parse(metadataText);
+      const type: unknown = metadata.type;
+      if (metadata.id !== mediaId || typeof type !== 'string' || !isMediaType(type) || !Number.isSafeInteger(metadata.size) || metadata.size <= 0)
+        return fail('PROVIDER_UNAVAILABLE', 'Stored video metadata is invalid. Upload the video again.', true);
+      if (metadata.size >= MAX_INLINE_REQUEST_BYTES) return fail('INVALID_INPUT', LIMIT_MESSAGE);
+      const file = join(directory, `${mediaId}.${MEDIA_EXTENSIONS[type]}`);
+      const bytes = await Promise.race([read(file, { signal }), cancelled]);
+      signal.throwIfAborted();
+      if (bytes.byteLength !== metadata.size) return fail('PROVIDER_UNAVAILABLE', 'Stored video size does not match its metadata. Upload the video again.', true);
+      video = { bytes, type };
+    } catch (error) {
+      if (signal.aborted) return fail('PROVIDER_UNAVAILABLE', 'Gemini extraction was cancelled or timed out. Retry the video.', true);
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return fail('NOT_FOUND', 'Stored video not found.');
+      return fail('PROVIDER_UNAVAILABLE', 'Stored video could not be read. Upload it again or check local storage.', true);
+    }
+
+    try {
+      signal.throwIfAborted();
+      output = await Promise.race([deps.generate(video, signal), cancelled]);
+      signal.throwIfAborted();
+    } catch (error) {
+      if (signal.aborted) return fail('PROVIDER_UNAVAILABLE', 'Gemini extraction was cancelled or timed out. Retry the video.', true);
+      if (error instanceof ExtractionError) return fail(error.code, error.message, error.retryable);
+      return fail('PROVIDER_UNAVAILABLE', 'Gemini extraction failed. Retry the video.', true);
+    }
   } finally {
     if (onAbort) signal.removeEventListener('abort', onAbort);
   }
