@@ -110,19 +110,23 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
 
   useEffect(() => {
     setVoiceStatus(null);
-    if (!voice) return () => { window.speechSynthesis?.cancel(); spoken.current = null; };
-    const player = createVoicePlayer({ voice, createAudio: (url) => new Audio(url), onStatus: setVoiceStatus });
+    const player = createVoicePlayer({ createAudio: (url) => new Audio(url), onStatus: setVoiceStatus });
     voicePlayer.current = player;
-    return () => { player.dispose(); voicePlayer.current = null; };
-  }, [voice]);
+    return () => {
+      player.dispose(); voicePlayer.current = null;
+      window.speechSynthesis?.cancel(); spoken.current = null;
+    };
+  }, []);
 
   // Speak only new instructions; cancel anything stale. Never blocks the UI.
   useEffect(() => {
     if (voice) {
+      window.speechSynthesis?.cancel(); spoken.current = null;
       if (!sound || !guidance || guidance.locale !== locale) voicePlayer.current?.stop();
-      else void voicePlayer.current?.speak(guidance);
+      else void voicePlayer.current?.speak(voice, guidance);
       return;
     }
+    voicePlayer.current?.stop();
     const synth = typeof window !== 'undefined' ? window.speechSynthesis : undefined;
     if (!synth) return;
     if (!sound || !guidance) { synth.cancel(); spoken.current = null; return; }

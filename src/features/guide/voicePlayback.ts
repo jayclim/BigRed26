@@ -9,8 +9,7 @@ export interface AudioLike {
 }
 export type VoiceStatus = 'unavailable' | null;
 
-export function createVoicePlayer({ voice, createAudio, voiceId = DEFAULT_VOICE_ID, onStatus }: {
-  voice: VoiceAdapter;
+export function createVoicePlayer({ createAudio, voiceId = DEFAULT_VOICE_ID, onStatus }: {
   createAudio: (url: string) => AudioLike;
   voiceId?: string;
   onStatus: (status: VoiceStatus) => void;
@@ -29,7 +28,7 @@ export function createVoicePlayer({ voice, createAudio, voiceId = DEFAULT_VOICE_
     currentKey = null;
     if (!disposed) onStatus(null);
   }
-  async function speak(guidance: Guidance) {
+  async function speak(voice: VoiceAdapter, guidance: Guidance) {
     if (disposed) return;
     const key = JSON.stringify([guidance.instructionId, guidance.locale, guidance.text]);
     if (currentKey === key) return;

@@ -242,10 +242,14 @@ Lead repairs after the worker handback:
 The voice check uses only fake synthesis and fake audio.
 The labeling check reads source. It does not establish rendered layout or browser playback.
 
+## Review repair
+
+2026-10-03, PR #14, base head df0580a: a new voice adapter object recreated the player. This cleared the current key and repeated the same instruction. The player now starts in the mount effect and is disposed in cleanup. Each effect setup creates a fresh player, including React Strict Mode setup after cleanup. speak receives the adapter per call. A replacement adapter keeps the current key and clip. A new instruction uses the supplied adapter. Removing the adapter stops generated audio before browser speech runs. Cleanup also cancels browser speech. Generation tokens still reject late results after cancellation. Two new check groups cover adapter replacement without a pause or repeat request, and late synthesis from X after a new instruction through Y. Actual local results: voicePlayback.check.ts passed all 9 groups; checkView.check.ts passed all 8 groups; npm run check passed core, media and extraction (32 extraction cases, no network calls); npm run typecheck passed with tsc --noEmit. All four commands exited 0. No check failed. The worker ran no build or browser check. Host rerun by the lead on the repaired tree: the same four commands passed, npm run build passed, node scripts/follow-camera.check.mjs 3153 passed all 8 groups, and the scratch CDP render passed at 390x844 and 1280x800 for the browser-speech states. Strict Mode behavior and the generated-voice component path were inspected in source only. No provider or phone check was run.
+
 ## Limitations
 
 Generated voice is not wired into the app mount in this PR.
-Generated-voice UI states (Generated voice label, Voice unavailable status) were not rendered in a browser. The app mount is outside Part B ownership, and a temporary local mount patch was not permitted. The node check covers their logic only.
+Generated-voice UI states (Generated voice label, Voice unavailable status) were not rendered in a browser. The app mount is outside Part B ownership, and a temporary local mount patch was not permitted. The node check covers player logic: requests, playback and status callbacks. It does not test the generated label text, the translated unavailable message or component wiring.
 audio.play() runs after the synthesize promise, outside the tap gesture. Mobile Safari may reject it. The rejection shows Voice unavailable and does not change navigation. Phone behavior is unverified.
 Real provider success, browser autoplay permission and physical phone audio remain unverified.
 A synthesis request cannot be aborted through the current VoiceAdapter contract.
