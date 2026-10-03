@@ -1,8 +1,6 @@
 import type { Metadata, Viewport } from 'next';
-import { Atkinson_Hyperlegible } from 'next/font/google';
+import { MotionProvider } from '@/ui/MotionProvider';
 import '@/ui/theme.css';
-
-const body = Atkinson_Hyperlegible({ subsets: ['latin', 'latin-ext'], weight: ['400', '700'], variable: '--font-body' });
 
 export const metadata: Metadata = {
   title: 'Breadcrumb (mock)',
@@ -12,8 +10,8 @@ export const viewport: Viewport = { width: 'device-width', initialScale: 1 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={body.variable}>
-      <body>{children}</body>
+    <html lang="en">
+      <body><MotionProvider>{children}</MotionProvider></body>
     </html>
   );
 }

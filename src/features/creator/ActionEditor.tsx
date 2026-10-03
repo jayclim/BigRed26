@@ -1,4 +1,7 @@
 'use client';
+import { Button } from '@/ui/button';
+import { Textarea } from '@/ui/textarea';
+import { Input } from '@/ui/input';
 import type { CheckpointAction, Locale } from '@contracts/contracts.ts';
 
 const KINDS: CheckpointAction['kind'][] = ['turn', 'door', 'elevator', 'stairs', 'pass_side', 'other'];
@@ -22,7 +25,7 @@ export function ActionEditor({ action, disabled, onChange }: {
       </label>
       {action && <>
         <label>Target sign, label or landmark
-          <input value={action.target} maxLength={500} onChange={(e) => patch({ target: e.target.value })} />
+          <Input value={action.target} maxLength={500} onChange={(e) => patch({ target: e.target.value })} />
         </label>
         <div className="langs">
           <label>Side from the recorded approach
@@ -31,7 +34,7 @@ export function ActionEditor({ action, disabled, onChange }: {
             </select>
           </label>
           <label>Target floor
-            <input value={action.targetFloor ?? ''} maxLength={200} onChange={(e) => patch({ targetFloor: e.target.value || null })} />
+            <Input value={action.targetFloor ?? ''} maxLength={200} onChange={(e) => patch({ targetFloor: e.target.value || null })} />
           </label>
         </div>
         <ol className="action-edit-steps">
@@ -39,25 +42,25 @@ export function ActionEditor({ action, disabled, onChange }: {
             <div className="langs">
               {LOCALES.map((locale) => <label key={locale}>
                 Step {i + 1} · {locale === 'en' ? 'English' : 'Spanish'}
-                <textarea lang={locale} maxLength={500} value={step[locale]} onChange={(e) => patch({
+                <Textarea lang={locale} maxLength={500} value={step[locale]} onChange={(e) => patch({
                   steps: action.steps.map((s, index) => index === i ? { ...s, [locale]: e.target.value } : s),
                 })} />
               </label>)}
             </div>
             <div className="row">
-              <button className="btn" type="button" disabled={disabled || i === 0} onClick={() => {
+              <Button variant="outline" type="button" disabled={disabled || i === 0} onClick={() => {
                 const steps = [...action.steps]; [steps[i - 1], steps[i]] = [steps[i], steps[i - 1]]; patch({ steps });
-              }}>Move step {i + 1} up</button>
-              <button className="btn" type="button" onClick={() => patch({ steps: action.steps.filter((_, index) => index !== i) })}>Remove step {i + 1}</button>
+              }}>Move step {i + 1} up</Button>
+              <Button variant="outline" type="button" onClick={() => patch({ steps: action.steps.filter((_, index) => index !== i) })}>Remove step {i + 1}</Button>
             </div>
           </li>)}
         </ol>
-        <button className="btn" type="button" disabled={disabled || action.steps.length >= 50}
-          onClick={() => patch({ steps: [...action.steps, { en: '', es: '' }] })}>Add ordered step</button>
+        <Button variant="outline" type="button" disabled={disabled || action.steps.length >= 50}
+          onClick={() => patch({ steps: [...action.steps, { en: '', es: '' }] })}>Add ordered step</Button>
         <div className="langs">
           {LOCALES.map((locale) => <label key={locale}>
             Completion condition · {locale === 'en' ? 'English' : 'Spanish'}
-            <textarea lang={locale} maxLength={500} value={action.completion[locale]}
+            <Textarea lang={locale} maxLength={500} value={action.completion[locale]}
               onChange={(e) => patch({ completion: { ...action.completion, [locale]: e.target.value } })} />
           </label>)}
         </div>
