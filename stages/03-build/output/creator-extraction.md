@@ -58,7 +58,7 @@ For injected success, CDP Fetch intercepts `*/api/media/*/extract`. Before fulfi
 
 The harness measures horizontal overflow with screenshots in each case. Rendered fit, focus visibility and interactive behavior passed on the host with fixtures. Provider access, live schema acceptance, real-footage extraction and physical navigation remain **UNVERIFIED**. Fixture success is injected via test intercept. No live result is claimed.
 
-Next: an independent [SOL] review of the exact PR head, then the lead merges. After that: Part A checkpoint 3 (approved-route export, legacy/detailed actions, version pinning), and 2b-3 live extraction only after spending caps are confirmed.
+This pre-review checkpoint is superseded by the integration result below.
 
 ## Review fix
 
@@ -68,7 +68,7 @@ VideoUpload now calls an optional selection-change callback on select, choose-an
 
 Checks in this worktree with Node 24.11.1: `npm run typecheck`, `npm run check` (core, media and 32 mocked extraction cases), `npm run build` and `git diff --check` passed. Build reported six existing dynamic-filesystem tracing warnings in unchanged server files. No real provider API was called. No new files or tests were added. No existing test file covers CreatorScreen; the ignored `.overnight` browser harness was not run, so the A-to-B browser scenario remains unverified here.
 
-The Codex sandbox could not write the shared Git index lock, so the lead committed and pushed these three worker-made files from the host. Next: independent review of the updated PR head; the lead merges.
+The Codex sandbox could not write the shared Git index lock, so the lead committed and pushed these three worker-made files from the host. That review was completed in the integration result below.
 
 ## A-to-B video switch browser check (fdead2c), 2026-10-03
 
@@ -81,3 +81,9 @@ Lead `f59df765` ran the extended ignored harness `.overnight/ui-extraction.mjs` 
 5. A and B uploads store different IDs; the next POST URL uses B's ID; the opened draft has B `sourceVideoId`.
 
 Limits: all extraction responses are injected (no provider call, no key or enable flag). Case 4 selects B through CDP on the real file input because the UI disables it during extraction. The injected error text always says "Injected A extraction error", so the case 4 screenshot shows that text for B's request; request IDs, not the text, prove ownership. The known `ENOTEMPTY` temp-profile cleanup error appeared after `RESULT PASS`. No app code changed. The repair review of fdead2c did not return a handback and is still required before merge. Log: `.overnight/ui-extraction/host-fdead2c-regression.log` (ignored).
+
+## Integration result
+
+Observed 2026-10-03: a fresh independent review found no blockers in the repair and confirmed the final evidence commit changed documentation only. PR #9 was squash-merged at `9f0da2faf4d5ccb86991d2143afc818eac451934`, without bypass, after passing CI on head `9eb9811`. Main CI run 37143799864 passed. The published branch and root main match their remote SHAs.
+
+The final host suite passed 98 checks, including all 10 video-switch regressions at phone and desktop widths. Fixture-only and CDP limitations listed above still apply. The approved-route export and immutable version boundary reuse the existing API and core checks. Real provider extraction and physical route evidence remain pending. A non-blocking follow-up is pending-save feedback when changing video; creator edits remain intact.

@@ -1,12 +1,12 @@
 # Current state
 
-Updated: 2026-10-03. Lead: Claude Code. Its initial build/review runs are complete. New sessions use `docs/OVERNIGHT.md` and `knowledge/work-protocol.md`; the old build session is `93ecef95-52b5-4b04-9921-a843756f4f8b`.
+Updated: 2026-10-03. PRs 1–9 are merged and pushed. Teach upload, extraction draft editing, review and approval pass fixture/code/browser gates. Main `9f0da2f` has passing CI. Live extraction and physical navigation remain unverified. Use [TEAM-HANDOFF](docs/TEAM-HANDOFF.md) for current ownership and [the work protocol](knowledge/work-protocol.md) for execution rules. The overnight run is stopped and its heartbeat is paused.
 
 | Stage | State | Evidence / next action |
 |---|---|---|
 | Scope | Mock complete; detailed actions added to live MVP scope | `stages/01-scope/output/complex-route-guidance.md` |
 | Design | Rendered and refined | `stages/02-design/output/local-mvp-design.md` |
-| Build | Local mock MVP complete; detailed actions (PR #5) implementation complete in mock/code gates, live/physical gate pending | `stages/03-build/output/detailed-route-actions.md` |
+| Build | Teach UI merged through PR #9; detailed actions and extraction pass fixture/code gates; live/physical gate pending | `stages/03-build/output/detailed-route-actions.md` |
 | Verify | Mock/code/UI gates passed; live gate pending | `stages/04-verify/output/verification.md` |
 | Project brain | Three original skills validated; shared orchestrator added and validated | `AGENTS.md`, `knowledge/`, `skills/` |
 | Overnight workflow | Guard complete: 31 fake-process checks and a real host probe pass | `stages/03-build/output/overnight-guard.md`, `docs/OVERNIGHT.md` |
@@ -38,6 +38,6 @@ Overnight work stopped after Claude OAuth expired around 08:07 Eastern. PRs 1–
 
 Handoff checks: inspected contract/adapter signatures and existing fixtures, checked documentation links, and verified this change contains documentation only. App tests were not rerun for this handoff. The friend must run baseline checks on their machine before implementation.
 
-Slice 2b-2 (creator extraction UI), Part A checkpoints 1–2, 2026-10-03: committed on `feat/creator-extraction-ui` over main `4951488`. Host checks by lead `a6165a41`: `npm run check`, typecheck, normal build and 58/58 rendered fixture checks at 390/1280 (disabled endpoint, injected draft, approve/persist, cancel/late response, fixture switch, unsaved-edit guard, keyboard focus, no overflow). Success responses were injected by a test intercept; this is not provider evidence. Gemini access, real footage and physical navigation remain UNVERIFIED. See [the receipt](stages/03-build/output/creator-extraction.md). Next: independent [SOL] review of the exact PR head, then merge; then Part A checkpoint 3.
+Slice 2b-2 (creator extraction UI), 2026-10-03: merged through [PR #9](https://github.com/jayclim/BigRed26/pull/9) at `9f0da2faf4d5ccb86991d2143afc818eac451934`. Core, typecheck and normal build passed. Browser checks passed 98/98 at 390/1280, including 10/10 A-to-B video-switch regressions. Responses were injected; this is not provider evidence. A final independent repair review found no blockers. CI passed on PR head `9eb9811` (run 37143516349) and merged main (run 37143799864). All created commits were pushed; root main matches origin. See [the receipt](stages/03-build/output/creator-extraction.md).
 
-PR #9 A-to-B video switch, 2026-10-03: the host browser harness passed 10/10 A-to-B regression cases at 390/1280 on code head `fdead2c` (injected responses only; see the receipt). The fdead2c repair review returned no handback, so it is still pending. PR #9 stays open. Next: a short fresh [SOL] review of the fdead2c repair, then merge. Gemini access, real footage and physical navigation remain UNVERIFIED; the MVP is not fully verified.
+The approved-route handoff already uses `GET /api/routes/:id?version=N`. Existing core checks cover legacy/detailed actions and pinned approved versions after a new approval. Part B can use committed fixtures without waiting for live extraction. Next: confirm provider spending caps, run a real teaching-video extraction, then collect independent phone evidence. Follow and Voice remain in their assigned lanes. One non-blocking follow-up: changing video while a draft save is pending can suppress save feedback; edits remain intact.
