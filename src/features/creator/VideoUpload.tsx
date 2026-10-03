@@ -6,8 +6,8 @@ import { MEDIA_ACCEPT, MEDIA_LIMIT_TEXT, mediaInputError } from '@/shared/mediaL
 
 type Message = { kind: 'error'; text: string } | { kind: 'ok'; media: StoredMedia };
 
-export function VideoUpload({ onCreateDraft, extractionBusy, extractionDisabled }: {
-  onCreateDraft: (mediaId: Id) => void; extractionBusy: boolean; extractionDisabled: boolean;
+export function VideoUpload({ onCreateDraft, onSelectionChange, extractionBusy, extractionDisabled }: {
+  onCreateDraft: (mediaId: Id) => void; onSelectionChange?: () => void; extractionBusy: boolean; extractionDisabled: boolean;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState('');
@@ -32,6 +32,7 @@ export function VideoUpload({ onCreateDraft, extractionBusy, extractionDisabled 
   useEffect(() => () => requestRef.current?.abort(), []);
 
   function select(selected: File | null) {
+    onSelectionChange?.();
     setMessage(null);
     const error = selected && mediaInputError(selected);
     setFile(error ? null : selected);
@@ -42,12 +43,14 @@ export function VideoUpload({ onCreateDraft, extractionBusy, extractionDisabled 
   }
 
   function chooseAnother() {
+    onSelectionChange?.();
     setFile(null); setMessage(null);
     if (inputRef.current) { inputRef.current.value = ''; inputRef.current.focus(); }
   }
 
   async function upload() {
     if (!file || busy) return;
+    onSelectionChange?.();
     const controller = new AbortController();
     requestRef.current = controller;
     setBusy(true); setMessage(null);

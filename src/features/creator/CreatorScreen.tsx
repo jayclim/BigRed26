@@ -40,6 +40,7 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
   function clearExtraction() {
     token.current++;
     request.current?.abort(); request.current = null;
+    retryMedia.current = null;
     setExtracting(false); setExtractionError(null); setGuardMedia(null); setPendingDraft(null);
   }
 
@@ -184,7 +185,7 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
         {route.id !== actionFixture.route.id && <button className="btn" disabled={busy || !saved} onClick={loadActionFixture}>Review detailed-action mock fixture</button>}
       </header>
 
-      <VideoUpload onCreateDraft={requestExtraction} extractionBusy={extracting}
+      <VideoUpload onCreateDraft={requestExtraction} onSelectionChange={clearExtraction} extractionBusy={extracting}
         extractionDisabled={busy || !!guardMedia || !!pendingDraft} />
       {extracting && <div className="notice" role="status">
         <p>Creating a draft from your video… this can take a minute</p>

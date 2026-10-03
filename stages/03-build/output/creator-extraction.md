@@ -59,3 +59,13 @@ For injected success, CDP Fetch intercepts `*/api/media/*/extract`. Before fulfi
 The harness measures horizontal overflow with screenshots in each case. Rendered fit, focus visibility and interactive behavior passed on the host with fixtures. Provider access, live schema acceptance, real-footage extraction and physical navigation remain **UNVERIFIED**. Fixture success is injected via test intercept. No live result is claimed.
 
 Next: an independent [SOL] review of the exact PR head, then the lead merges. After that: Part A checkpoint 3 (approved-route export, legacy/detailed actions, version pinning), and 2b-3 live extraction only after spending caps are confirmed.
+
+## Review fix
+
+2026-10-03, PR #9: replacing video A with video B left A's retry, unsaved-edit guard and pending draft active. A late extraction response could also open A's draft while B was displayed.
+
+VideoUpload now calls an optional selection-change callback on select, choose-another and upload start. CreatorScreen reuses `clearExtraction` to invalidate the token, abort the request and clear the error, guard, pending draft and retry media. The current route, edits and saved state are kept.
+
+Checks in this worktree with Node 24.11.1: `npm run typecheck`, `npm run check` (core, media and 32 mocked extraction cases), `npm run build` and `git diff --check` passed. Build reported six existing dynamic-filesystem tracing warnings in unchanged server files. No real provider API was called. No new files or tests were added. No existing test file covers CreatorScreen; the ignored `.overnight` browser harness was not run, so the A-to-B browser scenario remains unverified here.
+
+The Codex sandbox could not write the shared Git index lock, so the lead committed and pushed these three worker-made files from the host. Next: independent review of the updated PR head; the lead merges.
