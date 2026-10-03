@@ -165,6 +165,8 @@ There is no production registration in this change. Live and replay still fail h
 The real Gemini request shape is unverified against a live call.
 The core window is current/next only. The recognizer sends all approved checkpoint candidates.
 JPEG bytes are not decoded. Visible-text truth requires provider evidence; schema checks prove structure and bounds only.
+Host rerun by the lead (2026-10-03): the new checks fail against the old schema (matchFrame accepted blank evidence) and pass with the fix. On the host, recognizer.check.ts passed all six groups, and npm run check and npm run typecheck passed. npm run build of commit 6f5feb0 passed in the main checkout. In this worktree the build stops early because node_modules is a symlink outside the project root, which Turbopack rejects. That is an environment limit, not a code failure. smoke-api was not run because no HTTP handler changed.
+
 Legacy checkpoints without an action still accept any non-blank evidence string in core. Matching evidence against `identifyingEvidence` remains an integration-owner core decision.
 The stale race uses sequence 1 to activate the action, then slow sequence 2 and manual sequence 3.
 The core requires an active action for completeAction, so slow sequence 1 versus manual sequence 2 cannot be accepted in a fresh session without first activating that action.
