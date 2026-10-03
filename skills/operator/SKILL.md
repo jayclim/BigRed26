@@ -17,4 +17,4 @@ Use synchronous foreground rescue with `--fresh --wait --model <model>` and effo
 
 A background ID is an enforcement failure; a background ID or empty result is a failed handoff. Stop new dispatch, preserve work and save recovery information under the protocol. Do not retry blindly. Reuse an ephemeral session only after the runtime confirms that it exists; otherwise use a saved handoff and fresh worker.
 
-Supervise with evidence. Inspect the result and diff against the contract and verify actual checks. A separate reviewer checks the exact commit, including the requested Cursor review. Claude alone integrates reviewed work. Keep compact handoffs and record knowledge, limitations and next action in each change.
+Supervise with evidence. Inspect the result and diff against the contract and verify actual checks. A separate reviewer checks the exact commit; Cursor is a useful independent reviewer when it fits, not a required step. Claude alone integrates reviewed work. Keep compact handoffs and record knowledge, limitations and next action in each change.

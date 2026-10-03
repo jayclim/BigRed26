@@ -9,7 +9,7 @@ Status: user decision, 2026-10-03. This is the canonical source for role and mod
 | Lead | Claude Code | Choose scope, architecture, task order and acceptance criteria. Maintain the work queue. |
 | Controller | Codex chat controller | Supervise at high level: wake-up, usage and convention checks. Claude retains direction and integration. |
 | Implementer | Codex, routed below through Claude's official Codex plugin | Change assigned files in one feature branch. Test, commit, push and open a PR. |
-| Reviewer | A separate fresh session; Cursor review is an explicit user request | Check the exact PR commit and run relevant checks. Report defects with evidence. Cursor review does not change the Codex implementation path. |
+| Reviewer | A separate fresh session; Cursor is a useful independent reviewer when it fits | Check the exact PR commit and run relevant checks. Report defects with evidence. Cursor is not required on every PR and does not change the Codex implementation path. Cursor sign-in alone does not verify spending limits. |
 | Merger | One named Claude Code integration session | Reconcile knowledge, check the current PR commit and merge. Claude Code is the sole merger. No other worker merges. |
 
 Use one implementer at a time by default. Do not start unnecessary parallel workers. Use two only for independent tasks with disjoint files when the split reduces work. Keep delegation one level deep. Review and merger are roles; do not keep idle agents running. These are shared-account procedures, not separate GitHub access controls.
@@ -25,7 +25,7 @@ Read both the project [operator](../skills/operator/SKILL.md) and [orchestrator]
 
 Leave effort unset. Use `[LUNA]` or `[SOL]` task labels. Give the worker a self-contained contract: objective, context, owned paths, invariants, exclusions, acceptance checks and required evidence. Do not silently substitute a model. Record observed model support and the runtime used.
 
-Runtime evidence supplied by the user on 2026-10-03: gpt-6.1-sol succeeded on Codex 0.159.2; gpt-6-luna authorized 2026-10-03 but not yet observed. Authorization alone does not establish model support.
+Authorization: the user chose both models on 2026-10-03. Observed runtime evidence, 2026-10-03: gpt-6.1-sol succeeded on Codex 0.159.2 in controller, Claude lead and official plugin runs (latest rescue thread `01a100c8-4dfd-7fe2-9ed0-b921c5b12d2e`). gpt-6-luna is authorized but not yet observed. Authorization alone does not establish model support.
 
 Implementation runs only through Claude Code's native `Agent(subagent_type="codex:codex-rescue")` with the official Codex plugin. Dispatch in the foreground with `--fresh --wait --model <model>`. Do not set `run_in_background` or use `--background`. The rescue subagent only forwards the task. The native Agent result is completion; do not poll a live rescue or dispatch status/result collectors. Never bypass the plugin with a direct Codex CLI task.
 
