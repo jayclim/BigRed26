@@ -3,10 +3,11 @@ import { readFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { z } from 'zod';
 import type { Result, Route, FrameRequest } from '../../../contracts/contracts.ts';
 import { createCore, emptyState } from '../core/core.ts';
 import { saveFrame } from '../frames/frames.ts';
-import { createRecognizer, type RecognitionProvider } from './recognizer.ts';
+import { createRecognizer, RecognitionOutputSchema, type RecognitionProvider } from './recognizer.ts';
 import { geminiRecognitionProvider, liveRecognitionEnabled } from './gemini.ts';
 import { MAX_PROVIDER_RESPONSE_BYTES } from '../extraction/extraction.ts';
 
@@ -62,6 +63,36 @@ try {
   const beforeMissing = calls;
   error(await s.match(`frame_${randomUUID()}`), 'NOT_FOUND', false); error(await s.match('../unsafe'), 'INVALID_INPUT', false); assert.equal(calls, beforeMissing);
   console.log('PASS approved guidance, pinned version, validation, approach, unknown, window and media');
+
+  for (const [index, evidence] of ([[''], ['   '], ['Example entrance sign', '  ']] as const).entries()) {
+    let checkpointId = 'entrance';
+    let blankEvidence = ['Example entrance sign'];
+    const blank = await setup(async () => observation(checkpointId, true, blankEvidence));
+    if (index === 2) {
+      value(await blank.match()); checkpointId = 'mural'; value(await blank.match());
+      checkpointId = 'destination'; blankEvidence = [...evidence];
+    } else blankEvidence = [...evidence];
+    const before = value(await blank.core.getSession(blank.session.id));
+    const guidanceBefore = value(await blank.core.currentGuidance(blank.session.id));
+    const result = await blank.match();
+    error(result, 'PROVIDER_UNAVAILABLE');
+    assert.equal(value(await blank.core.getSession(blank.session.id)).lastConfirmedCheckpointId, before.lastConfirmedCheckpointId);
+    const guidance = value(await blank.core.currentGuidance(blank.session.id));
+    assert.notEqual(guidance?.state, 'arrived');
+    assert.deepEqual(guidance, guidanceBefore);
+  }
+  let trimmedId = 'entrance'; let trimmedEvidence = ['Example entrance sign'];
+  const trimmed = await setup(async () => observation(trimmedId, true, trimmedEvidence));
+  value(await trimmed.match()); trimmedId = 'mural'; value(await trimmed.match());
+  trimmedId = 'destination'; trimmedEvidence = [' Example entrance sign '];
+  const trimmedResult = value(await trimmed.match());
+  assert.equal(trimmedResult.state, 'arrived');
+  assert.equal(trimmedResult.evidence?.[0], 'Example entrance sign');
+  const evidenceSchema = (z.toJSONSchema(RecognitionOutputSchema) as unknown as {
+    properties: { evidence: { items?: { minLength?: number } } };
+  }).properties.evidence;
+  assert.equal(evidenceSchema.items?.minLength, 1);
+  console.log('PASS blank evidence rejected without progress; valid evidence trimmed; JSON schema minLength 1');
 
   let release!: (o: unknown) => void;
   let entered!: () => void;

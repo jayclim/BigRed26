@@ -153,12 +153,19 @@ node scripts/smoke-api.mjs was not run. This change adds no HTTP handler and cha
 
 2026-10-03, PR #12: non-OK Gemini responses left the body open. The adapter now cancels the body without waiting before it throws the same safe error. Network-free 429 and 500 streams exceed the size cap and never settle cancellation; each cancels once and returns the expected retryable code. All five recognition groups, npm run check and npm run typecheck passed. No live provider call was made. Host rerun by the lead (Node 24.21.0): recognition check, npm run check, typecheck and build passed.
 
+### Review repair: blank evidence
+
+2026-10-03, PR #12: the evidence schema accepted empty and whitespace-only strings. Core checked only that evidence had entries, so these values could advance guidance or arrive. The schema now trims each item and requires 1–200 characters; any blank item rejects the full provider output as retryable `PROVIDER_UNAVAILABLE`. Checks cover empty, whitespace-only and mixed evidence, including a destination after progress to the prior checkpoint. They also cover trimmed valid evidence and JSON Schema `minLength: 1`. Before the fix, the new check failed because `matchFrame` returned `ok: true` for blank evidence. After the fix, the recognition check passed. `npm run check` and `npm run typecheck` results are recorded for this repair below. No real fetch or provider call was used.
+
+Actual checks in this worktree: `node src/server/recognition/recognizer.check.ts` passed all six groups, including the new blank-evidence group; `npm run check` passed core, media and extraction (32 cases, no network calls); `npm run typecheck` passed (`tsc --noEmit`).
+
 ## Design details and limitations
 
 There is no production registration in this change. Live and replay still fail honestly without registration.
 The real Gemini request shape is unverified against a live call.
 The core window is current/next only. The recognizer sends all approved checkpoint candidates.
 JPEG bytes are not decoded. Visible-text truth requires provider evidence; schema checks prove structure and bounds only.
+Legacy checkpoints without an action still accept any non-blank evidence string in core. Matching evidence against `identifyingEvidence` remains an integration-owner core decision.
 The stale race uses sequence 1 to activate the action, then slow sequence 2 and manual sequence 3.
 The core requires an active action for completeAction, so slow sequence 1 versus manual sequence 2 cannot be accepted in a fresh session without first activating that action.
 Manual completion remains a core behavior and can reach a destination; the observation-arrival check proves that idle time does not advance the route.

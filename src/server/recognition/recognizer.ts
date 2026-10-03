@@ -6,7 +6,7 @@ import { readFrame } from '../frames/frames.ts';
 export const RecognitionOutputSchema = z.object({
   checkpointId: z.string().min(1).max(200).nullable(),
   approachConfirmed: z.boolean(),
-  evidence: z.array(z.string().max(200)).max(20)
+  evidence: z.array(z.string().trim().min(1).max(200)).max(20)
     .describe('Only exact visible sign text. Use [] when none is visible.'),
 }).strict();
 export type Candidate = Pick<Checkpoint, 'id' | 'label' | 'identifyingEvidence' | 'approachDescription'> & {
