@@ -60,6 +60,12 @@ For code changes: `npm run check`, `npm run typecheck`, `npm run build`. For HTT
 
 Do not repeat a full test suite on unchanged code. Do not add tests which only repeat implementation details. Provider success, a camera preview and a synthetic replay are separate evidence. Only real route evidence can establish the physical navigation gate.
 
+## Local privacy and public summaries
+
+User preference, 2026-10-03: use CLI commands limited to this repository and assigned worktrees. Do not inspect editor windows, tabs, unrelated projects or private editor state. Do not read secrets to prepare a report.
+
+Keep future public commit messages and PR descriptions focused on behavior and checks, without generated-by text or model/vendor credit by default. Keep accurate private execution records. Preserve published history and do not add unsupported authorship claims. Publication-tool attribution does not establish who generated the code or change usage analytics. Existing role, review, push and budget rules still apply.
+
 ## Context and skills
 
 Use bounded fresh Codex sessions per feature with `--fresh`. Fresh worker sessions are ephemeral here: `--resume-last` failed with a missing rollout. Reuse a session for fixes only when the runtime confirms that it exists. Otherwise use the saved compact handoff and a fresh worker. A fresh Claude lead session reads the saved task packet and current progress; it must check for active plugin jobs before dispatch. A fresh chat alone does not guarantee lower cost. Small task packets and selective reads reduce repeated context.
