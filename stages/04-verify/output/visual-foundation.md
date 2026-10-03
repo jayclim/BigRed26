@@ -36,3 +36,10 @@ Next action: run the default build and screenshots on the host, including the me
 - Private screenshot capture: 12 states, no horizontal overflow at 390 and 1280 px. "Open guide" shows white text on the teal primary.
 - Private extraction harness (status text updated to `Unsaved`, focus check set to the documented 2px outline): `RESULT PASS`. Request and state assertions are unchanged.
 - Next: independent review of the exact PR commit.
+
+## Independent review (2026-10-03)
+
+- Reviewed exact head `c9402cb`: no blockers. No creator handler regressions. Guide, follow, lifecycle, core and contracts are unchanged.
+- Lead checks: the MIT shadcn license is present; `MotionConfig reducedMotion="user"` and the CSS `prefers-reduced-motion` rule exist; every new dependency is imported.
+- Non-blocking: the disabled Textarea `opacity-50` utility overrides the component `opacity: 1` (`src/ui/theme.css:166`), so approved instructions read at about 2.1:1. The Badge `bg-secondary` utilities override the approved green (`src/ui/theme.css:126`).
+- CI run 37149717492 passed the normal build on `c9402cb`. Next: a narrow follow-up for the two cascade issues.
