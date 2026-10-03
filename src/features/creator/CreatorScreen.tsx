@@ -1,6 +1,6 @@
 'use client';
-import { useEffect, useState } from 'react';
-import type { Checkpoint, CoreAdapter, Direction, Id, Route } from '@contracts/contracts.ts';
+import { useEffect, useRef, useState } from 'react';
+import type { Checkpoint, CoreAdapter, Direction, Id, Result, Route } from '@contracts/contracts.ts';
 import { DIRECTION_TEXT } from '@/ui/Arrow.tsx';
 import { Brand } from '@/ui/Brand.tsx';
 import actionFixture from '@contracts/fixture.actions.v1.json';
@@ -25,27 +25,105 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
   const [origin, setOrigin] = useState('');
   const [guidePath, setGuidePath] = useState(followPath);
 
+  const [extracting, setExtracting] = useState(false);
+  const [extractionError, setExtractionError] = useState<string | null>(null);
+  const [guardMedia, setGuardMedia] = useState<Id | null>(null);
+  const [pendingDraft, setPendingDraft] = useState<Route | null>(null);
+  const request = useRef<AbortController | null>(null);
+  const token = useRef(0);
+  const edits = useRef(0);
+  const retryMedia = useRef<Id | null>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const extractionNotice = useRef<HTMLDivElement>(null);
+  const focusHeading = useRef(false);
+
+  function clearExtraction() {
+    token.current++;
+    request.current?.abort(); request.current = null;
+    setExtracting(false); setExtractionError(null); setGuardMedia(null); setPendingDraft(null);
+  }
+
+  function openDraft(draft: Route) {
+    setRoute(draft); setSaved(true); setReviewed(new Set());
+    setGuidePath(`/follow/${draft.id}`); setPendingDraft(null);
+    setMsg({ kind: 'ok', text: 'Draft created. Check every step before approving.' });
+    focusHeading.current = true;
+  }
+
+  async function extract(mediaId: Id) {
+    if (request.current) return;
+    const controller = new AbortController();
+    request.current = controller;
+    const currentToken = ++token.current;
+    const currentEdits = edits.current;
+    retryMedia.current = mediaId;
+    setGuardMedia(null); setExtractionError(null); setPendingDraft(null); setExtracting(true);
+    try {
+      const response = await fetch(`/api/media/${encodeURIComponent(mediaId)}/extract`, {
+        method: 'POST', signal: controller.signal,
+      });
+      const result: Result<Route> = await response.json();
+      if (currentToken !== token.current || controller.signal.aborted) return;
+      if (!result.ok) setExtractionError(result.error.message);
+      else if (!response.ok) setExtractionError('The draft could not be created. Retry the video.');
+      else if (edits.current !== currentEdits) setPendingDraft(result.value);
+      else openDraft(result.value);
+    } catch {
+      if (currentToken === token.current && !controller.signal.aborted)
+        setExtractionError('The draft could not be created. Check your connection and retry.');
+    } finally {
+      if (currentToken === token.current) { request.current = null; setExtracting(false); }
+    }
+  }
+
+  function requestExtraction(mediaId: Id) {
+    if (request.current || busy || pendingDraft) return;
+    if (!saved) { setExtractionError(null); setGuardMedia(mediaId); }
+    else void extract(mediaId);
+  }
+
   useEffect(() => {
+    if (focusHeading.current) { focusHeading.current = false; heading.current?.focus(); heading.current?.scrollIntoView({ block: 'center' }); }
+  }, [route]);
+  useEffect(() => {
+    if (extractionError || guardMedia || pendingDraft) {
+      extractionNotice.current?.focus(); extractionNotice.current?.scrollIntoView({ block: 'center' });
+    }
+  }, [extractionError, guardMedia, pendingDraft]);
+
+  useEffect(() => {
+    let active = true;
+    clearExtraction();
     setOrigin(window.location.origin);
-    core.getRoute(routeId).then((r) => (r.ok ? setRoute(r.value) : setMsg({ kind: 'error', text: r.error.message })));
-  }, [core, routeId]);
+    core.getRoute(routeId).then((r) => {
+      if (!active) return;
+      if (r.ok) { setRoute(r.value); setSaved(true); setReviewed(new Set()); setGuidePath(followPath); }
+      else setMsg({ kind: 'error', text: r.error.message });
+    });
+    return () => { active = false; token.current++; request.current?.abort(); request.current = null; };
+  }, [core, routeId, followPath]);
 
   if (!route) return <main className="creator">{msg ? <p className="notice error">{msg.text}</p> : <p>Loading route…</p>}</main>;
 
   const approved = route.status === 'approved';
+  const fixtureRoute = route.id === 'demo-route' || route.id === actionFixture.route.id;
   const allReviewed = route.checkpoints.every((c) => reviewed.has(c.id));
 
   function edit(id: Id, patch: Partial<Checkpoint>) {
     setRoute((r) => r && { ...r, checkpoints: r.checkpoints.map((c) => (c.id === id ? { ...c, ...patch } : c)) });
     setReviewed((s) => { const n = new Set(s); n.delete(id); return n; }); // an edit needs a fresh review
-    setSaved(false);
+    edits.current++; setSaved(false);
     setMsg(null);
   }
 
   async function save() {
     if (!route) return false;
+    const revision = edits.current;
+    const routeToken = token.current;
     const r = await core.saveDraft(route);
+    if (routeToken !== token.current) return false;
     if (!r.ok) { setMsg({ kind: 'error', text: r.error.message }); return false; }
+    if (revision !== edits.current) { setMsg({ kind: 'ok', text: 'Earlier edits saved. Save your latest changes before continuing.' }); return false; }
     setRoute(r.value); setSaved(true);
     return true;
   }
@@ -66,6 +144,7 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
   const saveDraft = () => run(async () => { if (await save()) setMsg({ kind: 'ok', text: 'Draft saved.' }); });
 
   function startNewVersion() {
+    clearExtraction(); edits.current++;
     setRoute({ ...route!, version: route!.version + 1, status: 'draft' });
     setReviewed(new Set()); setSaved(false);
     setMsg({ kind: 'ok', text: `Editing version ${route!.version + 1}. Version ${route!.version} stays live until you approve this one.` });
@@ -73,34 +152,69 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
 
   const shareUrl = `${origin}${guidePath}`;
 
-  const loadActionFixture = () => run(async () => {
-    let r = await core.getRoute(actionFixture.route.id);
-    // Explicit fixture selection can add this draft to an older store. No existing route is changed.
-    if (!r.ok && r.error.code === 'NOT_FOUND') r = await core.saveDraft(actionFixture.route as Route);
-    if (!r.ok) return setMsg({ kind: 'error', text: r.error.message });
-    setRoute(r.value); setSaved(true); setReviewed(new Set());
-    setGuidePath(`/follow/${r.value.id}`);
-  });
+  const loadActionFixture = () => {
+    clearExtraction();
+    return run(async () => {
+      let r = await core.getRoute(actionFixture.route.id);
+      // Explicit fixture selection can add this draft to an older store. No existing route is changed.
+      if (!r.ok && r.error.code === 'NOT_FOUND') r = await core.saveDraft(actionFixture.route as Route);
+      if (!r.ok) return setMsg({ kind: 'error', text: r.error.message });
+      setRoute(r.value); setSaved(true); setReviewed(new Set());
+      setGuidePath(`/follow/${r.value.id}`);
+    });
+  };
 
   return (
     <main className="creator">
       <header>
         <div className="creator-top">
           <Brand />
-          <span className="mock-badge">Mock route</span>
+          {fixtureRoute && <span className="mock-badge">Mock route</span>}
         </div>
         <span className="status" data-status={route.status}>
           {approved ? `Approved, version ${route.version}` : `Draft, version ${route.version}${saved ? '' : ' (unsaved changes)'}`}
         </span>
-        <h1>{route.name}</h1>
+        <h1 ref={heading} tabIndex={-1}>{route.name}</h1>
         <p className="lede">
           Start: {route.startDescription}. Destination: {route.destinationLabel}.
         </p>
-        <p className="notice">Fictional mock fixture; no video was recorded. Check each step, then approve. Fixture success is not field or terrain-safety evidence.</p>
+        <p className="notice">{fixtureRoute
+          ? 'Fictional mock fixture; no video was recorded. Check each step, then approve. Fixture success is not field or terrain-safety evidence.'
+          : approved ? 'Route from your video. You approved this version after checking every step.' : 'Draft from your video. Check every step; nothing is approved yet.'}</p>
         {route.id !== actionFixture.route.id && <button className="btn" disabled={busy || !saved} onClick={loadActionFixture}>Review detailed-action mock fixture</button>}
       </header>
 
-      <VideoUpload key={route.id} />
+      <VideoUpload onCreateDraft={requestExtraction} extractionBusy={extracting}
+        extractionDisabled={busy || !!guardMedia || !!pendingDraft} />
+      {extracting && <div className="notice" role="status">
+        <p>Creating a draft from your video… this can take a minute</p>
+        <button className="btn" onClick={() => { clearExtraction(); setMsg({ kind: 'ok', text: 'Draft creation canceled. Your current route is unchanged.' }); }}>Cancel</button>
+      </div>}
+      {(extractionError || guardMedia || pendingDraft) && <div ref={extractionNotice} tabIndex={-1}
+        className={`notice extraction-notice${extractionError ? ' error' : ''}`} role={extractionError ? 'alert' : 'status'}>
+        {extractionError && <>
+          <p>{extractionError}</p>
+          <div className="row">
+            <button className="btn btn-primary" disabled={busy} onClick={() => retryMedia.current && requestExtraction(retryMedia.current)}>Retry</button>
+            <button className="btn" onClick={() => setExtractionError(null)}>Dismiss</button>
+          </div>
+        </>}
+        {guardMedia && <>
+          <p>Your draft has unsaved edits. Choose how to continue.</p>
+          <div className="row">
+            <button className="btn btn-primary" disabled={busy} onClick={() => run(async () => { if (await save()) await extract(guardMedia); })}>Save draft first</button>
+            <button className="btn" disabled={busy} onClick={() => extract(guardMedia)}>Discard edits and create draft</button>
+            <button className="btn" disabled={busy} onClick={() => setGuardMedia(null)}>Keep my edits</button>
+          </div>
+        </>}
+        {pendingDraft && <>
+          <p>A new draft is ready. You edited the current draft during creation. Choose which draft to keep open.</p>
+          <div className="row">
+            <button className="btn btn-primary" disabled={busy} onClick={() => openDraft(pendingDraft)}>Open new draft (discard my edits)</button>
+            <button className="btn" disabled={busy} onClick={() => setPendingDraft(null)}>Keep my edits</button>
+          </div>
+        </>}
+      </div>}
 
       {approved && (
         <section className="share" aria-labelledby="share-h">
@@ -170,8 +284,8 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
       <div className="approve-bar" aria-live="polite">
         {!approved && (
           <>
-            <button className="btn" onClick={saveDraft} disabled={busy || saved}>Save draft</button>
-            <button className="btn btn-primary" onClick={approve} disabled={busy || !allReviewed}>
+            <button className="btn" onClick={saveDraft} disabled={busy || extracting || saved}>Save draft</button>
+            <button className="btn btn-primary" onClick={approve} disabled={busy || extracting || !!pendingDraft || !!guardMedia || !allReviewed}>
               Approve version {route.version}
             </button>
             <span style={{ color: 'var(--muted)' }}>
