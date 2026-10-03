@@ -1,4 +1,6 @@
 'use client';
+import { Button } from '@/ui/button';
+import { Input } from '@/ui/input';
 import { useEffect, useRef, useState } from 'react';
 import type { Id, Result } from '@contracts/contracts.ts';
 import type { StoredMedia } from '@/server/media/media.ts';
@@ -76,7 +78,7 @@ export function VideoUpload({ onCreateDraft, onSelectionChange, extractionBusy, 
       <p className="meta">Pick a route video to preview and store on this computer. Create a draft after storing the video, then check every step.</p>
       <label htmlFor="route-video">
         Route video
-        <input ref={inputRef} id="route-video" type="file" accept={MEDIA_ACCEPT}
+        <Input ref={inputRef} id="route-video" type="file" accept={MEDIA_ACCEPT}
           disabled={busy || extractionBusy} aria-describedby="media-limits"
           onChange={(e) => select(e.currentTarget.files?.[0] ?? null)} />
       </label>
@@ -88,10 +90,10 @@ export function VideoUpload({ onCreateDraft, onSelectionChange, extractionBusy, 
         </>
       )}
       <div className="row">
-        <button className="btn btn-primary" disabled={!file || busy || message?.kind === 'ok'} aria-busy={busy} onClick={upload}>
+        <Button disabled={!file || busy || message?.kind === 'ok'} aria-busy={busy} onClick={upload}>
           {busy ? 'Uploading…' : message?.kind === 'error' && file ? 'Retry upload' : 'Upload video'}
-        </button>
-        {(file || message) && <button className="btn" disabled={busy || extractionBusy} onClick={chooseAnother}>Choose another file</button>}
+        </Button>
+        {(file || message) && <Button variant="outline" disabled={busy || extractionBusy} onClick={chooseAnother}>Choose another file</Button>}
       </div>
       {message && (
         <div ref={messageRef} tabIndex={-1} className={`notice ${message.kind} media-message`}
@@ -100,8 +102,8 @@ export function VideoUpload({ onCreateDraft, onSelectionChange, extractionBusy, 
             ? <p>{message.text} Choose another file{file ? ' or retry the upload' : ''}.</p>
             : <>
               <p><strong>Stored locally:</strong> {message.media.name}</p>
-              <button className="btn btn-primary" disabled={extractionBusy || extractionDisabled} aria-busy={extractionBusy}
-                onClick={() => onCreateDraft(message.media.mediaId)}>Create draft from this video</button>
+              <Button disabled={extractionBusy || extractionDisabled} aria-busy={extractionBusy}
+                onClick={() => onCreateDraft(message.media.mediaId)}>Create draft from this video</Button>
             </>}
         </div>
       )}
