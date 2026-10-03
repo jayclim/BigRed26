@@ -69,3 +69,15 @@ VideoUpload now calls an optional selection-change callback on select, choose-an
 Checks in this worktree with Node 24.11.1: `npm run typecheck`, `npm run check` (core, media and 32 mocked extraction cases), `npm run build` and `git diff --check` passed. Build reported six existing dynamic-filesystem tracing warnings in unchanged server files. No real provider API was called. No new files or tests were added. No existing test file covers CreatorScreen; the ignored `.overnight` browser harness was not run, so the A-to-B browser scenario remains unverified here.
 
 The Codex sandbox could not write the shared Git index lock, so the lead committed and pushed these three worker-made files from the host. Next: independent review of the updated PR head; the lead merges.
+
+## A-to-B video switch browser check (fdead2c), 2026-10-03
+
+Lead `f59df765` ran the extended ignored harness `.overnight/ui-extraction.mjs` on the host against head `fdead2cc2730d857c0525fa085208bedbfcc53a3` after `npm run build`. The [SOL] worker `aa504792905ec0552` wrote the cases; its sandbox could not bind port 3142 (`listen EPERM`), so only the host run is evidence. Result: `RESULT PASS`, 98 PASS lines, 0 failures, 10/10 regression cases at 390 and 1280:
+
+1. A extraction error, then B upload: A error and Retry are absent; B create is enabled.
+2. Unsaved guard for A, then B: guard is absent; the current route, editor fields and unsaved status are unchanged.
+3. Held A draft, then B: the held notice and open control are absent; edits survive.
+4. Delayed A, then B, then release A: the A request ends (`net::ERR_ABORTED`); late A does not open or replace the route; the next response is B's request.
+5. A and B uploads store different IDs; the next POST URL uses B's ID; the opened draft has B `sourceVideoId`.
+
+Limits: all extraction responses are injected (no provider call, no key or enable flag). Case 4 selects B through CDP on the real file input because the UI disables it during extraction. The injected error text always says "Injected A extraction error", so the case 4 screenshot shows that text for B's request; request IDs, not the text, prove ownership. The known `ENOTEMPTY` temp-profile cleanup error appeared after `RESULT PASS`. No app code changed. The repair review of fdead2c did not return a handback and is still required before merge. Log: `.overnight/ui-extraction/host-fdead2c-regression.log` (ignored).
