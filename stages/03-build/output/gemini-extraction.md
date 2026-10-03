@@ -1,6 +1,6 @@
 # Gemini draft extraction: slice 2b-1
 
-Status: implemented and fixture-checked, 2026-10-03. PR #7, branch `feat/gemini-extraction`. This deadline repair starts from `77f4aeaf6d49f8623b8c6768b8a3dc033cae9f86`. Earlier response-reader repair host checks passed; current deadline repair checks are worker evidence (see Checks). Real Gemini model access, provider schema acceptance and real-footage extraction remain **UNVERIFIED**.
+Status: implemented, fixture-checked, host-checked and review-approved, 2026-10-03. PR #7, branch `feat/gemini-extraction`. This deadline repair starts from `77f4aeaf6d49f8623b8c6768b8a3dc033cae9f86`. Host checks on the deadline repair head `d68831467a7be4d49e097b49abb804bcf9cdf208` passed and CI run 37120231568 passed (see Observed checks). Real Gemini model access, provider schema acceptance and real-footage extraction remain **UNVERIFIED**.
 
 ## Behavior and repair
 
@@ -49,3 +49,9 @@ Evidence remains fixture-only. Synthetic video headers are not playable footage.
 Nonblocking residual under trusted single-process storage: there is no byte bound during a local media read. A file much larger than its metadata can be read fully before the mismatch check. The deadline now covers metadata read, media read and generate, as shown by the fixtures above. This does not establish a memory bound for a local metadata/byte mismatch.
 
 Next: a fresh focused review of only the deadline delta from `77f4aea`, then the lead merges. Real Gemini model access, schema acceptance and real-footage extraction need a later authorized live check.
+
+## Final review
+
+2026-10-03, lead session 7a1270e0: a fresh read-only [SOL] review (gpt-6.1-sol, native `codex:codex-rescue`, agent a551e98d8f34c2af7) of `77f4aea..d688314` found no blockers. It ran the four metadata/media never/late cases in memory on Node 24.11.1: each returned the sanitized timeout in 22-23 ms with zero generate and save calls. The baseline source failed all four at the 150 ms watchdog. Listener cleanup held on early returns, errors, success and already-aborted entry; late generate settlement saved nothing; no unhandled rejections. Residual (non-blocking): a metadata/media size mismatch has no extra byte bound beyond the raw limit under trusted local single-process storage.
+
+Limits: no live Gemini call, no real footage, model/account access and provider schema acceptance remain **UNVERIFIED**. Next: 2b-2 creator review/edit UI, then 2b-3 the first allowed live call after budget confirmation.
