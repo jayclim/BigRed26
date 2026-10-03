@@ -1,15 +1,20 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import type { CoreAdapter, Guidance, Id, Locale, Route, Session } from '@contracts/contracts.ts';
+import type { CoreAdapter, Guidance, Id, Locale, Mode, Route, Session } from '@contracts/contracts.ts';
 import { Arrow, DIRECTION_TEXT } from '@/ui/Arrow.tsx';
 import { mockScenes } from '@/shared/mockScenes.ts';
 import actionFixture from '@contracts/fixture.actions.v1.json';
 import { Brand } from '@/ui/Brand.tsx';
 import { Camera } from './Camera.tsx';
+import { uploadFrame as realUploadFrame } from '@/client/frameUpload.ts';
+import { checkView } from './checkView.ts';
+import styles from './mode.module.css';
 import { reconcileGuide } from './reconcileGuide.ts';
 
 export interface GuideScreenProps {
   core: CoreAdapter;
+  mode?: Mode;
+  uploadFrame?: typeof realUploadFrame;
   routeId: Id;
   /** Where Exit goes, e.g. the creator page */
   exitHref: string;
@@ -17,7 +22,8 @@ export interface GuideScreenProps {
 
 const T = {
   en: {
-    mock: 'Mock', camNote: 'Camera not analyzed',
+    mock: 'Mock', replay: 'Replay', live: 'Live',
+    notes: { mock: 'Camera not analyzed', replay: 'Recorded frames, not a live camera', live: 'Frames you check are sent to the server for recognition' },
     soundOn: 'Sound on', soundOff: 'Sound off', other: 'Español', exit: 'Exit',
     start: (d: string) => `Start at the entrance: ${d}.`, startLabel: 'Ready',
     guiding: (l: string) => `At ${l}`, uncertain: 'Not sure where you are', off_route: 'Off the recorded route',
@@ -29,7 +35,8 @@ const T = {
     manual: "I've done this (manual)", active: 'Active action — check your view before continuing',
   },
   es: {
-    mock: 'Simulado', camNote: 'La cámara no se analiza',
+    mock: 'Simulado', replay: 'Repetición', live: 'En vivo',
+    notes: { mock: 'La cámara no se analiza', replay: 'Fotogramas grabados, no una cámara en vivo', live: 'Las vistas que compruebas se envían al servidor para su reconocimiento' },
     soundOn: 'Con sonido', soundOff: 'Sin sonido', other: 'English', exit: 'Salir',
     start: (d: string) => `Empieza en la entrada: ${d}.`, startLabel: 'Listo',
     guiding: (l: string) => `En ${l}`, uncertain: 'No sé dónde estás', off_route: 'Fuera de la ruta grabada',
@@ -42,7 +49,7 @@ const T = {
   },
 } as const;
 
-export function GuideScreen({ core, routeId, exitHref }: GuideScreenProps) {
+export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uploadFrame = realUploadFrame }: GuideScreenProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [route, setRoute] = useState<Route | null>(null);
   const [guidance, setGuidance] = useState<Guidance | null>(null);
@@ -51,7 +58,9 @@ export function GuideScreen({ core, routeId, exitHref }: GuideScreenProps) {
   const [problem, setProblem] = useState<string | null>(null);
   const [fatal, setFatal] = useState<{ code: string; message: string } | null>(null);
   const [sound, setSound] = useState(false);
+  const mounted = useRef(false);
   const started = useRef(false);
+  const [mode, setMode] = useState<Mode>(requestedMode ?? 'mock');
   const inFlight = useRef(false);
   const lastSeq = useRef(0);
   const spoken = useRef<Id | null>(null);
@@ -60,16 +69,37 @@ export function GuideScreen({ core, routeId, exitHref }: GuideScreenProps) {
   const t = T[locale];
 
   useEffect(() => {
-    if (started.current) return;
+    mounted.current = true;
+    if (started.current) return () => { mounted.current = false; };
     started.current = true;
+    const queryMode = new URLSearchParams(window.location.search).get('mode');
+    const selected = requestedMode ?? (queryMode === 'live' || queryMode === 'replay' ? queryMode : 'mock');
+    setMode(selected);
     (async () => {
-      const s = await core.startSession(routeId, 'en', 'mock'); // mock chosen explicitly; no live fallback exists
-      if (!s.ok) return setFatal(s.error);
+      const s = await core.startSession(routeId, 'en', selected);
+      if (!mounted.current) return;
+      if (!s.ok) return setFatal({ ...s.error, message: `${T.en[selected]}: ${s.error.message}` });
       const r = await core.getRoute(routeId, s.value.routeVersion);
+      if (!mounted.current) return;
       if (!r.ok) return setFatal(r.error);
       setSession(s.value); setRoute(r.value);
     })();
-  }, [core, routeId]);
+    return () => { mounted.current = false; };
+  }, [core, routeId, requestedMode]);
+
+  async function checkCamera(frame: () => Promise<Blob>) {
+    if (!session || inFlight.current) return;
+    setPending(true); setProblem(null);
+    const result = await checkView({ core, sessionId: session.id, upload: uploadFrame, frame,
+      capturedAt: new Date().toISOString(), flight: inFlight,
+      isCurrent: () => mounted.current,
+    });
+    if (!mounted.current) return;
+    setPending(false);
+    if (!result) return;
+    if (result.ok) accept(result.value);
+    else setProblem(`${T[session.locale].problem} (${result.error.message})`);
+  }
 
   // Speak only new instructions; cancel anything stale. Never blocks the UI.
   useEffect(() => {
@@ -85,7 +115,7 @@ export function GuideScreen({ core, routeId, exitHref }: GuideScreenProps) {
   }, [sound, guidance]);
 
   function accept(g: Guidance) {
-    if (g.sequence < lastSeq.current) return; // ignore stale responses
+    if (!mounted.current || g.sequence < lastSeq.current) return; // ignore stale responses
     lastSeq.current = g.sequence;
     setGuidance(g);
     if (g.state === 'guiding' || g.state === 'arrived') setConfirmedId(g.checkpointId);
@@ -96,21 +126,25 @@ export function GuideScreen({ core, routeId, exitHref }: GuideScreenProps) {
     inFlight.current = true; setPending(true); setProblem(null);
     try {
       const seq = await core.reserveFrameSequence(session.id);
+      if (!mounted.current) return;
       if (!seq.ok) return setProblem(seq.error.message);
       const g = await core.matchFrame({
         sessionId: session.id, routeVersion: seq.value.routeVersion, sequence: seq.value.sequence,
         capturedAt: new Date().toISOString(), mediaId,
       });
+      if (!mounted.current) return;
       if (g.ok) accept(g.value);
       else if (g.error.code !== 'STALE_FRAME') setProblem(`${T[session.locale].problem} (${g.error.message})`);
     } finally {
-      inFlight.current = false; setPending(false);
+      inFlight.current = false; if (mounted.current) setPending(false);
     }
   }
 
   async function refreshGuide(sessionId: Id) {
     const g = await core.currentGuidance(sessionId);
+    if (!mounted.current) return;
     const s = await core.getSession(sessionId);
+    if (!mounted.current) return;
     if (!s.ok) return setProblem(s.error.message);
     const refreshed = reconcileGuide(s.value, g.ok ? g.value : null, lastSeq.current);
     if (!refreshed) return;
@@ -126,11 +160,12 @@ export function GuideScreen({ core, routeId, exitHref }: GuideScreenProps) {
     inFlight.current = true; setPending(true);
     try {
       const r = await core.setLocale(session.id, session.locale === 'en' ? 'es' : 'en');
+      if (!mounted.current) return;
       if (!r.ok) return setProblem(r.error.message);
       setSession(r.value);
       await refreshGuide(session.id);
     } finally {
-      inFlight.current = false; setPending(false);
+      inFlight.current = false; if (mounted.current) setPending(false);
     }
   }
 
@@ -139,8 +174,10 @@ export function GuideScreen({ core, routeId, exitHref }: GuideScreenProps) {
     inFlight.current = true; setPending(true); setProblem(null);
     try {
       const seq = await core.reserveFrameSequence(session.id);
+      if (!mounted.current) return;
       if (!seq.ok) return setProblem(seq.error.message);
       const g = await core.completeAction(session.id, { ...seq.value, checkpointId: confirmedId });
+      if (!mounted.current) return;
       if (g.ok) {
         if (g.value.sequence >= lastSeq.current) setConfirmedId(g.value.checkpointId);
         accept(g.value);
@@ -151,7 +188,7 @@ export function GuideScreen({ core, routeId, exitHref }: GuideScreenProps) {
         await refreshGuide(session.id);
       }
     } finally {
-      inFlight.current = false; setPending(false);
+      inFlight.current = false; if (mounted.current) setPending(false);
     }
   }
 
@@ -189,8 +226,8 @@ export function GuideScreen({ core, routeId, exitHref }: GuideScreenProps) {
               <a className="ctl" href={exitHref}>{t.exit}</a>
             </div>
           </div>
-          <Camera locale={locale}>
-            <p className="stage-label"><span className="mock-badge">{t.mock}</span> {t.camNote}</p>
+          <Camera locale={locale} busy={pending} onCheck={mode === 'mock' ? undefined : checkCamera}>
+            <p className="stage-label"><span className={`${styles.badge} ${styles[mode]}`}>{t[mode]}</span> {t.notes[mode]}</p>
           </Camera>
 
           <div>
@@ -211,7 +248,7 @@ export function GuideScreen({ core, routeId, exitHref }: GuideScreenProps) {
             </div>
           </div>
 
-          <div className="card" data-state={state} data-arrow={hasArrow ? 'shown' : 'none'} aria-live="polite" aria-busy={pending}>
+          <div className="card" data-state={state} data-sequence={guidance?.sequence ?? 0} data-arrow={hasArrow ? 'shown' : 'none'} aria-live="polite" aria-busy={pending}>
             {guidance?.state === 'guiding' && guidance.direction ? (
               <Arrow direction={guidance.direction} label={DIRECTION_TEXT[locale][guidance.direction]} />
             ) : arrived ? (
@@ -248,7 +285,7 @@ export function GuideScreen({ core, routeId, exitHref }: GuideScreenProps) {
           {problem && <p className="banner" role="alert">{problem}</p>}
         </section>
 
-        <MockPanel route={route} disabled={pending} lastSeq={lastSeq.current} onPick={observe} />
+        {mode === 'mock' && <MockPanel route={route} disabled={pending} lastSeq={lastSeq.current} onPick={observe} />}
       </div>
     </main>
   );

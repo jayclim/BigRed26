@@ -1,0 +1,5 @@
+.badge { display: inline-block; border: 1px solid currentColor; border-radius: .3rem; padding: .15rem .4rem; font-weight: 700; }
+.mock { color: #ffd680; background: #32260e; }
+.replay { color: #dbbaff; background: #2b193d; }
+.live { color: #99f0d0; background: #12382c; }
+.check { position: absolute; left: .6rem; bottom: .6rem; }
