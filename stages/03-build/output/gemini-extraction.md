@@ -48,7 +48,7 @@ Evidence remains fixture-only. Synthetic video headers are not playable footage.
 
 Nonblocking residual under trusted single-process storage: there is no byte bound during a local media read. A file much larger than its metadata can be read fully before the mismatch check. The deadline now covers metadata read, media read and generate, as shown by the fixtures above. This does not establish a memory bound for a local metadata/byte mismatch.
 
-Next: a fresh focused review of only the deadline delta from `77f4aea`, then the lead merges. Real Gemini model access, schema acceptance and real-footage extraction need a later authorized live check.
+Next: lead review of slice 2b-2 creator extraction UI and host build/browser checks; see [creator-extraction.md](creator-extraction.md). Real Gemini model access, schema acceptance and real-footage extraction need a later authorized live check.
 
 ## Final review
 
