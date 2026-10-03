@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import type { Result } from '../../../contracts/contracts.ts';
-import { isMediaType, MEDIA_EXTENSIONS, MEDIA_LIMIT_TEXT, mediaInputError } from '../../shared/mediaLimits.ts';
+import { isMediaType, MAX_MEDIA_REQUEST_BYTES, MEDIA_EXTENSIONS, MEDIA_LIMIT_TEXT, mediaInputError } from '../../shared/mediaLimits.ts';
 
 export interface StoredMedia {
   mediaId: string;
@@ -11,6 +11,39 @@ export interface StoredMedia {
   size: number;
   uploadedAt: string;
   extraction: 'pending';
+}
+
+export async function storeMediaUpload(
+  req: Request, maxBytes = MAX_MEDIA_REQUEST_BYTES, directory = mediaDirectory(),
+): Promise<Result<StoredMedia>> {
+  let bytes = 0;
+  // A transform error cancels the source. Do not buffer bytes beyond the cap or copy each chunk.
+  const countedBody = req.body?.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      bytes += chunk.byteLength;
+      if (bytes > maxBytes) throw new Error('Media request body exceeds the limit');
+      controller.enqueue(chunk);
+    },
+  }));
+  let form: FormData;
+  try {
+    form = await new Response(countedBody, {
+      headers: { 'content-type': req.headers.get('content-type') ?? '' },
+    }).formData();
+  } catch {
+    return { ok: false, error: { code: 'INVALID_INPUT', retryable: false, message: bytes > maxBytes
+      ? `The upload body is too large. ${MEDIA_LIMIT_TEXT}`
+      : `The multipart upload could not be read. Choose the video again. ${MEDIA_LIMIT_TEXT}`,
+    } };
+  }
+  const entries = form.entries();
+  const first = entries.next();
+  if (first.done || first.value[0] !== 'file' || !(first.value[1] instanceof File) || !entries.next().done) {
+    return { ok: false, error: { code: 'INVALID_INPUT', retryable: false,
+      message: `Send exactly one field named file containing a video. ${MEDIA_LIMIT_TEXT}`,
+    } };
+  }
+  return storeMedia(first.value[1], directory);
 }
 
 // Header validation checks the container signature, not codecs or playable footage.

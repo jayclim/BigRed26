@@ -21,7 +21,12 @@ export function VideoUpload() {
     setPreview(url);
     return () => URL.revokeObjectURL(url);
   }, [file]);
-  useEffect(() => { if (message) messageRef.current?.focus(); }, [message]);
+  useEffect(() => {
+    if (message) {
+      messageRef.current?.focus();
+      messageRef.current?.scrollIntoView({ block: 'center' });
+    }
+  }, [message]);
   useEffect(() => () => requestRef.current?.abort(), []);
 
   function select(selected: File | null) {

@@ -5,8 +5,8 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { MAX_MEDIA_BYTES, mediaInputError } from '../../shared/mediaLimits.ts';
-import { mediaDirectory, storeMedia, validateMedia } from './media.ts';
+import { MAX_MEDIA_BYTES, MAX_MEDIA_REQUEST_BYTES, mediaInputError } from '../../shared/mediaLimits.ts';
+import { mediaDirectory, storeMedia, storeMediaUpload, validateMedia } from './media.ts';
 
 const bmff = Uint8Array.from([0, 0, 0, 16, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0, 0, 0, 0]);
 const webm = Uint8Array.from([0x1a, 0x45, 0xdf, 0xa3, 0, 0, 0, 0]);
@@ -47,9 +47,56 @@ try {
   process.env.BREADCRUMB_MEDIA_DIR = join(directory, 'custom-media');
   assert.equal(mediaDirectory(), process.env.BREADCRUMB_MEDIA_DIR);
 
+  const emptyDirectory = await readdir(directory);
+  // An endless source must be cancelled near the cap, with or without a false length header.
+  for (const length of [null, '1']) {
+    const cap = 256;
+    const chunk = new Uint8Array(64);
+    let bytesPulled = 0;
+    let cancelled = false;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) { bytesPulled += chunk.byteLength; controller.enqueue(chunk); },
+      cancel() { cancelled = true; },
+    });
+    const headers = new Headers({ 'content-type': 'multipart/form-data; boundary=bounded' });
+    if (length !== null) headers.set('content-length', length);
+    const init = { method: 'POST', headers, body: stream, duplex: 'half' };
+    const req = new Request('http://breadcrumb.test/api/media', init);
+    assert.equal(req.headers.get('content-length'), length);
+    const rejected = await storeMediaUpload(req, cap, directory);
+    assert.equal(rejected.ok, false);
+    if (!rejected.ok) {
+      assert.deepEqual([rejected.error.code, rejected.error.retryable], ['INVALID_INPUT', false]);
+      assert.match(rejected.error.message, /upload body is too large/);
+    }
+    assert.equal(cancelled, true, 'the endless request source was cancelled');
+    assert.ok(bytesPulled > cap && bytesPulled <= cap + 2 * chunk.byteLength,
+      `pulled ${bytesPulled} bytes for a ${cap}-byte cap`);
+    assert.deepEqual(await readdir(directory), emptyDirectory);
+  }
+
+  for (const fields of ['duplicate', 'extra', 'missing', 'wrong-name', 'text-file']) {
+    const form = new FormData();
+    const file = new File([bmff], 'synthetic.mp4', { type: 'video/mp4' });
+    if (fields === 'duplicate' || fields === 'extra') form.append('file', file);
+    if (fields === 'duplicate') form.append('file', file);
+    if (fields === 'extra') form.append('note', 'not allowed');
+    if (fields === 'wrong-name') form.append('video', file);
+    if (fields === 'text-file') form.append('file', 'not a File');
+    const req = new Request('http://breadcrumb.test/api/media', { method: 'POST', body: form });
+    const rejected = await storeMediaUpload(req, MAX_MEDIA_REQUEST_BYTES, directory);
+    assert.equal(rejected.ok, false, fields);
+    if (!rejected.ok) assert.deepEqual([rejected.error.code, rejected.error.retryable], ['INVALID_INPUT', false]);
+    assert.deepEqual(await readdir(directory), emptyDirectory, fields);
+  }
+
   for (const { type, extension, bytes } of fixtures) {
     const file = new File([bytes], '../folder\\route\u0000.mov', { type });
-    const stored = await storeMedia(file, directory);
+    const form = new FormData();
+    form.append('file', file);
+    const stored = await storeMediaUpload(new Request('http://breadcrumb.test/api/media', {
+      method: 'POST', body: form,
+    }), MAX_MEDIA_REQUEST_BYTES, directory);
     assert.ok(stored.ok);
     const value = stored.value;
     assert.match(value.mediaId, /^[0-9a-f-]{36}$/);
@@ -105,4 +152,4 @@ try {
   else process.env.BREADCRUMB_MEDIA_DIR = oldMediaDir;
   await rm(directory, { recursive: true, force: true });
 }
-console.log('media checks passed (synthetic headers, limits, storage, metadata, write failure)');
+console.log('media checks passed (bounded streams, exact file field, synthetic headers, storage, metadata, write failure)');

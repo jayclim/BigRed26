@@ -100,7 +100,7 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
         {route.id !== actionFixture.route.id && <button className="btn" disabled={busy || !saved} onClick={loadActionFixture}>Review detailed-action mock fixture</button>}
       </header>
 
-      <VideoUpload />
+      <VideoUpload key={route.id} />
 
       {approved && (
         <section className="share" aria-labelledby="share-h">
