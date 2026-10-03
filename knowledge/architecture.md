@@ -16,6 +16,14 @@ Core logic lives in `src/server/core/`; provider secrets stay server-side. Voice
 
 Local JSON persistence is a first-build choice for one Node process, unsuitable for multiple workers/serverless instances. Keep read/write failures explicit; never silently replace unreadable existing data with a fresh fixture. Add transactional shared storage when deployment requires concurrency.
 
+## Local route media
+
+Implemented in code gates, 2026-10-03: `POST /api/media` requires exactly one multipart entry named `file` containing a File. It checks MP4/MOV/WebM MIME and container signatures, and rejects empty files or files over 100 MB. An early Content-Length check rejects oversized declared bodies. A counted Web stream enforces the 100 MB plus 20 KiB body allowance before native multipart parsing, including absent or false length headers. Exceeding the allowance cancels the source and returns `INVALID_INPUT` before storage. Client and server share the type and size limits. No global body limit is configured; the removed Proxy buffer setting did not apply because this app has no Proxy.
+
+`src/server/media/media.ts` stores UUID-named video and JSON metadata pairs in `BREADCRUMB_MEDIA_DIR`, or `media` beside the configured data file (normally `.data/media`). Filenames from clients are sanitized display text only. Temporary writes and rename publish metadata last; write failures return retryable provider errors and clean up partial files. This is local disk storage, not a hosted durable media service. Vercel Functions have a 4.5 MB request-body cap; hosted upload needs direct-to-storage later.
+
+The creator previews the selected local file and reports `extraction: 'pending'` after storage. Upload does not create or change a route. Results receive focus and scroll to the viewport center to clear the mobile sticky bar. The upload panel is keyed by route id; a route switch resets its state and aborts its in-flight request on unmount. `startBuild` still reports the absent extraction provider. Earlier host checks passed the baseline HTTP and phone/desktop upload states (2026-10-03). The PR #6 repair passes core, media, typecheck and normal build checks in the sandbox. Its HTTP smoke is blocked by `listen EPERM`; fresh browser evidence is pending. Real footage, large HTTP transfers, physical phones and crash recovery remain unverified. See the [upload receipt](../stages/03-build/output/media-upload.md). Next action: host HTTP/browser verification and review of the repair, then item 2b Gemini draft extraction from stored media.
+
 ## Navigation invariants
 
 - Navigate only approved immutable versions. Existing sessions retain their version after a new publication.

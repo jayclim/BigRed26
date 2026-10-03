@@ -2,6 +2,8 @@
 
 Updated: 2026-10-03. Read [the work protocol](../knowledge/work-protocol.md) for all working rules, including both model routes and foreground rescue completion. Apply the local [operator](../skills/operator/SKILL.md) and [orchestrator](../skills/orchestrator/SKILL.md) skills. The stop time is today at noon Eastern. No real route footage is available yet. Extra paid usage and deployment are not authorized.
 
+Lead and publication rules (2026-10-03): the lead runs as Opus 5.5, exact model `claude-opus-5-5`; the controller checks the init model at each launch and stops on a mismatch, with no silent fallback and no global setting edits. Push every created commit at each checkpoint; the Claude host publishes when the worker sandbox blocks Git. Verify local/remote SHA equality and report push failures. See [the work protocol](../knowledge/work-protocol.md).
+
 ## Before sleep
 
 1. Put Gemini and, if available, ElevenLabs credentials in an ignored local environment file. Give the lead its path, the model/voice choice if required, and the free-tier or credit limit. Do not paste keys into chat. A key alone does not establish free usage. Observed later on 2026-10-03: root `.env.local` exists; provider budget and a real API success are unverified.
@@ -19,7 +21,7 @@ No route recording is needed to implement the next code slices. After waking, su
 | 0 | Publish the local baseline and add PR checks | Done. Baseline published. CI installed by PR #3; hosted run 37107022203 passed on `3f5b829` (job `checks`, 33s). |
 | 1 | Guard unattended runs | Done: 31 fake-process checks and one real host probe pass. Plugin job recovery remains a manual, owned-job check. |
 | 1a | Support detailed route actions | Implement [the accepted action scope](../stages/01-scope/output/complex-route-guidance.md): named doors, ordered floor transitions, side-specific instructions, optional arrows and evidence-based completion. Must precede provider slices. **Implementation complete in mock/code gates (PR #5, 2026-10-03); live/physical gate pending.** |
-| 2 | Teach a route from uploaded media | Bounded input validation and storage, editable extraction draft, useful errors. Use official APIs and existing contracts. |
+| 2 | Teach a route from uploaded media | [2a upload/storage locally verified; merged via PR #6](../stages/03-build/output/media-upload.md), 2026-10-03, synthetic video only. Next: 2b editable extraction draft. |
 | 3 | Gemini draft extraction | Structured checkpoint output is validated and stays unapproved until human review. Record real provider response separately from synthetic fixture checks. |
 | 4 | Live frame matching | Approved route context, bounded frame rate, stale-response rejection, unknown/reorient states, no unsupported turn or arrival. |
 | 5 | ElevenLabs voice | Exact approved text, cached output, mute/locale controls and recoverable errors. Browser speech remains an explicit fallback. |
