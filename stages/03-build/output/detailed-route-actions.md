@@ -1,6 +1,6 @@
 # Detailed route actions — queue item 1a
 
-Date: 2026-10-03. Status: PR #5 repair host-verified and pushed; focused re-review of the repair delta pending. Branch: `feat/detailed-route-actions`. Repair base: `5af4c0302508e2a34aa709a8f6bc1aab7521218b`.
+Date: 2026-10-03. Status: implementation complete in mock/code gates; repair delta independently reviewed clean (2026-10-03); live/physical gate pending. Branch: `feat/detailed-route-actions`. Repair base: `5af4c0302508e2a34aa709a8f6bc1aab7521218b`.
 
 ## Scope and implemented slice
 
@@ -62,4 +62,8 @@ Browser captures are pre-repair. No rendered phone/desktop recovery run was made
 
 No real recognition, physical completion, terrain safety, accessibility or phone camera/audio gate is established. The lead's untracked `.overnight/*.log` and `.overnight/ui-actions/` PNGs are raw artifacts for merger cleanup. They are not knowledge and must stay out of Git. They were not present in this repair worktree and were not changed.
 
-Next: focused independent review of the repair delta from `5af4c03`. If clean and CI is green, Claude merges PR #5 as sole merger.
+## Repair-delta review
+
+Reviewer: fresh native `codex:codex-rescue` [SOL], gpt-6.1-sol, `--fresh --wait`, foreground (lead `ca55cd2a`, agent `a2d1adb873a2f70be`), read-only, delta `5af4c03..1347c12` at head `1347c12`. Result: no blocking findings. Findings 1-3 repaired; guard change is prompt text and its assertion only, limits unchanged. Reviewer checks (actual, Node 24): typecheck, in-memory core assertions with repair regressions, a custom GuideScreen callback harness (lost reply, refresh failures/races, button removal, locale refresh, visual arrival), guard usage-boundary assertions, `git diff --check`. Hosted CI run 37111894393 passed on `1347c12`. Non-blocking: `GuideScreen.tsx:114` keeps the stale manual button if the session read fails while guidance succeeds; reservation and locale-update failures return before reconciliation. A later successful refresh repairs it. Not run: browser transport-fault test, reviewer HTTP/build.
+
+Next: live/physical gate needs route footage and phone test. Next queue item: 2 (teach a route from uploaded media).
