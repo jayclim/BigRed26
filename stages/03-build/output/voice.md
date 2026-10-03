@@ -48,7 +48,7 @@ Host: Windows 11, Node 24.21.0, after `npm ci` from the existing lockfile. Run b
 - `node scripts/voice-harness.mjs --once`: PASS, "HTTP only; browser playback unverified".
 - `node scripts/smoke-api.mjs`: FAIL on this Windows host, `spawn node_modules/.bin/next ENOENT`. The shared `scripts/isolated-server.mjs` spawns the POSIX launcher. This script and helper are unchanged on this branch, so the failure exists on main too. The voice fixture has a local Windows launcher.
 
-Browser harness, Chrome through Claude in Chrome: the page showed "TEST CLIP - generated tone, not ElevenLabs". Play sent POST `/api/speech` (200). In the page, GET of `audioUrl` returned 200 `audio/wav`, 16,044 bytes. `OfflineAudioContext.decodeAudioData` decoded it as 0.5 s, 16 kHz, mono. The `<audio>` element stayed at readyState 0 because the automated tab reported `visibilityState: hidden`, and Chrome defers media there. Audible playback is NOT observed. A person must open the harness in a visible tab and click Play.
+Browser harness, Chrome through Claude in Chrome: the page showed "TEST CLIP - generated tone, not ElevenLabs". Play sent POST `/api/speech` (200). In the page, GET of `audioUrl` returned 200 `audio/wav`, 16,044 bytes. `OfflineAudioContext.decodeAudioData` decoded it as 0.5 s, 16 kHz, mono. The `<audio>` element stayed at readyState 0 because the automated tab reported `visibilityState: hidden`, and Chrome defers media there. Audible playback is NOT observed. A person must open the harness in a visible tab and click Play. Superseded: the user later reported hearing the generated tone in a visible tab (2026-10-03). That is a user report of generated-tone playback only; see [the verify receipt](../../04-verify/output/voice.md).
 
 This evidence is transport and decode only, with a generated tone. It is not ElevenLabs audio.
 
@@ -58,7 +58,7 @@ This evidence is transport and decode only, with a generated tone. It is not Ele
 2. After the B voice consumer PR merges, import httpVoice into the client mount and wire `voice={httpVoice}`. Do not change required GuideScreen props or import an unmerged branch.
 3. Add `node src/server/voice/voice.check.ts` to the shared check script. Add `node scripts/voice-smoke.mjs` to CI after build. Review the exact diff before integration.
 4. Add server-only .env.example entries for BREADCRUMB_ELEVENLABS_VOICE (disabled by default), ELEVENLABS_API_KEY (blank), ELEVENLABS_VOICE_ID (optional), and BREADCRUMB_VOICE_DIR (optional). BREADCRUMB_DATA_FILE already defines the default data location. Never use NEXT_PUBLIC for credentials.
-5. Start `node scripts/voice-harness.mjs`, open its printed URL, and click Play. Record actual browser playback. Keep generated tone evidence separate from real ElevenLabs evidence.
+5. Superseded: the user reported hearing the generated tone in the harness in a visible tab. See [the verify receipt](../../04-verify/output/voice.md). Rerun the harness only after a change to delivery. Keep generated tone evidence separate from real ElevenLabs evidence.
 
 ## Independent review
 
@@ -71,8 +71,8 @@ Non-blocking findings, not fixed in this PR:
 
 ## Limits and next action
 
-No live ElevenLabs call was made. Endpoint/model acceptance, pronunciation in en/es, audible browser playback and phone audio are unverified. No guide mount or navigation state changed. The pre-existing untracked `.vscode/` directory was left unchanged. No shared source or config was edited.
+No live ElevenLabs call was made. Endpoint/model acceptance, live English/Spanish audio and phone audio are unverified. Audible playback of the generated tone rests on a user report, not automated evidence. No guide mount or navigation state changed. The pre-existing untracked `.vscode/` directory was left unchanged. No shared source or config was edited.
 
 The cache has a per-entry audio bound but no total size cap, TTL or eviction. Clear only an explicitly selected voice cache directory when required. Deduplication is for one Node process; there is no distributed lock. Do not use this local disk design as a claim of serverless durability. Changing model settings would need cache invalidation; this slice uses one fixed model. Audio checks do not decode codecs, test seeking or implement HTTP Range delivery.
 
-Next action: a person opens `node scripts/voice-harness.mjs` in a visible tab and records audible playback. Then make a separate live English/Spanish test only after spending caps are confirmed. Verify audio on the target phone before claiming the physical audio gate.
+Next action: superseded by the user report of generated-tone playback ([verify receipt](../../04-verify/output/voice.md)). Make a separate live English/Spanish test only after spending caps are confirmed. Verify audio on the target phone before claiming the physical audio gate.
