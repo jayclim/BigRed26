@@ -1,6 +1,7 @@
 // HTTP smoke test: `npm run build && node scripts/smoke-api.mjs [port]`. Starts its own server on a
 // throwaway data file (scripts/isolated-server.mjs), walks draft -> approve -> session -> frames -> locale.
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -12,7 +13,15 @@ const mediaDir = mkdtempSync(join(tmpdir(), 'breadcrumb-media-smoke-'));
 const oldMediaDir = process.env.BREADCRUMB_MEDIA_DIR;
 process.env.BREADCRUMB_MEDIA_DIR = mediaDir;
 process.on('exit', () => rmSync(mediaDir, { recursive: true, force: true }));
+// Explicitly disable extraction for this child; never pass provider credentials.
+const savedGeminiEnv = Object.fromEntries(['BREADCRUMB_GEMINI_EXTRACTION', 'GEMINI_API_KEY', 'GEMINI_MODEL'].map((key) => [key, process.env[key]]));
+for (const key of Object.keys(savedGeminiEnv)) delete process.env[key];
+process.env.BREADCRUMB_GEMINI_EXTRACTION = '0';
 const { base } = await startIsolatedServer(Number(process.argv[2] ?? 3107));
+for (const [key, value] of Object.entries(savedGeminiEnv)) {
+  if (value === undefined) delete process.env[key];
+  else process.env[key] = value;
+}
 if (oldMediaDir === undefined) delete process.env.BREADCRUMB_MEDIA_DIR;
 else process.env.BREADCRUMB_MEDIA_DIR = oldMediaDir;
 const call = async (method, path, body) => {
@@ -23,6 +32,11 @@ const call = async (method, path, body) => {
   console.log(method.padEnd(5), path.padEnd(48), res.status, json.ok ? (json.value?.state ?? json.value?.status ?? 'ok') : json.error.code);
   return { status: res.status, ...json };
 };
+
+const extractionDisabled = await call('POST', `/api/media/${randomUUID()}/extract`);
+assert.equal(extractionDisabled.status, 503);
+assert.equal(extractionDisabled.error.code, 'PROVIDER_UNAVAILABLE');
+assert.match(extractionDisabled.error.message, /not enabled/);
 
 // Synthetic signature, not playable footage and never used to create a route.
 const mp4 = Uint8Array.from([0, 0, 0, 16, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0, 0, 0, 0]);

@@ -25,7 +25,7 @@ Read both the project [operator](../skills/operator/SKILL.md) and [orchestrator]
 
 Leave effort unset. Use `[LUNA]` or `[SOL]` task labels. Give the worker a self-contained contract: objective, context, owned paths, invariants, exclusions, acceptance checks and required evidence. Do not silently substitute a model. Record observed model support and the runtime used.
 
-Authorization: the user chose both models on 2026-10-03. Observed runtime evidence, 2026-10-03: gpt-6.1-sol succeeded on Codex 0.159.2 in controller, Claude lead and official plugin runs (latest rescue thread `01a100c8-4dfd-7fe2-9ed0-b921c5b12d2e`). gpt-6-luna is authorized but not yet observed. Authorization alone does not establish model support.
+Authorization: the user chose both models on 2026-10-03. Observed runtime evidence, 2026-10-03: gpt-6.1-sol succeeded on Codex 0.159.2 in controller, Claude lead and official plugin runs (latest rescue thread `01a100c8-4dfd-7fe2-9ed0-b921c5b12d2e`). native gpt-6-luna handback observed for job task-mus79spc-ehkwyv (host-verified .gitignore repair, 2026-10-03). Authorization alone does not establish model support.
 
 Lead model: the Claude lead must run as Opus 5.5 with the exact observed model `claude-opus-5-5` (user decision, 2026-10-03). The controller checks the init model at each launch. A different or missing model stops the run; there is no silent fallback. Do not edit global settings to force the model. Observed 2026-10-03: the existing global setting and recent init events already use Opus 5.5.
 
