@@ -96,3 +96,84 @@ No shared-file change is required for this local implementation.
 Do not claim real recognition from these fixture tests.
 
 Next action: PR 2, the live Recognizer with fake provider and transport tests. No real provider call until spending caps are confirmed.
+
+# Part B, PR 2: live recognizer
+
+Status: implemented and checked locally with fake providers and fake transport. Date: 2026-10-03.
+Branch: feat/follow-recognizer, PR base feat/follow-camera. The integration owner registers the recognizer and merges.
+
+## Changes
+
+createRecognizer reads the uploaded frame and sends all checkpoint candidates to the provider.
+Candidates contain ids, labels, identifying evidence, approach descriptions and action target metadata.
+They do not contain approved instructions, action steps or completion text.
+Strict, bounded output validation returns only an Observation. The core owns guidance and progress.
+Unknown ids and invalid output fail with retryable PROVIDER_UNAVAILABLE. Null ids return unknown with empty evidence.
+A single deadline bounds frame reads and providers that ignore the abort signal.
+One flight per session limits concurrent recognition cost. Every exit releases the flight.
+The Gemini adapter has a separate enable flag, bounded response reads and safe error messages.
+HTTP 429 returns retryable RATE_LIMITED. No logging or replay recognizer was added.
+
+## Owned files
+
+- src/server/recognition/recognizer.ts
+- src/server/recognition/gemini.ts
+- src/server/recognition/recognizer.check.ts
+- stages/03-build/output/follow-route.md (this appended section)
+
+## Actual checks
+
+Local runtime: Node 26.8.2. Node 24 was requested but was not the runtime supplied here.
+
+| Command | Actual result |
+| --- | --- |
+| node src/server/recognition/recognizer.check.ts | PASS. Five groups: approved guidance and validation; single flight and deadlines; manual stale race; destination arrival without timer progress; fake transport and absent modes. |
+| npm run check | PASS. Existing core, media and extraction checks; extraction reports 32 cases and no network calls. |
+| npm run typecheck | PASS. tsc --noEmit. |
+
+The recognition check replaces global fetch with a throwing stub and injects fake transport.
+Initial recognition check runs failed on Buffer versus Uint8Array comparison, an invalid attempt to overwrite approved v1, and test synchronization before the second provider entered.
+These test harness errors were repaired. The final check passed.
+No build or server was run by the worker. No real provider was called.
+
+Host checks by the lead on 2026-10-03 (macOS, Node 24.21.0). All passed.
+
+| Command | Actual result |
+| --- | --- |
+| node src/server/recognition/recognizer.check.ts | PASS. All five groups. |
+| npm run check | PASS. Core, media and extraction (32 cases, no network calls). |
+| npm run typecheck | PASS. |
+| npm run build | PASS. Route table unchanged. No app module imports the recognizer yet, so the build does not bundle it. |
+
+node scripts/smoke-api.mjs was not run. This change adds no HTTP handler and changes no HTTP behavior.
+
+## Design details and limitations
+
+There is no production registration in this change. Live and replay still fail honestly without registration.
+The real Gemini request shape is unverified against a live call.
+The core window is current/next only. The recognizer sends all approved checkpoint candidates.
+JPEG bytes are not decoded. Visible-text truth requires provider evidence; schema checks prove structure and bounds only.
+The stale race uses sequence 1 to activate the action, then slow sequence 2 and manual sequence 3.
+The core requires an active action for completeAction, so slow sequence 1 versus manual sequence 2 cannot be accepted in a fresh session without first activating that action.
+Manual completion remains a core behavior and can reach a destination; the observation-arrival check proves that idle time does not advance the route.
+
+## Integration requests
+
+In src/server/core/instance.ts, add this import:
+
+```ts
+import { liveRecognizer, liveRecognitionEnabled } from '../recognition/gemini.ts';
+```
+
+Use this recognizers entry in createCore:
+
+```ts
+recognizers: { mock: fixtureRecognizer, ...(liveRecognitionEnabled() ? { live: liveRecognizer } : {}) },
+```
+
+Add `node src/server/recognition/recognizer.check.ts` to npm run check and CI.
+Set `BREADCRUMB_GEMINI_RECOGNITION=1` and `GEMINI_API_KEY` only after provider spending is authorized.
+`GEMINI_MODEL` is optional. The default is DEFAULT_GEMINI_MODEL from extraction.
+The production provider config is captured at module load. Restart after env changes.
+
+Next action: owner reviews and registers the module, adds the check to CI, and reruns build and HTTP smoke after registration. A live provider call requires separate authorization.
