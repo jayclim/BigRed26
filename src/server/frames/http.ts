@@ -11,6 +11,7 @@ export async function receiveFrame(req: Request, core: Pick<CoreAdapter, 'getSes
   if (!sessionId) return invalid('sessionId is required.');
   const session = await core.getSession(sessionId);
   if (!session.ok) return respond(session);
+  if (session.value.id !== sessionId) return respond({ ok: false, error: { code: 'NOT_FOUND', message: 'Session not found.', retryable: false } });
   // Count streamed bytes before buffering. Chunked bodies also obey the cap.
   const reader = req.body?.getReader();
   if (!reader) return invalid('Frame body is required.');

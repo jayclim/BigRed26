@@ -29,15 +29,23 @@ try {
 // Exercise the exact route implementation without a listening server.
 const { receiveFrame } = await import('./http.ts');
 const httpDir = await mkdtemp(join(tmpdir(), 'breadcrumb-frame-request-check-'));
-const sessionCore = { getSession: async (id: string) => id === 'existing'
-  ? { ok: true as const, value: { id, routeId: 'fixture', routeVersion: 1, locale: 'en' as const, mode: 'mock' as const, lastConfirmedCheckpointId: null, lastAcceptedSequence: 0 } }
-  : { ok: false as const, error: { code: 'NOT_FOUND' as const, message: 'Session not found.', retryable: false } } };
+const session = { id: 'existing', routeId: 'fixture', routeVersion: 1, locale: 'en' as const, mode: 'mock' as const, lastConfirmedCheckpointId: null, lastAcceptedSequence: 0 };
+const sessions: Record<string, unknown> = { existing: session };
+const sessionCore = { getSession: async (id: string) => {
+  const found = sessions[id];
+  return found
+    ? { ok: true as const, value: found as typeof session }
+    : { ok: false as const, error: { code: 'NOT_FOUND' as const, message: 'Session not found.', retryable: false } };
+} };
 try {
   for (const [query, type, bytes, length, expected] of [
     ['?sessionId=existing', 'image/jpeg', jpeg, undefined, 200],
     ['?sessionId=existing', 'text/plain', jpeg, undefined, 400],
     ['', 'image/jpeg', jpeg, undefined, 400],
     ['?sessionId=missing', 'image/jpeg', jpeg, undefined, 404],
+    ['?sessionId=__proto__', 'image/jpeg', jpeg, undefined, 404],
+    ['?sessionId=constructor', 'image/jpeg', jpeg, undefined, 404],
+    ['?sessionId=toString', 'image/jpeg', jpeg, undefined, 404],
     ['?sessionId=existing', 'image/jpeg', new Uint8Array([1, 2, 3]), undefined, 400],
     ['?sessionId=existing', 'image/jpeg', jpeg, 'NaN', 400],
     ['?sessionId=existing', 'image/jpeg', jpeg, '-1', 400],

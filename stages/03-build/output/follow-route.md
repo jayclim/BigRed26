@@ -25,7 +25,7 @@ Unmount drops late guide results. Camera tracks stop on cleanup.
 The Check this view button uses local CSS at the bottom-left, opposite Stop camera.
 No timer or automatic capture was added. Arrow rules are unchanged.
 
-POST /api/frames checks the session, content type, content length, streamed size and JPEG header.
+POST /api/frames requires the returned session ID to equal the requested ID. Inherited object names such as `__proto__` are rejected with 404. It also checks content type, content length, streamed size and JPEG header.
 It returns existing Result envelopes. Streamed bodies stop at the cap before buffering continues.
 Frames use a separate directory and opaque frame_UUID ids.
 Saves remove frames older than ten minutes and keep at most 200 files.
@@ -57,7 +57,7 @@ The worker sandbox blocked localhost servers (listen EPERM) and the Google font 
 | --- | --- |
 | npm run check | PASS. Core, media and extraction checks (32 cases, no network calls). |
 | npm run typecheck | PASS. |
-| node src/server/frames/frames.check.ts | PASS. JPEG validation, opaque ids, safe reads, age retention, concurrent count cap, direct handler validation. |
+| node src/server/frames/frames.check.ts | PASS. JPEG validation, opaque ids, safe reads, age retention, concurrent count cap, direct handler validation. Missing and inherited-name sessions return 404 with `NOT_FOUND`; the stored-file count stays 1. |
 | node src/features/guide/checkView.check.ts | PASS. Target direction, unknown, wrong approach, upload and recognizer failures, one flight, unmount drop, stale ordering, locale, pinned v1, explicit manual completion, capture bounds. |
 | npm run build | PASS. /api/frames is a dynamic route. |
 | node scripts/smoke-api.mjs 3151 | PASS. One earlier host run before the repair failed once and passed on two reruns; the failure output was not kept. |
@@ -70,6 +70,8 @@ The browser script runs a production build. The one-session-per-mount assertion 
 Pre-existing, not in scope: the last crumb dot overlaps the destination label ("Room 204") at both widths in mock and live.
 
 ## Design details and limitations
+
+The shared core lookup in `src/server/core/core.ts` (`sessionOf`) still resolves inherited object names. The integration lead owns that fix with `Object.hasOwn` or a null-prototype map.
 
 Camera uses onCheck and busy. It has no onStop or onFrame prop.
 onCheck passes a capture function to the guide. This lets the shared flight lock cover canvas encoding before a Blob exists.
