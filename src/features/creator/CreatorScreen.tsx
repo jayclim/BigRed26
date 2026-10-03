@@ -1,4 +1,8 @@
 'use client';
+import { Button } from '@/ui/button';
+import { Textarea } from '@/ui/textarea';
+import { Badge } from '@/ui/badge';
+import { motion, useReducedMotion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import type { Checkpoint, CoreAdapter, Direction, Id, Result, Route } from '@contracts/contracts.ts';
 import { DIRECTION_TEXT } from '@/ui/Arrow.tsx';
@@ -17,6 +21,7 @@ export interface CreatorScreenProps {
 const DIRECTIONS: Direction[] = ['forward', 'left', 'right', 'up', 'down'];
 
 export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps) {
+  const reduceMotion = useReducedMotion();
   const [route, setRoute] = useState<Route | null>(null);
   const [saved, setSaved] = useState(true);
   const [reviewed, setReviewed] = useState<Set<Id>>(new Set());
@@ -170,49 +175,63 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
       <header>
         <div className="creator-top">
           <Brand />
-          {fixtureRoute && <span className="mock-badge">Mock route</span>}
+          <div className="creator-context"><span>Teach a route</span>{fixtureRoute && <Badge variant="outline" className="mock-badge">Mock route</Badge>}</div>
         </div>
-        <span className="status" data-status={route.status}>
-          {approved ? `Approved, version ${route.version}` : `Draft, version ${route.version}${saved ? '' : ' (unsaved changes)'}`}
-        </span>
-        <h1 ref={heading} tabIndex={-1}>{route.name}</h1>
-        <p className="lede">
-          Start: {route.startDescription}. Destination: {route.destinationLabel}.
-        </p>
+        <div className="route-title">
+          <h1 ref={heading} tabIndex={-1}>{route.name}</h1>
+          <motion.span key={`${route.status}-${saved}`} initial={reduceMotion ? false : { opacity: 0.5 }} animate={{ opacity: 1 }} transition={{ duration: reduceMotion ? 0 : 0.16 }}>
+            <Badge variant="secondary" className="status" data-status={route.status}>
+              {approved ? `Approved · v${route.version}` : `Draft · v${route.version}${saved ? '' : ' · Unsaved'}`}
+            </Badge>
+          </motion.span>
+        </div>
+        <dl className="route-summary">
+          <div><dt>Start</dt><dd>{route.startDescription}</dd></div>
+          <div><dt>Destination</dt><dd>{route.destinationLabel}</dd></div>
+        </dl>
         <p className="notice">{fixtureRoute
           ? 'Fictional mock fixture; no video was recorded. Check each step, then approve. Fixture success is not field or terrain-safety evidence.'
           : approved ? 'Route from your video. You approved this version after checking every step.' : 'Draft from your video. Check every step; nothing is approved yet.'}</p>
-        {route.id !== actionFixture.route.id && <button className="btn" disabled={busy || !saved} onClick={loadActionFixture}>Review detailed-action mock fixture</button>}
       </header>
 
-      <VideoUpload onCreateDraft={requestExtraction} onSelectionChange={clearExtraction} extractionBusy={extracting}
-        extractionDisabled={busy || !!guardMedia || !!pendingDraft} />
+      <div className="creator-body">
+        <aside className="creator-sidebar" aria-label="Teaching video and testing tools">
+          <VideoUpload onCreateDraft={requestExtraction} onSelectionChange={clearExtraction} extractionBusy={extracting}
+            extractionDisabled={busy || !!guardMedia || !!pendingDraft} />
+          {route.id !== actionFixture.route.id && <div className="creator-test-tools">
+            <h2>Testing tools</h2>
+            <p>Explore a fictional route with doors, stairs and an elevator.</p>
+            <Button variant="ghost" disabled={busy || !saved} onClick={loadActionFixture}>Review detailed-action mock fixture</Button>
+          </div>}
+        </aside>
+        <section className="creator-route" aria-label="Review route">
+
       {extracting && <div className="notice" role="status">
         <p>Creating a draft from your video… this can take a minute</p>
-        <button className="btn" onClick={() => { clearExtraction(); setMsg({ kind: 'ok', text: 'Draft creation canceled. Your current route is unchanged.' }); }}>Cancel</button>
+        <Button variant="outline" onClick={() => { clearExtraction(); setMsg({ kind: 'ok', text: 'Draft creation canceled. Your current route is unchanged.' }); }}>Cancel</Button>
       </div>}
       {(extractionError || guardMedia || pendingDraft) && <div ref={extractionNotice} tabIndex={-1}
         className={`notice extraction-notice${extractionError ? ' error' : ''}`} role={extractionError ? 'alert' : 'status'}>
         {extractionError && <>
           <p>{extractionError}</p>
           <div className="row">
-            <button className="btn btn-primary" disabled={busy} onClick={() => retryMedia.current && requestExtraction(retryMedia.current)}>Retry</button>
-            <button className="btn" onClick={() => setExtractionError(null)}>Dismiss</button>
+            <Button disabled={busy} onClick={() => retryMedia.current && requestExtraction(retryMedia.current)}>Retry</Button>
+            <Button variant="outline" onClick={() => setExtractionError(null)}>Dismiss</Button>
           </div>
         </>}
         {guardMedia && <>
           <p>Your draft has unsaved edits. Choose how to continue.</p>
           <div className="row">
-            <button className="btn btn-primary" disabled={busy} onClick={() => run(async () => { if (await save()) await extract(guardMedia); })}>Save draft first</button>
-            <button className="btn" disabled={busy} onClick={() => extract(guardMedia)}>Discard edits and create draft</button>
-            <button className="btn" disabled={busy} onClick={() => setGuardMedia(null)}>Keep my edits</button>
+            <Button disabled={busy} onClick={() => run(async () => { if (await save()) await extract(guardMedia); })}>Save draft first</Button>
+            <Button variant="outline" disabled={busy} onClick={() => extract(guardMedia)}>Discard edits and create draft</Button>
+            <Button variant="outline" disabled={busy} onClick={() => setGuardMedia(null)}>Keep my edits</Button>
           </div>
         </>}
         {pendingDraft && <>
           <p>A new draft is ready. You edited the current draft during creation. Choose which draft to keep open.</p>
           <div className="row">
-            <button className="btn btn-primary" disabled={busy} onClick={() => openDraft(pendingDraft)}>Open new draft (discard my edits)</button>
-            <button className="btn" disabled={busy} onClick={() => setPendingDraft(null)}>Keep my edits</button>
+            <Button disabled={busy} onClick={() => openDraft(pendingDraft)}>Open new draft (discard my edits)</Button>
+            <Button variant="outline" disabled={busy} onClick={() => setPendingDraft(null)}>Keep my edits</Button>
           </div>
         </>}
       </div>}
@@ -225,16 +244,20 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
             Works in a browser on this computer. A phone needs this app served over HTTPS for camera access; see the README.
           </p>
           <div className="row">
-            <a className="btn btn-primary" href={guidePath}>Open guide</a>
-            <button className="btn" onClick={() => navigator.clipboard?.writeText(shareUrl)}>Copy link</button>
-            <button className="btn" onClick={startNewVersion}>Edit as version {route.version + 1}</button>
+            <Button asChild><a href={guidePath}>Open guide</a></Button>
+            <Button variant="outline" onClick={() => navigator.clipboard?.writeText(shareUrl)}>Copy link</Button>
+            <Button variant="outline" onClick={startNewVersion}>Edit as version {route.version + 1}</Button>
           </div>
         </section>
       )}
 
+      <div className="section-heading">
+        <div><h2>{approved ? 'Approved route' : 'Review checkpoints'}</h2><p>{approved ? 'This version is ready for visitors.' : 'Check the instructions in both languages before approving.'}</p></div>
+        <Badge variant="outline">{route.checkpoints.length} steps</Badge>
+      </div>
       <ol className="trail" aria-label="Route checkpoints in walking order">
         {route.checkpoints.map((c, i) => (
-          <li key={c.id}>
+          <li key={c.id} data-reviewed={approved || reviewed.has(c.id)}>
             <div className={`node${c.isDestination ? ' dest' : ''}`} aria-hidden="true">{i + 1}</div>
             <article className="step" aria-labelledby={`cp-${c.id}`}>
               <h2 id={`cp-${c.id}`}>
@@ -249,12 +272,12 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
               <div className="langs">
                 <label>
                   English instruction
-                  <textarea value={c.instruction.en} disabled={approved}
+                  <Textarea value={c.instruction.en} disabled={approved}
                     onChange={(e) => edit(c.id, { instruction: { ...c.instruction, en: e.target.value } })} />
                 </label>
                 <label>
                   Spanish instruction
-                  <textarea lang="es" value={c.instruction.es} disabled={approved}
+                  <Textarea lang="es" value={c.instruction.es} disabled={approved}
                     onChange={(e) => edit(c.id, { instruction: { ...c.instruction, es: e.target.value } })} />
                 </label>
               </div>
@@ -282,19 +305,21 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
         ))}
       </ol>
 
+        </section>
+      </div>
       <div className="approve-bar" aria-live="polite">
         {!approved && (
           <>
-            <button className="btn" onClick={saveDraft} disabled={busy || extracting || saved}>Save draft</button>
-            <button className="btn btn-primary" onClick={approve} disabled={busy || extracting || !!pendingDraft || !!guardMedia || !allReviewed}>
+            <Button variant="outline" onClick={saveDraft} disabled={busy || extracting || saved}>Save draft</Button>
+            <Button onClick={approve} disabled={busy || extracting || !!pendingDraft || !!guardMedia || !allReviewed}>
               Approve version {route.version}
-            </button>
+            </Button>
             <span style={{ color: 'var(--muted)' }}>
               {reviewed.size} of {route.checkpoints.length} steps checked
             </span>
           </>
         )}
-        {msg && <p className={`notice ${msg.kind}`} role={msg.kind === 'error' ? 'alert' : 'status'} style={{ margin: 0 }}>{msg.text}</p>}
+        {msg && <motion.p key={msg.text} initial={reduceMotion ? false : { opacity: 0.5 }} animate={{ opacity: 1 }} transition={{ duration: reduceMotion ? 0 : 0.16 }} className={`notice ${msg.kind}`} role={msg.kind === 'error' ? 'alert' : 'status'} style={{ margin: 0 }}>{msg.text}</motion.p>}
       </div>
     </main>
   );
