@@ -4,7 +4,7 @@ Breadcrumb is a mobile-first web app for teaching and following a short indoor r
 
 ## Start here
 
-Use the local [orchestrator skill](skills/orchestrator/SKILL.md) for all work in this multi-agent build. Read [CONTEXT.md](CONTEXT.md), then the selected stage's `CONTEXT.md`. Read only its listed inputs. Use [PROGRESS.md](PROGRESS.md) for current work state; planning documents and file existence do not establish completed features.
+Use the local [operator skill](skills/operator/SKILL.md) and [orchestrator skill](skills/orchestrator/SKILL.md) for all work in this multi-agent build. Read [CONTEXT.md](CONTEXT.md), then the selected stage's `CONTEXT.md`. Read only its listed inputs. Use [PROGRESS.md](PROGRESS.md) for current work state; planning documents and file existence do not establish completed features.
 
 ## The project brain
 
@@ -24,7 +24,7 @@ Follow [knowledge/working-method.md](knowledge/working-method.md) when reconcili
 
 ## Boundaries
 
-Follow [knowledge/work-protocol.md](knowledge/work-protocol.md) for roles, PRs, knowledge updates and usage limits. Claude is the orchestrator; the official Codex plugin implements with `gpt-6.1-sol`. One merger integrates. Respect file ownership and concurrent edits. Shared contracts and root configuration belong to the integration owner. The user authorized local agent work and commits, pushes and PR integration in `jayclim/BigRed26`. Deployment, paid overages and messages to other people remain outside the current authorization.
+Follow [knowledge/work-protocol.md](knowledge/work-protocol.md) for roles, model routing, PRs, knowledge updates and usage limits. Use the operator and orchestrator skills. Claude Code is the lead and sole merger; implementation uses the official Codex plugin under the protocol's routing rules. Respect file ownership and concurrent edits. Shared contracts and root configuration belong to the integration owner. The user authorized local agent work and commits, pushes and PR integration in `jayclim/BigRed26`. Deployment, paid overages and messages to other people remain outside the current authorization.
 
 Reuse existing code, libraries, design assets and prebuilt tools before implementing new machinery. Use [knowledge/reuse.md](knowledge/reuse.md) for the concrete inventory and adoption rule.
 

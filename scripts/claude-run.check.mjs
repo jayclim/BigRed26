@@ -121,7 +121,7 @@ test('valid start: one fresh lead, bounded flags, plugin instruction, private sa
   assert.equal(value('--permission-mode'), 'auto');
   assert.equal(value('--permission-prompts'), 'none');
   assert.equal(value('--session-id'), result.sessionId);
-  assert.match(value('--append-system-prompt'), /official Codex plugin.*codex:codex-rescue.*gpt-6.1-sol --fresh/);
+  assert.match(value('--append-system-prompt'), /operator.*orchestrator.*knowledge\/work-protocol\.md.*official Codex plugin.*codex:codex-rescue.*gpt-6-luna.*gpt-6\.1-sol.*--fresh --wait --model.*effort unset.*foreground.*Do not set run_in_background.*poll a live rescue.*background ID or empty result is a failed handoff/);
   assert.match(args.at(-1), /\$\(do-not-execute\)/);
   for (const flag of ['--resume', '--continue', '--dangerously-skip-permissions', '--settings', '--setting-sources']) {
     assert.ok(!args.includes(flag));
