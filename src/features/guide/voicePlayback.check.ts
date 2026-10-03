@@ -189,5 +189,40 @@ for (const failure of ['ok:false', 'throw', 'play'] as const) {
   }
   console.log(`CHECK same-instruction retry: ${failure}`);
 }
+{
+  for (const outcome of ['reject', 'resolve'] as const) {
+    const pendingPlay = deferred<void>(); const y = deferred<Result<SpeechClip>>();
+    const h = harness(); const requestsY: SpeechRequest[] = [];
+    const voiceY: VoiceAdapter = { synthesize: (r) => { requestsY.push(r); return requestsY.length === 1 ? y.promise : Promise.resolve(clip('Y')); } };
+    const player = createVoicePlayer({ createAudio: (src) => {
+      const audio = { src, plays: 0, pauses: 0,
+        play() { this.plays++; return src === 'A' ? pendingPlay.promise : Promise.resolve(); },
+        pause() { this.pauses++; },
+      }; h.audios.push(audio); return audio;
+    }, onStatus: (s) => h.statuses.push(s) });
+    const old = player.speak(h.voice, guidance()); await Promise.resolve();
+    expectEqual(h.audios.length, 1, `${outcome}: X audio exists while play is pending`);
+    await player.speak(h.voice, guidance());
+    expectEqual(h.requests.length, 1, `${outcome}: same adapter during pending play requests once`);
+    expectEqual(h.audios[0].pauses, 0, `${outcome}: same adapter during pending play does not pause X`);
+    const next = player.speak(voiceY, guidance());
+    expectEqual(requestsY.length, 1, `${outcome}: pending play replacement Y requested once`);
+    expectEqual(h.audios[0].pauses, 1, `${outcome}: pending play replacement pauses X`);
+    expectEqual(h.audios[0].src, '', `${outcome}: pending play replacement clears X src`);
+    // Y sets a failure status before X settles. Stale X must not clear it.
+    y.resolve(fail); await next;
+    expectEqual(h.statuses, ['unavailable'], `${outcome}: Y failure sets status`);
+    if (outcome === 'reject') pendingPlay.reject(new Error('Obsolete audio error'));
+    else pendingPlay.resolve();
+    await old;
+    expectEqual(h.statuses, ['unavailable'], `${outcome}: stale X neither reports unavailable nor clears Y status`);
+    await player.speak(voiceY, guidance());
+    expectEqual(h.audios.filter((a) => a.src === 'Y').map((a) => a.plays), [1], `${outcome}: Y clip plays once`);
+    expectEqual(h.statuses.at(-1), null, `${outcome}: Y success clears status`);
+    await player.speak(voiceY, guidance());
+    expectEqual(requestsY.length, 2, `${outcome}: Y stays deduplicated after start`);
+  }
+  console.log('CHECK adapter replacement while play() is pending');
+}
 assert.equal(regressionFailures.length, 0, `Regression failures (${regressionFailures.length}):\n${regressionFailures.join('\n')}`);
-console.log('PASS all 7 regression groups');
+console.log('PASS all 8 regression groups');

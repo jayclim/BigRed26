@@ -16,7 +16,7 @@ export function createVoicePlayer({ createAudio, voiceId = DEFAULT_VOICE_ID, onS
 }) {
   let generation = 0;
   let disposed = false;
-  let current: { key: string; voice: VoiceAdapter } | null = null;
+  let current: { key: string; voice: VoiceAdapter; started: boolean } | null = null;
   let audio: AudioLike | null = null;
 
   function cancel() {
@@ -31,9 +31,9 @@ export function createVoicePlayer({ createAudio, voiceId = DEFAULT_VOICE_ID, onS
   async function speak(voice: VoiceAdapter, guidance: Guidance) {
     if (disposed) return;
     const key = JSON.stringify([guidance.sessionId, guidance.instructionId, guidance.locale, guidance.text]);
-    if (current?.key === key && (audio !== null || current.voice === voice)) return;
+    if (current?.key === key && (current.started || current.voice === voice)) return;
     cancel();
-    current = { key, voice };
+    const mine: NonNullable<typeof current> = (current = { key, voice, started: false });
     const token = generation;
     const isCurrent = () => !disposed && token === generation;
     try {
@@ -43,7 +43,7 @@ export function createVoicePlayer({ createAudio, voiceId = DEFAULT_VOICE_ID, onS
       if (!result.ok) { current = null; onStatus('unavailable'); return; }
       audio = createAudio(result.value.audioUrl);
       await audio.play();
-      if (isCurrent()) onStatus(null);
+      if (isCurrent()) { mine.started = true; onStatus(null); }
     } catch {
       if (isCurrent()) {
         cancel();

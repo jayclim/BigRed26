@@ -287,6 +287,24 @@ After the exact player fix, actual local results were:
 The worker ran no build, browser, provider or phone check. Host rerun by the lead (2026-10-03): with the 8e5a53c player, the new tests report `Regression failures (45)`. With the fix, voicePlayback.check.ts passed all 9 existing groups plus all 7 regression groups. checkView.check.ts (8 groups), npm run check, npm run typecheck and npm run build passed. node scripts/follow-camera.check.mjs 3153 passed 8 groups. The scratch CDP browser-speech render passed at 390x844 and 1280x800. The branch does not include main's #13 theme yet, so the render reflects the older stylesheet. No provider or phone check was run.
 Next action: a fresh independent review of the exact head. After #11 and #12 merge, rebase on main and rerun these checks.
 
+## Review repair: adapter change during pending play()
+
+2026-10-03, PR #14. Verified feat/follow-voice at 5a73443 before edits.
+Finding: audio existed before play() settled. This suppressed a replacement adapter for the same key. A later autoplay rejection could strand the instruction.
+The player now stores started separately and sets it only after current play() succeeds.
+Adapter replacement during pending play cancels the old generation and requests Y. Same-adapter pending calls and replacement after successful start stay deduplicated.
+The mine variable has a type annotation because TypeScript otherwise infers started as literal false. No other playback behavior changed.
+
+The new group checks both late rejection and late resolution, cancellation, same-adapter deduplication, stale status isolation, Y playback and deduplication after start. Y first sets unavailable, then a successful retry clears it.
+Against unchanged 5a73443 playback code, the new group exited 1 with 12 failed assertions: missing Y requests, missing X pause/src cleanup, missing Y failure status, stale status clearing, missing Y playback and failed deduplication after start. All 16 existing groups passed.
+After the fix, voicePlayback.check.ts exited 0: nine PASS lines, eight regression CHECK lines and `PASS all 8 regression groups`.
+checkView.check.ts exited 0 with all eight PASS lines. npm run check exited 0 with core and media passed and extraction passed (32 cases; no network calls). All four deadline diagnostics were 21.2 ms with timeoutMs=20, generate=0 and save=0.
+The first typecheck exited 2 with TS2322 (true not assignable to false). After the type annotation, npm run typecheck exited 0 with `tsc --noEmit`. No EPERM occurred.
+git diff --check exited 0 with no output.
+Only the three assigned files changed. The untracked review file was left alone. No commit, push, agent or network/provider call was made. No build, browser or phone check was run.
+Host rerun by the lead (2026-10-03): the 5a73443 player with the new tests reports `Regression failures (13)`. The worker run counted 12. With the fix, voicePlayback.check.ts passed 9 groups plus all 8 regression groups. checkView.check.ts (8 groups), npm run check, npm run typecheck, npm run build, node scripts/follow-camera.check.mjs 3153 (8 groups) and the 390/1280 browser-speech render passed. The branch still predates main's #13 theme.
+Next action: independent review of the repair. Browser autoplay and physical phone audio remain unverified.
+
 ## Limitations
 
 Generated voice is not wired into the app mount in this PR.
@@ -296,7 +314,6 @@ Real provider success, browser autoplay permission and physical phone audio rema
 A synthesis request cannot be aborted through the current VoiceAdapter contract.
 At 8e5a53c, late results were not ignored for a replaced pending adapter or a changed session. After this fix, those late results are ignored. Part C owns provider deadlines and audio delivery.
 Retries happen only when GuideScreen's speak effect runs again: a new Guidance object, sound toggle, locale change or adapter change. There is no timer. Player tests cannot prove React effect frequency.
-If the adapter changes while the old clip's play() is still starting and that play() then fails, the new adapter is not called until the next effect run.
 The existing action caption can differ from the full accepted guidance text. This PR preserves it.
 No Next API was added or changed. No dependency or shared contract was changed.
 
