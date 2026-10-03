@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import type { CoreAdapter, Guidance, Id, Locale, Mode, Route, Session } from '@contracts/contracts.ts';
+import type { CoreAdapter, Guidance, Id, Locale, Mode, Route, Session, VoiceAdapter } from '@contracts/contracts.ts';
 import { Arrow, DIRECTION_TEXT } from '@/ui/Arrow.tsx';
 import { mockScenes } from '@/shared/mockScenes.ts';
 import actionFixture from '@contracts/fixture.actions.v1.json';
@@ -10,9 +10,11 @@ import { uploadFrame as realUploadFrame } from '@/client/frameUpload.ts';
 import { checkView } from './checkView.ts';
 import styles from './mode.module.css';
 import { reconcileGuide } from './reconcileGuide.ts';
+import { createVoicePlayer, type VoiceStatus } from './voicePlayback.ts';
 
 export interface GuideScreenProps {
   core: CoreAdapter;
+  voice?: VoiceAdapter;
   /** Read once at mount. Remount the screen to change mode. */
   mode?: Mode;
   uploadFrame?: typeof realUploadFrame;
@@ -31,7 +33,8 @@ const T = {
     reorient: "Check which way you're facing", arrived: 'Destination confirmed',
     problem: "Couldn't check that view. Your last confirmed step still stands.", evidence: 'Why',
     notApproved: "This route isn't approved yet. Ask the organizer to review and approve it.", again: 'Start a new walk',
-    speech: 'Browser speech',
+    speech: 'Browser speech', generatedVoice: 'Generated voice',
+    voiceUnavailable: 'Voice unavailable. Captions still shown.',
     target: 'Target', side: 'Side', left: 'left', right: 'right', floor: 'Floor', completion: 'Completion',
     manual: "I've done this (manual)", active: 'Active action — check your view before continuing',
   },
@@ -44,13 +47,14 @@ const T = {
     reorient: 'Comprueba hacia dónde miras', arrived: 'Destino confirmado',
     problem: 'No se pudo comprobar esa vista. Tu último paso confirmado sigue vigente.', evidence: 'Por qué',
     notApproved: 'Esta ruta aún no está aprobada. Pide al organizador que la revise y la apruebe.', again: 'Empezar de nuevo',
-    speech: 'Voz del navegador',
+    speech: 'Voz del navegador', generatedVoice: 'Voz generada',
+    voiceUnavailable: 'Voz no disponible. Los subtítulos siguen visibles.',
     target: 'Referencia', side: 'Lado', left: 'izquierdo', right: 'derecho', floor: 'Piso', completion: 'Finalización',
     manual: 'Ya lo hice (manual)', active: 'Acción activa — comprueba la vista antes de continuar',
   },
 } as const;
 
-export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uploadFrame = realUploadFrame }: GuideScreenProps) {
+export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uploadFrame = realUploadFrame, voice }: GuideScreenProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [route, setRoute] = useState<Route | null>(null);
   const [guidance, setGuidance] = useState<Guidance | null>(null);
@@ -59,6 +63,8 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
   const [problem, setProblem] = useState<string | null>(null);
   const [fatal, setFatal] = useState<{ code: string; message: string } | null>(null);
   const [sound, setSound] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>(null);
+  const voicePlayer = useRef<ReturnType<typeof createVoicePlayer> | null>(null);
   const mounted = useRef(false);
   const started = useRef(false);
   const [mode, setMode] = useState<Mode>(requestedMode ?? 'mock');
@@ -102,8 +108,25 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
     else setProblem(`${T[session.locale].problem} (${result.error.message})`);
   }
 
+  useEffect(() => {
+    setVoiceStatus(null);
+    const player = createVoicePlayer({ createAudio: (url) => new Audio(url), onStatus: setVoiceStatus });
+    voicePlayer.current = player;
+    return () => {
+      player.dispose(); voicePlayer.current = null;
+      window.speechSynthesis?.cancel(); spoken.current = null;
+    };
+  }, []);
+
   // Speak only new instructions; cancel anything stale. Never blocks the UI.
   useEffect(() => {
+    if (voice) {
+      window.speechSynthesis?.cancel(); spoken.current = null;
+      if (!sound || !guidance || guidance.locale !== locale) voicePlayer.current?.stop();
+      else void voicePlayer.current?.speak(voice, guidance);
+      return;
+    }
+    voicePlayer.current?.stop();
     const synth = typeof window !== 'undefined' ? window.speechSynthesis : undefined;
     if (!synth) return;
     if (!sound || !guidance) { synth.cancel(); spoken.current = null; return; }
@@ -113,7 +136,7 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
     const u = new SpeechSynthesisUtterance(guidance.text);
     u.lang = guidance.locale === 'es' ? 'es-ES' : 'en-US';
     synth.speak(u);
-  }, [sound, guidance]);
+  }, [sound, guidance, voice, locale]);
 
   function accept(g: Guidance) {
     if (!mounted.current || g.sequence < lastSeq.current) return; // ignore stale responses
@@ -220,13 +243,15 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
           <div className="guide-top">
             <Brand compact />
             <div className="controls">
-              <button className="ctl" aria-pressed={sound} onClick={() => setSound((s) => !s)} title={t.speech}>
+              <button className="ctl" aria-pressed={sound} aria-describedby="speech-source" onClick={() => setSound((s) => !s)}>
                 {sound ? t.soundOn : t.soundOff}
               </button>
               <button className="ctl" disabled={pending} onClick={switchLocale} lang={locale === 'en' ? 'es' : 'en'}>{t.other}</button>
               <a className="ctl" href={exitHref}>{t.exit}</a>
             </div>
           </div>
+          <p id="speech-source" className={styles.speechSource}>{voice ? t.generatedVoice : t.speech}</p>
+          {voiceStatus && <p className={styles.voiceStatus} role="status">{t.voiceUnavailable}</p>}
           <Camera locale={locale} busy={pending} onCheck={mode === 'live' ? checkCamera : undefined}>
             <p className="stage-label"><span className={`${styles.badge} ${styles[mode]}`}>{t[mode]}</span> {t.notes[mode]}</p>
           </Camera>
