@@ -16,6 +16,15 @@ export interface ReferenceView {
   videoTimeMs: number;
   role: 'approach' | 'landmark' | 'exit' | 'destination';
 }
+// AMENDMENT 3: optional actions preserve legacy routes without inventing route evidence.
+export interface CheckpointAction {
+  kind: 'turn' | 'door' | 'elevator' | 'stairs' | 'pass_side' | 'other';
+  target: string; // observation evidence must name this sign, label or landmark
+  side: 'left' | 'right' | null;
+  targetFloor: string | null;
+  steps: Array<Record<Locale, string>>;
+  completion: Record<Locale, string>;
+}
 export interface Checkpoint {
   id: Id;
   order: number;
@@ -24,7 +33,8 @@ export interface Checkpoint {
   identifyingEvidence: string[];
   approachDescription: string;
   instruction: Record<Locale, string>;
-  direction: Direction | null; // null for destination or an unresolved draft turn
+  direction: Direction | null; // optional spatial cue for actions; null for destination
+  action?: CheckpointAction;
   isDestination: boolean;
 }
 export interface Route {
@@ -56,6 +66,11 @@ export interface FrameRequest {
   mediaId: Id;
   question?: string;
 }
+export interface ManualCompletionRequest {
+  routeVersion: number;
+  sequence: number; // allocated by reserveFrameSequence
+  checkpointId: Id; // currently active action only
+}
 export interface GuidanceBase {
   sessionId: Id;
   sequence: number;
@@ -69,7 +84,7 @@ export interface GuidanceBase {
 }
 export type Guidance = GuidanceBase & (
   | { state: 'guiding'; checkpointId: Id; nextCheckpointId: Id;
-      direction: Direction; approachConfirmed: true }
+      direction: Direction | null; approachConfirmed: true }
   | { state: 'uncertain' | 'off_route' | 'reorient';
       checkpointId: Id | null; direction: null; approachConfirmed: false }
   | { state: 'arrived'; checkpointId: Id; direction: null; approachConfirmed: true }
@@ -133,6 +148,8 @@ export interface CoreAdapter {
   setLocale(sessionId: Id, locale: Locale): Promise<Result<Session>>;
   reserveFrameSequence(sessionId: Id): Promise<Result<{ sequence: number; routeVersion: number }>>;
   matchFrame(request: FrameRequest): Promise<Result<Guidance>>;
+  // AMENDMENT 3: visitor confirmation is manual evidence, never visual proof.
+  completeAction(sessionId: Id, request: ManualCompletionRequest): Promise<Result<Guidance>>;
   // AMENDMENT 2: latest accepted guidance re-rendered in the session's current locale.
   // No recognition, no new sequence; null before the first accepted frame.
   currentGuidance(sessionId: Id): Promise<Result<Guidance | null>>;

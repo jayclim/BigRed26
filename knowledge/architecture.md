@@ -1,6 +1,6 @@
 # Architecture and route knowledge
 
-Status: engineering direction plus inspected mock implementation, 2026-10-03. The detailed-action requirement below is accepted scope; it is not yet implemented. Recheck source before editing.
+Status: engineering direction plus inspected mock implementation, 2026-10-03. Action-aware progression is implemented and checked in mock mode. HTTP listener, rendered UI and real-device gates remain unverified in this worker sandbox. Recheck source before editing.
 
 ## Two kinds of knowledge
 
@@ -32,12 +32,18 @@ Localhost works on this computer. A separate phone needs a reachable secure orig
 
 ## Action-aware route steps
 
-**Observed gap, 2026-10-03:** `Checkpoint.instruction` already stores full bilingual text, with identifying evidence, approach text and reference views. However, `Direction` has only five arrow directions. `Guidance` requires a direction for `guiding`, and `approvalProblems` rejects a non-destination checkpoint with no direction. Rich text is supported; action-specific progression is not.
+**Implemented in mock, 2026-10-03:** amendment 3 adds optional `Checkpoint.action` with kind, named target, side, target floor, ordered English/Spanish steps and completion. A spatial direction is optional for an action. Schema version remains 1. The legacy fixture and stored routes receive no fabricated actions or evidence. Approval requires complete bilingual action text and a target floor for elevators. Destinations have no action or direction.
 
-**Required direction:** separate the action from an optional spatial cue. Preserve an identifiable target, relative position or sign, an action, and a completion condition. Model floor changes explicitly when needed. Do not turn "take the elevator to floor 3" into an `up` arrow and claim the action is supported. Reuse ordered checkpoints and existing evidence/version/sequence rules; the integration owner chooses the smallest compatible contract change before provider work depends on it.
+Recognizing an action selects the active step. Repeated recognition of that step does not complete it. Observation evidence must name the action target through a case-insensitive substring match. The current/next candidate window and approach checks still apply. False approach evidence gives reorient with no arrow. Unknown or lost views retain the active action with uncertainty and no arrow. Time cannot complete an action.
 
-For an elevator, distinguish locating the correct elevator, taking it to the approved floor, and confirming the exit on that floor. A view of the entrance, a selected button or elapsed time does not establish arrival on floor 3. A floor sign or another approved target-floor landmark can supply evidence; an explicit visitor confirmation is a separate manual event. Camera loss inside the elevator must not reset progress or silently complete the action.
+Completion needs the next approved checkpoint and its own target evidence. If that next step has no action, its recorded identifying evidence must be named. The creator must approve a suitable target-floor exit checkpoint for an elevator. An entrance or button view cannot establish the target-floor landing. This uses the existing ordered route; there is no workflow engine.
 
-For a door, check the approved sign/landmark and approach before instructing passage; verify the expected next view before completing the passage. For a side-specific terrain instruction, retain the taught viewpoint and reference imagery. Do not infer a traversable or climbable surface solely because the text or image names it.
+`completeAction` and `POST /api/sessions/:id/complete-action` accept the pinned version, a centrally reserved fresh sequence and the active action checkpoint id. Manual completion advances one step, emits `manual_advance`, and states that the evidence is manual visitor confirmation with no visual proof. It does not emit `checkpoint_confirmed`. The next step stays uncertain with no arrow until its approach is observed. A manually reached destination reports arrived with explicit manual evidence, without a visual arrival event. In-flight older recognition still fails the commit-time sequence check.
 
-Creator review must expose these action details. Localization and speech must preserve sign labels, floor numbers, side qualifiers and action order. A confirmed action may have no arrow. An uncertain match still cannot produce an unsupported directional cue.
+Creator review edits action fields and both locales of ordered steps/completion. Guide display retains target, side, floor, steps and completion. Its manual button appears only for an active action. Guidance text for speech contains the exact approved instruction and action text, literal sign/floor labels and localized side qualifiers. Locale refresh preserves position, sequence and the approved route version.
+
+The separate `action-fixture` draft contains B214 versus B215, Lift A to Floor 3, a target-floor landing and the right side of Rock R1. Its observations are synthetic and remain labeled mock. Existing stores are not migrated; explicit creator fixture selection can add this new draft. It does not alter existing routes.
+
+**Observed checks:** core regression checks and TypeScript pass. A supplemental Webpack build with a temporary local font response compiles the API and UI. Compiled route handlers pass direct Request/Response checks for route save/approve and manual completion. Normal build fails on the existing Google font fetch; HTTP listeners and Turbopack's font mock evaluator fail with sandbox port-binding errors. Full results and remaining checks are in the detailed-route-actions build receipt.
+
+**Limits:** substring target matching is a route constraint, not a visual recognizer or calibrated safety measure. No real extraction, matching, field, terrain-safety, phone camera/audio or accessibility evidence is established. Approved text does not establish that a surface is traversable or climbable. Bilingual reorientation still embeds the contract's English-only approach description. The mock build does not satisfy the independent second-phone gate.

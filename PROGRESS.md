@@ -6,10 +6,11 @@ Updated: 2026-10-03. Lead: Claude Code. Its initial build/review runs are comple
 |---|---|---|
 | Scope | Mock complete; detailed actions added to live MVP scope | `stages/01-scope/output/complex-route-guidance.md` |
 | Design | Rendered and refined | `stages/02-design/output/local-mvp-design.md` |
-| Build | Local mock MVP complete | `docs/CLAUDE-HANDOFF.md` |
+| Build | Local mock MVP complete; queue item 1a host-verified in PR, independent review pending | `stages/03-build/output/detailed-route-actions.md` |
 | Verify | Mock/code/UI gates passed; live gate pending | `stages/04-verify/output/verification.md` |
 | Project brain | Three original skills validated; shared orchestrator added and validated | `AGENTS.md`, `knowledge/`, `skills/` |
 | Overnight workflow | Guard complete: 31 fake-process checks and a real host probe pass | `stages/03-build/output/overnight-guard.md`, `docs/OVERNIGHT.md` |
+| Operator routing | Reviewed; merged by PR #4 | [Evidence receipt](stages/03-build/output/operator-routing.md). Hosted run 37108819370 passed on `f962d7a`. Controller review: no blocking issue. gpt-6-luna unobserved. |
 
 The zip was unpacked into `breadcrumb-kit/`; no app existed initially. Claude built the Next.js/TypeScript mock slice. Codex established the ICM-inspired brain and verified the result. Human assignments live in `docs/TEAM-HANDOFF.md`.
 
@@ -21,6 +22,6 @@ Guard evidence, 2026-10-03: `scripts/claude-run.mjs` provides `check`, one no-to
 
 Host checks after the fix: `node scripts/claude-run.check.mjs` passed 31 tests. The real Node 24 probe at 2026-10-03T07:20:31Z exited 0 with one assistant turn: five-hour usage 0.02, seven-day usage 0.17, no overage. Root-checkout `npm run check`, `npm run typecheck` and `npm run build` passed; app sources match between both PR heads. Use `PATH=/Users/jaydenl/.local/bin:/Users/jaydenl/.nvm/versions/node/v24.11.1/bin:$PATH` on this Mac. It selects Node 24.11.1 and Codex 0.159.2. Node alone first selects npm Codex 0.149.1, which rejects `gpt-6.1-sol`. See [the receipt](stages/03-build/output/overnight-guard.md).
 
-Next: implement the detailed-action contract slice (queue item 1a) before providers or extraction/matching are built around basic arrows. The scope covers named doors, floor transitions and side-specific instructions; text support alone does not satisfy it. Before each guarded run, inspect existing plugin jobs and cancel only owned ones. CI installed by PR #3; hosted run 37107022203 passed on `3f5b829` (job `checks`, 33s). No footage, API file or Cursor sign-in is available. Stop by 2026-10-03T16:00Z; deployment and paid usage are not authorized. The Next.js dev server appends its own framework-doc pointer to `AGENTS.md`; the shared project instructions remain intact.
+Queue item 1a (detailed actions) is host-verified on `feat/detailed-route-actions`: core, typecheck, normal build, HTTP smoke including `complete-action`, and an observed phone/desktop render of the action editor and guide. See `stages/03-build/output/detailed-route-actions.md`. Next: independent gpt-6.1-sol review of the PR, then merge. Native Agent dispatch must pass `run_in_background: false` explicitly; this host treats an omitted field as background. Before each guarded run, inspect existing plugin jobs and cancel only owned ones. No footage is available. Root `.env.local` exists and Cursor CLI is signed in (observed 2026-10-03); provider budgets, Cursor limits and real API success are unverified, so make no provider or Cursor call. Stop by 2026-10-03T16:00Z; deployment and paid usage are not authorized. The Next.js dev server appends its own framework-doc pointer to `AGENTS.md`; the shared project instructions remain intact.
 
-Live verification needs route footage, independent follow footage and provider configuration. No real recognition, action completion, ElevenLabs, Photon, analytics, phone test or public deployment has been demonstrated.
+Live verification needs route footage, independent follow footage and provider configuration. No real recognition, physical action completion, ElevenLabs, Photon, analytics, phone test or public deployment has been demonstrated. Action completion is checked only with mock observations and explicit manual events.

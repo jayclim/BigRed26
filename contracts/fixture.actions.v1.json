@@ -1,0 +1,230 @@
+{
+  "fixtureOnly": true,
+  "mode": "mock",
+  "limitations": "Fictional route and synthetic observations. Not field, accessibility or terrain-safety evidence.",
+  "route": {
+    "schemaVersion": 1,
+    "id": "action-fixture",
+    "version": 1,
+    "name": "Mock fixture: B214, Floor 3 and right-side rock",
+    "startDescription": "Fictional corridor facing the B214 door sign",
+    "destinationLabel": "Example finish sign",
+    "sourceVideoId": "fixture-only-no-recorded-video",
+    "status": "draft",
+    "accessNotes": [],
+    "checkpoints": [
+      {
+        "id": "door-b214",
+        "order": 0,
+        "label": "Door B214",
+        "referenceViews": [],
+        "identifyingEvidence": [
+          "B214"
+        ],
+        "approachDescription": "Facing the target from the recorded entrance side",
+        "instruction": {
+          "en": "Go through door B214, on your left.",
+          "es": "Pasa por la puerta B214, a tu izquierda."
+        },
+        "direction": null,
+        "isDestination": false,
+        "action": {
+          "kind": "door",
+          "target": "B214",
+          "side": "left",
+          "targetFloor": null,
+          "steps": [],
+          "completion": {
+            "en": "Complete passage when the next approved Lift A view is recognized.",
+            "es": "Completa el paso cuando se reconozca la siguiente vista aprobada de Lift A."
+          }
+        }
+      },
+      {
+        "id": "elevator",
+        "order": 1,
+        "label": "Lift A to Floor 3",
+        "referenceViews": [],
+        "identifyingEvidence": [
+          "Lift A"
+        ],
+        "approachDescription": "Facing the target from the recorded entrance side",
+        "instruction": {
+          "en": "Take Lift A to floor 3.",
+          "es": "Toma Lift A hasta el piso 3."
+        },
+        "direction": null,
+        "isDestination": false,
+        "action": {
+          "kind": "elevator",
+          "target": "Lift A",
+          "side": null,
+          "targetFloor": "3",
+          "steps": [
+            {
+              "en": "Enter Lift A.",
+              "es": "Entra en Lift A."
+            },
+            {
+              "en": "Press the button marked 3.",
+              "es": "Pulsa el bot\u00f3n marcado 3."
+            },
+            {
+              "en": "Exit at floor 3 and look for the Floor 3 sign.",
+              "es": "Sal en el piso 3 y busca el letrero Floor 3."
+            }
+          ],
+          "completion": {
+            "en": "Complete the ride only at the approved Floor 3 landing.",
+            "es": "Completa el viaje solo en el rellano aprobado del piso 3."
+          }
+        }
+      },
+      {
+        "id": "floor-3",
+        "order": 2,
+        "label": "Floor 3 landing",
+        "referenceViews": [],
+        "identifyingEvidence": [
+          "Floor 3"
+        ],
+        "approachDescription": "Facing the target from the recorded entrance side",
+        "instruction": {
+          "en": "From the Floor 3 sign, continue to Rock R1.",
+          "es": "Desde el letrero Floor 3, contin\u00faa hasta Rock R1."
+        },
+        "direction": "forward",
+        "isDestination": false,
+        "action": {
+          "kind": "other",
+          "target": "Floor 3",
+          "side": null,
+          "targetFloor": null,
+          "steps": [],
+          "completion": {
+            "en": "Complete this step when Rock R1 is recognized from the taught approach.",
+            "es": "Completa este paso cuando se reconozca Rock R1 desde la orientaci\u00f3n ense\u00f1ada."
+          }
+        }
+      },
+      {
+        "id": "rock",
+        "order": 3,
+        "label": "Rock R1, right side",
+        "referenceViews": [],
+        "identifyingEvidence": [
+          "Rock R1"
+        ],
+        "approachDescription": "Facing the target from the recorded entrance side",
+        "instruction": {
+          "en": "Pass on the right side of Rock R1 from the recorded approach.",
+          "es": "Pasa por el lado derecho de Rock R1 desde la orientaci\u00f3n grabada."
+        },
+        "direction": null,
+        "isDestination": false,
+        "action": {
+          "kind": "pass_side",
+          "target": "Rock R1",
+          "side": "right",
+          "targetFloor": null,
+          "steps": [
+            {
+              "en": "Keep Rock R1 on your left as you pass its right side.",
+              "es": "Mant\u00e9n Rock R1 a tu izquierda al pasar por su lado derecho."
+            }
+          ],
+          "completion": {
+            "en": "Complete passage when the approved Example finish sign is recognized.",
+            "es": "Completa el paso cuando se reconozca el letrero aprobado Example finish."
+          }
+        }
+      },
+      {
+        "id": "finish",
+        "order": 4,
+        "label": "Example finish sign",
+        "referenceViews": [],
+        "identifyingEvidence": [
+          "Example finish"
+        ],
+        "approachDescription": "Facing the finish sign",
+        "instruction": {
+          "en": "You have arrived at the Example finish sign.",
+          "es": "Has llegado al letrero Example finish."
+        },
+        "direction": null,
+        "isDestination": true
+      }
+    ]
+  },
+  "observations": [
+    {
+      "mediaId": "mock:door-b214:similar-door",
+      "label": "Similar door B215 (wrong target)",
+      "observation": {
+        "kind": "checkpoint",
+        "checkpointId": "door-b214",
+        "approachConfirmed": true,
+        "evidence": [
+          "Synthetic fixture observation: B215"
+        ]
+      }
+    },
+    {
+      "mediaId": "mock:elevator:entrance",
+      "label": "Lift A entrance, ride not complete",
+      "observation": {
+        "kind": "checkpoint",
+        "checkpointId": "elevator",
+        "approachConfirmed": true,
+        "evidence": [
+          "Synthetic fixture observation: Lift A entrance"
+        ]
+      }
+    },
+    {
+      "mediaId": "mock:elevator:button",
+      "label": "Lift A button 3, ride not complete",
+      "observation": {
+        "kind": "checkpoint",
+        "checkpointId": "elevator",
+        "approachConfirmed": true,
+        "evidence": [
+          "Synthetic fixture observation: Lift A button marked 3"
+        ]
+      }
+    },
+    {
+      "mediaId": "mock:floor-3:wrong-floor",
+      "label": "Floor 2 sign (wrong floor)",
+      "observation": {
+        "kind": "checkpoint",
+        "checkpointId": "floor-3",
+        "approachConfirmed": true,
+        "evidence": [
+          "Synthetic fixture observation: Floor 2"
+        ]
+      }
+    },
+    {
+      "mediaId": "mock:rock:reversed-approach",
+      "label": "Rock R1, reversed approach",
+      "observation": {
+        "kind": "checkpoint",
+        "checkpointId": "rock",
+        "approachConfirmed": false,
+        "evidence": [
+          "Synthetic fixture observation: Rock R1"
+        ]
+      }
+    },
+    {
+      "mediaId": "mock:elevator:lost-view",
+      "label": "Camera lost inside Lift A",
+      "observation": {
+        "kind": "unknown",
+        "evidence": []
+      }
+    }
+  ]
+}

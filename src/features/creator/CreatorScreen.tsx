@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import type { Checkpoint, CoreAdapter, Direction, Id, Route } from '@contracts/contracts.ts';
 import { DIRECTION_TEXT } from '@/ui/Arrow.tsx';
 import { Brand } from '@/ui/Brand.tsx';
+import actionFixture from '@contracts/fixture.actions.v1.json';
+import { ActionEditor } from './ActionEditor.tsx';
 
 export interface CreatorScreenProps {
   core: CoreAdapter;
@@ -20,6 +22,7 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'error' | 'ok'; text: string } | null>(null);
   const [origin, setOrigin] = useState('');
+  const [guidePath, setGuidePath] = useState(followPath);
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -67,7 +70,16 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
     setMsg({ kind: 'ok', text: `Editing version ${route!.version + 1}. Version ${route!.version} stays live until you approve this one.` });
   }
 
-  const shareUrl = `${origin}${followPath}`;
+  const shareUrl = `${origin}${guidePath}`;
+
+  const loadActionFixture = () => run(async () => {
+    let r = await core.getRoute(actionFixture.route.id);
+    // Explicit fixture selection can add this draft to an older store. No existing route is changed.
+    if (!r.ok && r.error.code === 'NOT_FOUND') r = await core.saveDraft(actionFixture.route as Route);
+    if (!r.ok) return setMsg({ kind: 'error', text: r.error.message });
+    setRoute(r.value); setSaved(true); setReviewed(new Set());
+    setGuidePath(`/follow/${r.value.id}`);
+  });
 
   return (
     <main className="creator">
@@ -83,7 +95,8 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
         <p className="lede">
           Start: {route.startDescription}. Destination: {route.destinationLabel}.
         </p>
-        <p className="notice">Fictional sample route from the kit; no video was recorded. Check each step, then approve.</p>
+        <p className="notice">Fictional mock fixture; no video was recorded. Check each step, then approve. Fixture success is not field or terrain-safety evidence.</p>
+        {route.id !== actionFixture.route.id && <button className="btn" disabled={busy || !saved} onClick={loadActionFixture}>Review detailed-action mock fixture</button>}
       </header>
 
       {approved && (
@@ -94,7 +107,7 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
             Works in a browser on this computer. A phone needs this app served over HTTPS for camera access; see the README.
           </p>
           <div className="row">
-            <a className="btn btn-primary" href={followPath}>Open guide</a>
+            <a className="btn btn-primary" href={guidePath}>Open guide</a>
             <button className="btn" onClick={() => navigator.clipboard?.writeText(shareUrl)}>Copy link</button>
             <button className="btn" onClick={startNewVersion}>Edit as version {route.version + 1}</button>
           </div>
@@ -137,6 +150,8 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
                   </select>
                 </label>
               )}
+              {!c.isDestination && <ActionEditor action={c.action} disabled={approved || busy}
+                onChange={(action) => edit(c.id, { action })} />}
               {!approved && (
                 <label className="review">
                   <input type="checkbox" checked={reviewed.has(c.id)}

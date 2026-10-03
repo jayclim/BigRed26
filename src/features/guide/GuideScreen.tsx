@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { CoreAdapter, Guidance, Id, Locale, Route, Session } from '@contracts/contracts.ts';
 import { Arrow, DIRECTION_TEXT } from '@/ui/Arrow.tsx';
 import { mockScenes } from '@/shared/mockScenes.ts';
+import actionFixture from '@contracts/fixture.actions.v1.json';
 import { Brand } from '@/ui/Brand.tsx';
 import { Camera } from './Camera.tsx';
 
@@ -23,6 +24,8 @@ const T = {
     problem: "Couldn't check that view. Your last confirmed step still stands.", evidence: 'Why',
     notApproved: "This route isn't approved yet. Ask the organizer to review and approve it.", again: 'Start a new walk',
     speech: 'Browser speech',
+    target: 'Target', side: 'Side', left: 'left', right: 'right', floor: 'Floor', completion: 'Completion',
+    manual: "I've done this (manual)", active: 'Active action — check your view before continuing',
   },
   es: {
     mock: 'Simulado', camNote: 'La cámara no se analiza',
@@ -33,6 +36,8 @@ const T = {
     problem: 'No se pudo comprobar esa vista. Tu último paso confirmado sigue vigente.', evidence: 'Por qué',
     notApproved: 'Esta ruta aún no está aprobada. Pide al organizador que la revise y la apruebe.', again: 'Empezar de nuevo',
     speech: 'Voz del navegador',
+    target: 'Referencia', side: 'Lado', left: 'izquierdo', right: 'derecho', floor: 'Piso', completion: 'Finalización',
+    manual: 'Ya lo hice (manual)', active: 'Acción activa — comprueba la vista antes de continuar',
   },
 } as const;
 
@@ -111,6 +116,23 @@ export function GuideScreen({ core, routeId, exitHref }: GuideScreenProps) {
     if (g.ok && g.value) accept(g.value);
   }
 
+  async function completeAction() {
+    if (!session || !confirmedId || inFlight.current) return;
+    inFlight.current = true; setPending(true); setProblem(null);
+    try {
+      const seq = await core.reserveFrameSequence(session.id);
+      if (!seq.ok) return setProblem(seq.error.message);
+      const g = await core.completeAction(session.id, { ...seq.value, checkpointId: confirmedId });
+      if (g.ok) {
+        if (g.value.sequence >= lastSeq.current) setConfirmedId(g.value.checkpointId);
+        accept(g.value);
+      }
+      else if (g.error.code !== 'STALE_FRAME') setProblem(g.error.message);
+    } finally {
+      inFlight.current = false; setPending(false);
+    }
+  }
+
   if (fatal)
     return (
       <main className="guide-page center-msg">
@@ -127,6 +149,9 @@ export function GuideScreen({ core, routeId, exitHref }: GuideScreenProps) {
   const arrived = guidance?.state === 'arrived';
   const cpLabel = (id: Id | null) => cps.find((c) => c.id === id)?.label ?? '';
   const state = guidance?.state ?? 'start';
+  const active = cps.find((c) => c.id === confirmedId);
+  const action = !arrived ? active?.action : undefined;
+  const hasArrow = guidance?.state === 'guiding' && guidance.direction !== null;
 
   return (
     <main className="guide-page" lang={locale}>
@@ -149,7 +174,7 @@ export function GuideScreen({ core, routeId, exitHref }: GuideScreenProps) {
           <div>
             <ol className="crumbs" aria-label={route.name}>
               {cps.map((c, i) => {
-                const s = i <= doneIdx ? (arrived && c.isDestination ? 'arrived' : 'done') : i === doneIdx + 1 ? 'next' : 'todo';
+                const s = i === doneIdx && action ? 'next' : i <= doneIdx ? (arrived && c.isDestination ? 'arrived' : 'done') : i === doneIdx + 1 ? 'next' : 'todo';
                 return (
                   <li key={c.id}>
                     <span className="dot" data-s={s} title={c.label} />
@@ -164,23 +189,32 @@ export function GuideScreen({ core, routeId, exitHref }: GuideScreenProps) {
             </div>
           </div>
 
-          <div className="card" data-state={state} aria-live="polite" aria-busy={pending}>
-            {guidance?.state === 'guiding' ? (
+          <div className="card" data-state={state} data-arrow={hasArrow ? 'shown' : 'none'} aria-live="polite" aria-busy={pending}>
+            {guidance?.state === 'guiding' && guidance.direction ? (
               <Arrow direction={guidance.direction} label={DIRECTION_TEXT[locale][guidance.direction]} />
             ) : arrived ? (
               <div className="sign-empty" style={{ borderStyle: 'solid', borderColor: 'var(--green)', color: 'var(--green)' }} aria-hidden="true">✓</div>
-            ) : guidance ? (
+            ) : guidance && guidance.state !== 'guiding' ? (
               <div className="sign-empty" aria-hidden="true">?</div>
-            ) : (
+            ) : !guidance ? (
               <div className="sign-empty" style={{ borderColor: 'var(--night-rule)', color: 'var(--on-night-muted)' }} aria-hidden="true">·</div>
-            )}
+            ) : null}
             <div>
               <p className="state">
                 {!guidance ? t.startLabel
                   : guidance.state === 'guiding' ? t.guiding(cpLabel(guidance.checkpointId))
                   : t[guidance.state]}
               </p>
-              <p className="say">{guidance ? guidance.text : t.start(route.startDescription)}</p>
+              <p className="say">{guidance?.state === 'guiding' && action ? active!.instruction[locale] : guidance ? guidance.text : t.start(route.startDescription)}</p>
+              {action && <div className="action-details">
+                {guidance?.state !== 'guiding' && <p><strong>{t.active}: {active!.label}</strong></p>}
+                <p><strong>{t.target}:</strong> {action.target}</p>
+                {action.side && <p><strong>{t.side}:</strong> {t[action.side]}</p>}
+                {action.targetFloor && <p><strong>{t.floor}:</strong> {action.targetFloor}</p>}
+                {action.steps.length > 0 && <ol>{action.steps.map((step, i) => <li key={i}>{step[locale]}</li>)}</ol>}
+                <p><strong>{t.completion}:</strong> {action.completion[locale]}</p>
+                <button className="ctl" disabled={pending} onClick={completeAction}>{t.manual}</button>
+              </div>}
               {guidance && guidance.evidence.length > 0 && (
                 <p className="evidence">{t.evidence}: {guidance.evidence.join('; ')}</p>
               )}
@@ -205,12 +239,15 @@ function MockPanel({ route, disabled, lastSeq, onPick }: {
   return (
     <aside className="mock-panel" aria-labelledby="mock-h" lang="en">
       <h2 id="mock-h">Mock observations</h2>
-      <p>Fictional sample building. Pick what the camera would see; each pick runs through the real route rules.</p>
+      <p>Fictional mock fixture. Pick a synthetic observation to exercise route rules. Success is not field or terrain-safety evidence.</p>
       {route.checkpoints.map((c, i) => (
         <fieldset key={c.id}>
           <legend>{i + 1}. {c.label}</legend>
           <div className="scene-grid">
             {scenes.filter((s) => s.mediaId.startsWith(`mock:${c.id}:`)).map((s) => (
+              <button key={s.mediaId} className="scene" disabled={disabled} onClick={() => onPick(s.mediaId)}>{s.label}</button>
+            ))}
+            {route.id === actionFixture.route.id && actionFixture.observations.filter((s) => s.mediaId.startsWith(`mock:${c.id}:`)).map((s) => (
               <button key={s.mediaId} className="scene" disabled={disabled} onClick={() => onPick(s.mediaId)}>{s.label}</button>
             ))}
           </div>
