@@ -3,10 +3,12 @@ import type { Checkpoint, ErrorCode, Result } from '../../../contracts/contracts
 import type { Recognizer } from '../core/core.ts';
 import { readFrame } from '../frames/frames.ts';
 
+const VISIBLE = /[^\s\p{C}\p{Z}]/u;
+
 export const RecognitionOutputSchema = z.object({
   checkpointId: z.string().min(1).max(200).nullable(),
   approachConfirmed: z.boolean(),
-  evidence: z.array(z.string().trim().min(1).max(200)).max(20)
+  evidence: z.array(z.string().trim().min(1).max(200).refine((s) => VISIBLE.test(s))).max(20)
     .describe('Only exact visible sign text. Use [] when none is visible.'),
 }).strict();
 export type Candidate = Pick<Checkpoint, 'id' | 'label' | 'identifyingEvidence' | 'approachDescription'> & {

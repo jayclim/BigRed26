@@ -64,14 +64,8 @@ try {
   error(await s.match(`frame_${randomUUID()}`), 'NOT_FOUND', false); error(await s.match('../unsafe'), 'INVALID_INPUT', false); assert.equal(calls, beforeMissing);
   console.log('PASS approved guidance, pinned version, validation, approach, unknown, window and media');
 
-  for (const [index, evidence] of ([[''], ['   '], ['Example entrance sign', '  ']] as const).entries()) {
-    let checkpointId = 'entrance';
-    let blankEvidence = ['Example entrance sign'];
-    const blank = await setup(async () => observation(checkpointId, true, blankEvidence));
-    if (index === 2) {
-      value(await blank.match()); checkpointId = 'mural'; value(await blank.match());
-      checkpointId = 'destination'; blankEvidence = [...evidence];
-    } else blankEvidence = [...evidence];
+  for (const evidence of [[''], ['   '], ['\u200b'], ['\u200d\u200c'], ['\u2060'], ['\u00ad'], ['\u200e'], ['\t\n'], ['\u00a0']] as const) {
+    const blank = await setup(async () => observation('entrance', true, [...evidence]));
     const before = value(await blank.core.getSession(blank.session.id));
     const guidanceBefore = value(await blank.core.currentGuidance(blank.session.id));
     const result = await blank.match();
@@ -81,6 +75,16 @@ try {
     assert.notEqual(guidance?.state, 'arrived');
     assert.deepEqual(guidance, guidanceBefore);
   }
+  let mixedId = 'entrance'; let mixedEvidence = ['Example entrance sign'];
+  const mixed = await setup(async () => observation(mixedId, true, mixedEvidence));
+  value(await mixed.match()); mixedId = 'mural'; value(await mixed.match());
+  mixedId = 'destination'; mixedEvidence = ['Example entrance sign', '\u200b'];
+  const mixedBefore = value(await mixed.core.getSession(mixed.session.id));
+  const mixedGuidanceBefore = value(await mixed.core.currentGuidance(mixed.session.id));
+  error(await mixed.match(), 'PROVIDER_UNAVAILABLE');
+  assert.equal(value(await mixed.core.getSession(mixed.session.id)).lastConfirmedCheckpointId, mixedBefore.lastConfirmedCheckpointId);
+  const mixedGuidance = value(await mixed.core.currentGuidance(mixed.session.id));
+  assert.notEqual(mixedGuidance?.state, 'arrived'); assert.deepEqual(mixedGuidance, mixedGuidanceBefore);
   let trimmedId = 'entrance'; let trimmedEvidence = ['Example entrance sign'];
   const trimmed = await setup(async () => observation(trimmedId, true, trimmedEvidence));
   value(await trimmed.match()); trimmedId = 'mural'; value(await trimmed.match());
@@ -92,6 +96,9 @@ try {
     properties: { evidence: { items?: { minLength?: number } } };
   }).properties.evidence;
   assert.equal(evidenceSchema.items?.minLength, 1);
+  assert.equal(RecognitionOutputSchema.safeParse(observation('entrance', true, ['Room\u200b204'])).success, true);
+  assert.equal(RecognitionOutputSchema.safeParse(observation('entrance', true, ['→'])).success, true);
+  assert.equal(RecognitionOutputSchema.safeParse(observation('entrance', true, ['\u200b'])).success, false);
   console.log('PASS blank evidence rejected without progress; valid evidence trimmed; JSON schema minLength 1');
 
   let release!: (o: unknown) => void;
