@@ -16,6 +16,14 @@ Core logic lives in `src/server/core/`; provider secrets stay server-side. Voice
 
 Local JSON persistence is a first-build choice for one Node process, unsuitable for multiple workers/serverless instances. Keep read/write failures explicit; never silently replace unreadable existing data with a fresh fixture. Add transactional shared storage when deployment requires concurrency.
 
+## Local route media
+
+Implemented in code gates, 2026-10-03: `POST /api/media` accepts a native multipart `file`, checks MP4/MOV/WebM MIME and container signatures, and rejects empty files or files over 100 MB. An early Content-Length check allows 20 KiB of multipart overhead. The documented Next Proxy buffer option uses the same body allowance. Client and server share the type and size limits.
+
+`src/server/media/media.ts` stores UUID-named video and JSON metadata pairs in `BREADCRUMB_MEDIA_DIR`, or `media` beside the configured data file (normally `.data/media`). Filenames from clients are sanitized display text only. Temporary writes and rename publish metadata last; write failures return retryable provider errors and clean up partial files. This is local disk storage, not a hosted durable media service. Vercel Functions have a 4.5 MB request-body cap; hosted upload needs direct-to-storage later.
+
+The creator previews the selected local file and reports `extraction: 'pending'` after storage. Upload does not create or change a route. `startBuild` still reports the absent extraction provider. Host checks pass: core and typecheck, the normal build, HTTP smoke and a headless phone/desktop render of all upload states (2026-10-03). Real footage, large transfers, physical phones and crash recovery remain unverified. See the [upload receipt](../stages/03-build/output/media-upload.md). Next action: item 2b Gemini draft extraction from stored media.
+
 ## Navigation invariants
 
 - Navigate only approved immutable versions. Existing sessions retain their version after a new publication.

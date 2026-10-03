@@ -19,7 +19,7 @@ No route recording is needed to implement the next code slices. After waking, su
 | 0 | Publish the local baseline and add PR checks | Done. Baseline published. CI installed by PR #3; hosted run 37107022203 passed on `3f5b829` (job `checks`, 33s). |
 | 1 | Guard unattended runs | Done: 31 fake-process checks and one real host probe pass. Plugin job recovery remains a manual, owned-job check. |
 | 1a | Support detailed route actions | Implement [the accepted action scope](../stages/01-scope/output/complex-route-guidance.md): named doors, ordered floor transitions, side-specific instructions, optional arrows and evidence-based completion. Must precede provider slices. **Implementation complete in mock/code gates (PR #5, 2026-10-03); live/physical gate pending.** |
-| 2 | Teach a route from uploaded media | Bounded input validation and storage, editable extraction draft, useful errors. Use official APIs and existing contracts. |
+| 2 | Teach a route from uploaded media | [2a upload/storage host-verified; extraction pending](../stages/03-build/output/media-upload.md). Bounded input validation and storage are implemented (draft PR). Editable extraction draft remains pending. |
 | 3 | Gemini draft extraction | Structured checkpoint output is validated and stays unapproved until human review. Record real provider response separately from synthetic fixture checks. |
 | 4 | Live frame matching | Approved route context, bounded frame rate, stale-response rejection, unknown/reorient states, no unsupported turn or arrival. |
 | 5 | ElevenLabs voice | Exact approved text, cached output, mute/locale controls and recoverable errors. Browser speech remains an explicit fallback. |

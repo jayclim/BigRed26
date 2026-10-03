@@ -1,9 +1,19 @@
 // HTTP smoke test: `npm run build && node scripts/smoke-api.mjs [port]`. Starts its own server on a
 // throwaway data file (scripts/isolated-server.mjs), walks draft -> approve -> session -> frames -> locale.
 import assert from 'node:assert/strict';
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { startIsolatedServer } from './isolated-server.mjs';
 
+// The child receives its own media directory, even if the host has an override.
+const mediaDir = mkdtempSync(join(tmpdir(), 'breadcrumb-media-smoke-'));
+const oldMediaDir = process.env.BREADCRUMB_MEDIA_DIR;
+process.env.BREADCRUMB_MEDIA_DIR = mediaDir;
+process.on('exit', () => rmSync(mediaDir, { recursive: true, force: true }));
 const { base } = await startIsolatedServer(Number(process.argv[2] ?? 3107));
+if (oldMediaDir === undefined) delete process.env.BREADCRUMB_MEDIA_DIR;
+else process.env.BREADCRUMB_MEDIA_DIR = oldMediaDir;
 const call = async (method, path, body) => {
   const res = await fetch(base + path, {
     method, headers: body ? { 'content-type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined,
@@ -12,6 +22,32 @@ const call = async (method, path, body) => {
   console.log(method.padEnd(5), path.padEnd(48), res.status, json.ok ? (json.value?.state ?? json.value?.status ?? 'ok') : json.error.code);
   return { status: res.status, ...json };
 };
+
+// Synthetic signature, not playable footage and never used to create a route.
+const mp4 = Uint8Array.from([0, 0, 0, 16, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0, 0, 0, 0]);
+const upload = async (bytes) => {
+  const form = new FormData();
+  form.set('file', new File([bytes], 'synthetic.mp4', { type: 'video/mp4' }));
+  const res = await fetch(`${base}/api/media`, { method: 'POST', body: form });
+  const json = await res.json();
+  console.log('POST ', '/api/media'.padEnd(48), res.status, json.ok ? 'stored, extraction pending' : json.error.code);
+  return { status: res.status, ...json };
+};
+const uploaded = await upload(mp4);
+assert.equal(uploaded.status, 200);
+assert.equal(uploaded.value.extraction, 'pending');
+assert.deepEqual(readFileSync(join(mediaDir, `${uploaded.value.mediaId}.mp4`)), Buffer.from(mp4));
+assert.deepEqual(JSON.parse(readFileSync(join(mediaDir, `${uploaded.value.mediaId}.json`), 'utf8')), {
+  id: uploaded.value.mediaId, originalName: 'synthetic.mp4', type: 'video/mp4', size: mp4.length,
+  uploadedAt: uploaded.value.uploadedAt,
+});
+for (const bytes of [new Uint8Array(), Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8])]) {
+  const rejected = await upload(bytes);
+  assert.deepEqual([rejected.status, rejected.error.code], [400, 'INVALID_INPUT']);
+}
+const nonMultipart = await call('POST', '/api/media', { file: 'not a video' });
+assert.deepEqual([nonMultipart.status, nonMultipart.error.code], [400, 'INVALID_INPUT']);
+assert.equal(readdirSync(mediaDir).length, 2); // rejected uploads and temp files left nothing behind
 
 const route = (await call('GET', '/api/routes/demo-route')).value;
 assert.equal(route.status, 'draft');

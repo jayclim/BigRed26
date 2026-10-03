@@ -5,6 +5,7 @@ import { DIRECTION_TEXT } from '@/ui/Arrow.tsx';
 import { Brand } from '@/ui/Brand.tsx';
 import actionFixture from '@contracts/fixture.actions.v1.json';
 import { ActionEditor } from './ActionEditor.tsx';
+import { VideoUpload } from './VideoUpload.tsx';
 
 export interface CreatorScreenProps {
   core: CoreAdapter;
@@ -98,6 +99,8 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
         <p className="notice">Fictional mock fixture; no video was recorded. Check each step, then approve. Fixture success is not field or terrain-safety evidence.</p>
         {route.id !== actionFixture.route.id && <button className="btn" disabled={busy || !saved} onClick={loadActionFixture}>Review detailed-action mock fixture</button>}
       </header>
+
+      <VideoUpload />
 
       {approved && (
         <section className="share" aria-labelledby="share-h">
