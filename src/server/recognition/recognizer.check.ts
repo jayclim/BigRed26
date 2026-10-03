@@ -125,6 +125,14 @@ try {
   };
   const transport = await setup(geminiRecognitionProvider(config, fakeFetch));
   assert.equal(value(await transport.match()).state, 'guiding');
+  for (const [status, code] of [[429, 'RATE_LIMITED'], [500, 'PROVIDER_UNAVAILABLE']] as const) {
+    let cancellations = 0;
+    response = () => new Response(new ReadableStream<Uint8Array>({
+      start(controller) { controller.enqueue(new Uint8Array(MAX_PROVIDER_RESPONSE_BYTES + 1)); },
+      cancel() { cancellations++; return new Promise<void>(() => {}); },
+    }), { status });
+    error(await transport.match(), code); assert.equal(cancellations, 1);
+  }
   for (const [makeResponse, code] of [
     [() => new Response('SECRET BODY_MARKER', { status: 429 }), 'RATE_LIMITED'],
     [() => new Response('SECRET BODY_MARKER', { status: 500 }), 'PROVIDER_UNAVAILABLE'],

@@ -147,6 +147,10 @@ Host checks by the lead on 2026-10-03 (macOS, Node 24.21.0). All passed.
 
 node scripts/smoke-api.mjs was not run. This change adds no HTTP handler and changes no HTTP behavior.
 
+## Review repair
+
+2026-10-03, PR #12: non-OK Gemini responses left the body open. The adapter now cancels the body without waiting before it throws the same safe error. Network-free 429 and 500 streams exceed the size cap and never settle cancellation; each cancels once and returns the expected retryable code. All five recognition groups, npm run check and npm run typecheck passed. No live provider call was made. Host rerun by the lead (Node 24.21.0): recognition check, npm run check, typecheck and build passed.
+
 ## Design details and limitations
 
 There is no production registration in this change. Live and replay still fail honestly without registration.
@@ -175,5 +179,6 @@ Add `node src/server/recognition/recognizer.check.ts` to npm run check and CI.
 Set `BREADCRUMB_GEMINI_RECOGNITION=1` and `GEMINI_API_KEY` only after provider spending is authorized.
 `GEMINI_MODEL` is optional. The default is DEFAULT_GEMINI_MODEL from extraction.
 The production provider config is captured at module load. Restart after env changes.
+Part A note: src/server/extraction/extraction.ts also throws on non-OK Gemini responses without cancelling the body. Part B did not edit it.
 
 Next action: owner reviews and registers the module, adds the check to CI, and reruns build and HTTP smoke after registration. A live provider call requires separate authorization.

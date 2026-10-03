@@ -52,8 +52,11 @@ export function geminiRecognitionProvider(config: GeminiRecognitionConfig, fetch
         response_format: { type: 'text', mime_type: 'application/json', schema: z.toJSONSchema(RecognitionOutputSchema) },
       }),
     });
-    if (!response.ok) throw new RecognitionError(response.status === 429 ? 'RATE_LIMITED' : 'PROVIDER_UNAVAILABLE',
-      'Gemini recognition failed. Check provider access and limits, then retry.');
+    if (!response.ok) {
+      void response.body?.cancel().catch(() => {});
+      throw new RecognitionError(response.status === 429 ? 'RATE_LIMITED' : 'PROVIDER_UNAVAILABLE',
+        'Gemini recognition failed. Check provider access and limits, then retry.');
+    }
     const envelope = z.object({ status: z.literal('completed'), steps: z.array(z.object({
       type: z.string(), content: z.array(z.object({ type: z.string(), text: z.string().optional() })).optional(),
     })) }).safeParse(await readPayload(response, signal));
