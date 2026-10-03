@@ -1,64 +1,76 @@
-# Breadcrumb: three-person build
+# Breadcrumb: two- or three-person build
 
-Promise: record a route once, then help the next visitor follow it through their camera. The first audience is an event host sending visitors to a room inside an unfamiliar building.
+Status: coordination assignment, 2026-10-03, requested by Jayden after stopping the overnight run. This replaces the earlier assignment. Part C is reserved for a possible third person; do not dispatch it until an owner is named. The existing executable contracts are unchanged. Claude on Jayden's computer remains the integration owner and sole merger. [Friend setup and prompt](FRIEND-START.md). [Third-person prompt](THIRD-START.md).
 
-Claude Code led the initial local build in session `93ecef95-52b5-4b04-9921-a843756f4f8b`. The current multi-agent procedure is in [the work protocol](../knowledge/work-protocol.md); fresh sessions start from [the overnight handoff](OVERNIGHT.md). Resume the old session only when its context is needed:
+## Split and ownership
 
-```sh
-claude --resume 93ecef95-52b5-4b04-9921-a843756f4f8b
-```
+| Area | Part A — Jayden + integration Claude | Part B — friend + task Claude |
+|---|---|---|
+| User result | Teach: upload → extract → edit → review → approve/share | Follow: open approved route → camera → guidance → arrive/recover; consume optional voice |
+| UI | `src/features/creator/**` | `src/features/guide/**`, including Camera and reconcileGuide; use guide-local CSS modules |
+| Server | `src/server/media/**`, `src/server/extraction/**`; existing video/extraction handlers | New `src/server/recognition/**`, `src/server/frames/**` |
+| HTTP additions | Existing route/session handlers and their semantics remain integration-owned | New `src/app/api/frames/**`, if needed; validate inputs and return existing Result envelopes |
+| Client additions | `src/client/httpCore.ts` remains frozen | New `src/client/frameUpload.ts`, if needed |
+| Evidence | `stages/03-build/output/teach-route.md` plus existing creator extraction receipt | `stages/03-build/output/follow-route.md`, `scripts/follow-*.mjs`, module-local checks and fixtures |
+| Shared files | Sole owner: `contracts/**`, `src/server/core/**`, root package/lock/config, app mounts, `src/ui/**`, canonical knowledge and `PROGRESS.md` | Read and reuse. Request a small integration change in the PR; do not edit shared files concurrently. |
 
-## Build order
+Part C — third person (reserved): own `src/server/voice/**`, `src/app/api/speech/**`, `src/client/voice.ts`, `src/demo/**`, `scripts/voice-*.mjs`, and `stages/03-build/output/voice.md`. Build ElevenLabs synthesis and its browser adapter, then collect route/audio/demo evidence. Do not edit guide components, creator files, global styles, core or shared contracts. Put recordings outside Git; commit only non-sensitive evidence notes and licensed presentation assets.
 
-1. This computer, led by Claude Code: one local mock MVP with route review, approval, sessions, guidance states and bilingual instructions. Establish the shared contracts and runnable baseline before parallel human work.
-2. Integration owner: use one real 45–90 second route video to build an editable Gemini checkpoint draft. Match an independent second-phone pass; unknown scenes and unknown orientation must suppress turns. Prove a real destination match.
-3. Teammate A polishes the creator and visitor flow while teammate B adds ElevenLabs and captures the actual demo evidence. Integrate their changes into the same app.
-4. Only after the real route works: consider Photon photo help and checkpoint analytics. No sponsor extension should delay the core demo.
+With two people, Part B starts with camera/recognition only. Jayden can later assign the unclaimed Part C paths to that friend for a separate voice PR. With three people, C can work at the same time. Never assign the same paths to B and C together.
 
-The initial mock MVP proves interaction and state handling. It does not prove visual recognition, reliable navigation, spatial AR or sponsor integration.
+Part A must not edit Part B or C paths after handoff. Part B must not edit creator files or global CSS. No third-party messaging, analytics, glasses integration or deployment in either lane. Adding a library needs an integration-owner change; start with installed dependencies and native APIs.
 
-## You + Claude: core and integration
+## Contract freeze
 
-Own `src/server/core/**`, `src/app/api/**` (or the actual equivalent selected for this app), `contracts/**`, root package/lock/config, app mounting, storage and deployment. Claude makes architecture and integration decisions. You supply credentials through local environment configuration, confirm the real route's directions and accept the real-device evidence.
+Baseline: main `3d1cb405c5c741abdd453c31fb592129213f9625` (PRs 1–7 merged). Read these executable sources, not the original kit's older signatures:
 
-The baseline now uses Next.js App Router (`src/app/api/**` literally) and one-process JSON persistence. Read `AGENTS.md` first, then the task's context. Current adapter amendments are in `contracts/AMENDMENTS.md`: approval also takes reviewed checkpoint IDs, and `currentGuidance(sessionId)` refreshes localized text without advancing. Use these implemented contracts, not the original kit's earlier signatures. Reuse guidance and installed tools are cataloged in `knowledge/reuse.md`.
+- [Types](../contracts/contracts.ts), [runtime schemas](../contracts/schemas.ts), [amendments](../contracts/AMENDMENTS.md).
+- [Core and Recognizer](../src/server/core/core.ts), [HTTP client](../src/client/httpCore.ts).
+- [Legacy fixture](../contracts/fixture.v1.json), [action fixture](../contracts/fixture.actions.v1.json).
 
-Keep the shared kit's `CoreAdapter` boundary. Freeze the implemented v1 contracts after the local baseline; coordinate any later change with both people. Claude may scaffold their UI directories for the initial baseline, but once assignments begin each person owns the paths below. Make a shared repository available before they start; no repository or remote existed when the zip was unpacked.
+The boundary between lanes is an immutable **approved Route at schemaVersion 1**, with opaque id and version, ordered checkpoints, source/reference media IDs, evidence, approach descriptions, exact English/Spanish instructions and optional detailed actions. Keep target, side, floor, ordered steps and completion. No destination action. Missing action fields stay missing on legacy routes.
 
-## Person 1: interface and real-device checks
+Part A saves drafts through `saveDraft`, then calls `approveRoute(id, version, reviewedCheckpointIds)` with every reviewed checkpoint. Gemini output is always an unapproved draft. A new edit to an approved route creates a new version. Approval is a human action.
 
-Send them `breadcrumb-kit/prompt-interface.txt`, `contracts/`, the runnable baseline and this file.
+Part B uses the existing CoreAdapter: startSession → getRoute at the pinned version → reserveFrameSequence → matchFrame. FrameRequest contains sessionId, routeVersion, sequence, capturedAt (UTC) and opaque mediaId. Do not put image bytes, paths or data URLs in mediaId. Frame upload is a new Part B concern: the existing `/api/media` accepts videos only. Keep image storage and retention separate from teaching videos. Image transport details stay inside Part B and need review before endpoint integration; Part A does not depend on them.
 
-Own `src/features/creator/**`, `src/features/guide/**`, `src/features/quality/**`, `src/ui/**` and feature-local fixtures. Use the actual component signatures documented in `docs/CLAUDE-HANDOFF.md`. Keep UI dependent on adapters; do not call Gemini directly.
+The existing Recognizer signature is `(route: Route, request: FrameRequest) => Promise<Result<Observation>>`. Observation is either unknown with evidence, or a checkpoint ID with approachConfirmed and evidence. It does not return directions or Guidance. The core owns progression, exact approved text and arrival. Export one production Recognizer from Part B and provide its registration instructions; the integration owner wires it into `src/server/core/instance.ts`. Until then, test it through `createCore` with injected recognizers and throwaway state. Production live sessions currently fail honestly when no recognizer is installed.
 
-First assignment: improve the existing create/review → approve/share → follow → arrive flow, keeping every mock state working. Cover loading, failure, camera permission denial, uncertainty, reorientation, arrival, language and sound controls. Capture phone-width screenshots. No arrow for uncertainty or unconfirmed orientation; no timer-driven advancement.
+The B↔C boundary uses existing `VoiceAdapter.synthesize(SpeechRequest): Promise<Result<SpeechClip>>`. SpeechRequest contains text, locale, voiceId and instructionId. SpeechClip contains audioUrl, provider `elevenlabs` and cached. Read exact accepted Guidance.text, deduplicate speech, cancel obsolete clips and keep mute/captions functional. Browser speech must remain explicitly labeled when used. Never expose provider keys to the browser.
 
-Baseline exports: `CreatorScreen({core, routeId, followPath})` and `GuideScreen({core, routeId, exitHref})`. `Camera.tsx` is yours too. `QualityScreen` is not built. Extend existing components and `src/ui/theme.css`; follow `skills/breadcrumb-design/SKILL.md` for visual review.
+Coordination interface to implement (not present yet): C exports `httpVoice: VoiceAdapter` from `src/client/voice.ts`, backed by `POST /api/speech` with JSON SpeechRequest → Result<SpeechClip> and the existing HTTP error mapping. C owns validation, bounded text/body sizes, server credentials, provider timeout/error handling, cache and audio delivery under its owned paths. B adds an optional `voice?: VoiceAdapter` prop to GuideScreen. B owns audio playback, cancellation, mute, captions and the clearly labeled browser fallback. If no voice adapter is supplied, the existing browser speech still works. A wires `voice={httpVoice}` in the client app mount only after both PRs pass. B tests with an injected fake adapter; C tests through a standalone HTTP/audio harness. Neither imports the other's unmerged files. This preserves existing required GuideScreen props and all shared types.
 
-Next assignment: test the real camera/voice on the second phone, confirm permission and playback recovery, and capture an actual route completion plus an unrelated view. Report observed behavior; do not invent accuracy or completion statistics.
+A shared schema/signature change requires a separate contract PR by the integration owner with updated fixtures/checks before either lane relies on it. Do not fork types or introduce a second state machine. Human acceptance of this assignment does not mean that live recognition or any new endpoint already works.
 
-Done when: the screens work with the supplied adapter, fit a portrait phone, support keyboard focus/captions/mute, and a screenshot plus run command accompanies the handoff. Request shared dependencies from Claude; do not edit the lockfile, root layout or contracts independently.
+## Independent checkpoints
 
-## Person 2: voice, route capture and demonstration
+Part A:
+1. Resume the saved creator extraction UI in Jayden's `.worktrees/creator-extraction-ui`; do not rebuild it. Core/type checks passed; build/browser/review/publication remain pending. This uncommitted work is not in a fresh clone.
+2. Verify upload/extraction success, disabled provider, failure/retry, cancel/late response, unsaved edits and draft switching using fixtures. Review every checkpoint, approve, reload and open the follow link.
+3. Export a schema-valid approved route fixture. Check both legacy and detailed actions, and that a session pinned to v1 stays on v1 after v2 approval.
 
-Send them `breadcrumb-kit/prompt-integrations.txt`, `breadcrumb-kit/judging.txt`, `contracts/`, the runnable baseline and this file.
+Part B, separate PRs in this order:
+1. Camera/frame capture and guide lifecycle using the existing approved fixtures and injected recognizer. Test permission denial, bounded capture, one match in flight, stop/unmount cleanup, stale responses, locale changes and clear mock/live/replay labels. Keep existing mock flows working.
+2. Live Recognizer with fake provider/transport tests: target match, wrong approach, unrelated frame, invalid output, timeout/rate limit and missing media. Do not call a real provider until free/included caps are confirmed. Register production mode only through the integration owner.
+3. Add the optional VoiceAdapter consumer and playback lifecycle, tested with a fake adapter. Test duplicate instructions, mute, locale switch, stale clips and playback rejection. This can proceed before C's implementation merges.
 
-Own `src/server/voice/**`, `src/server/messaging/**`, `src/demo/**` and presentation assets. Start with **ElevenLabs TTS and the physical route evidence**, not messaging or analytics.
+Part C:
+1. Implement VoiceAdapter, HTTP endpoint, audio delivery and `httpVoice` with injected provider tests. Check exact text forwarding, locale/voice cache isolation, invalid/oversized input, concurrent requests, timeout, rate limit and missing credentials. Do not echo provider response bodies or keys. Do not change navigation state.
+2. Prove browser audio in a standalone local harness using a known test clip. This verifies transport/playback only, not ElevenLabs. After spending caps are confirmed, record a separate real-provider English/Spanish test; after device access is arranged, record actual phone audio.
+3. Coordinate one teaching video, an independent follow pass and an unrelated view with Jayden. Build a concise demo from actual screenshots/results. Keep fixture, replay, real-provider and physical evidence separate. No claimed sponsor success without observed evidence.
 
-First assignment: record the teaching route with clear signs, turns and destination, then collect an independent second-phone pass and one unrelated view. Avoid capturing bystanders unnecessarily. Supply actual files and approved checkpoint directions to Claude. Implement `VoiceAdapter.synthesize` using exact approved text; cache by text, locale and voice; return recoverable provider errors. Keep keys server-side and have Claude register the endpoint.
+All lanes run `npm run check`, `npm run typecheck`, `npm run build`; HTTP changes also run `node scripts/smoke-api.mjs` after build. New checks must have explicit commands in the PR; the integration owner adds them to the shared check script and CI. Use temporary stores and injected providers. Do not run `npm run reset`. Render affected screens at phone and desktop widths and test keyboard focus. A fixture response is not live provider evidence.
 
-Next assignment: prove audible English and Spanish output on the target phone, prepare an honestly labeled replay input, record 45–60 seconds of the functioning app, then create the five-slide presentation from actual screenshots. Follow `judging.txt`; verify event dates/rules before submission because the kit's claims have not been independently rechecked here.
+## Integration and physical gate
 
-The current guide uses explicitly labeled browser speech. `/api/speech` is not registered yet. Replay should implement the exported `Recognizer` and be registered by the lead as `recognizers.replay` in `src/server/core/instance.ts`; it is separate from a synthetic UI fixture.
+The integration owner reviews each exact PR head, registers Part B's recognizer and Part C's voice adapter as needed, adds checks to CI, and reconciles knowledge before merging. All commits must be pushed. Separate Claude task sessions may supervise each lane, but only Jayden's named integration Claude merges. No worker merges or changes shared contracts alone.
 
-Done when: real ElevenLabs audio is heard, failure does not block navigation, footage is organized, and the handoff contains owned files, environment variable names, run command, evidence and remaining gaps. Photon is optional after one real opted-in photo round trip is possible; nobody has authorization here to send messages to others.
+Integration test: approve a Part A route, start a Part B session, connect Part C voice, match through it, exercise an unknown frame, wrong approach, manual action, locale switch, provider error and destination. Assert pinned versions, centrally allocated sequences, no arrows on uncertainty/reorient, and explicit manual evidence. Repeated elevator entrance views cannot prove Floor 3. No timer can advance or announce arrival.
 
-## Shared working rules
+Each machine has its own local JSON/media store; a route ID is not a network sync mechanism. Independent tests use the same committed fixtures. For a real integration test, run the merged app in one checkout/store. Transfer real route JSON and required media privately with IDs preserved if using a second machine. Credentials alone do not transfer route data.
 
-- One branch per bounded feature. Use the shared work protocol for PRs, the sole merger, evidence and knowledge updates. Only the assigned integration worker edits shared config/contracts.
-- Keep live, replay and mock visibly distinct. Do not describe recorded output or mock selectors as live recognition.
-- Approved routes are versioned; active sessions keep their version. Locale changes preserve location. Browser and messaging share sequence allocation.
-- API credentials stay in ignored environment files, never chat, frontend bundles or screenshots.
-- This computer can use localhost for development. A different phone needs a reachable HTTPS origin for camera access; deployment and device checks are a later explicit step.
+Final physical gate: an independent phone pass completes the approved route; an unrelated view stays uncertain; wrong-facing evidence removes the arrow; destination evidence is observed; audio works on the target phone. No real footage or provider success has established this gate yet. Phone camera access needs a reachable secure origin; deployment remains a separate decision.
 
-Final integration gate: a different phone completes the real short route; an unrelated view produces uncertainty; wrong-facing evidence removes the arrow; arrival needs destination evidence; language changes preserve position; slow/failed providers leave controls responsive.
+## Current operating limits
+
+The overnight automation is paused at the user's request. Do not restart it or use its expired deadline as a new work order. A new AI run needs an explicit bounded attended task and current usage checks under the work protocol. Claude sign-in expired on Jayden's computer; friend sign-ins and model/plugin availability must be checked on the friend's own machine. Keep the 55% weekly dispatch buffer below the 60% ceiling and the 95% session threshold when using Jayden's Claude allowance. Default extra spend remains zero. `.env.local` has been shared privately, but free provider allowance is still unverified.
