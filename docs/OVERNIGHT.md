@@ -2,6 +2,8 @@
 
 Updated: 2026-10-03. Read [the work protocol](../knowledge/work-protocol.md) for all working rules, including both model routes and foreground rescue completion. Apply the local [operator](../skills/operator/SKILL.md) and [orchestrator](../skills/orchestrator/SKILL.md) skills. The stop time is today at noon Eastern. No real route footage is available yet. Extra paid usage and deployment are not authorized.
 
+Lead and publication rules (2026-10-03): the lead runs as Opus 5.5, exact model `claude-opus-5-5`; the controller checks the init model at each launch and stops on a mismatch, with no silent fallback and no global setting edits. Push every created commit at each checkpoint; the Claude host publishes when the worker sandbox blocks Git. Verify local/remote SHA equality and report push failures. See [the work protocol](../knowledge/work-protocol.md).
+
 ## Before sleep
 
 1. Put Gemini and, if available, ElevenLabs credentials in an ignored local environment file. Give the lead its path, the model/voice choice if required, and the free-tier or credit limit. Do not paste keys into chat. A key alone does not establish free usage. Observed later on 2026-10-03: root `.env.local` exists; provider budget and a real API success are unverified.
