@@ -10,6 +10,7 @@ Updated: 2026-10-03. Lead: Claude Code. Its initial build/review runs are comple
 | Verify | Mock/code/UI gates passed; live gate pending | `stages/04-verify/output/verification.md` |
 | Project brain | Three original skills validated; shared orchestrator added and validated | `AGENTS.md`, `knowledge/`, `skills/` |
 | Overnight workflow | Guard complete: 31 fake-process checks and a real host probe pass | `stages/03-build/output/overnight-guard.md`, `docs/OVERNIGHT.md` |
+| Operator routing | Local checks passed; PR pending review after blocked Git publication | [Evidence receipt](stages/03-build/output/operator-routing.md). Sandbox denied `index.lock`; commit/push/PR not created. Independent review, then Claude merges. |
 
 The zip was unpacked into `breadcrumb-kit/`; no app existed initially. Claude built the Next.js/TypeScript mock slice. Codex established the ICM-inspired brain and verified the result. Human assignments live in `docs/TEAM-HANDOFF.md`.
 

@@ -1,19 +1,37 @@
 # Agent work protocol
 
-Status: user decision, 2026-10-03. This is the shared procedure for this project. Use Simplified Technical English: short sentences, concrete verbs and consistent terms. Do not claim formal ASD-STE100 compliance.
+Status: user decision, 2026-10-03. This is the canonical source for role and model routing in this project. Use Simplified Technical English: short sentences, concrete verbs and consistent terms. Do not claim formal ASD-STE100 compliance.
 
 ## Roles
 
 | Role | Owner | Authority |
 |---|---|---|
 | Lead | Claude Code | Choose scope, architecture, task order and acceptance criteria. Maintain the work queue. |
-| Implementer | Codex `gpt-6.1-sol`, called through Claude's official Codex plugin | Change assigned files in one feature branch. Test, commit, push and open a PR. |
-| Reviewer | A separate fresh session; Cursor when signed in | Inspect the diff and run relevant checks. Report defects with evidence. |
-| Merger | One named integration session under Claude | Reconcile knowledge, check the current PR commit and merge. No other worker merges. |
+| Controller | Codex chat controller | Supervise at high level: wake-up, usage and convention checks. Claude retains direction and integration. |
+| Implementer | Codex, routed below through Claude's official Codex plugin | Change assigned files in one feature branch. Test, commit, push and open a PR. |
+| Reviewer | A separate fresh session; Cursor review is an explicit user request | Check the exact PR commit and run relevant checks. Report defects with evidence. Cursor review does not change the Codex implementation path. |
+| Merger | One named Claude Code integration session | Reconcile knowledge, check the current PR commit and merge. Claude Code is the sole merger. No other worker merges. |
 
-Use one implementer at a time by default. Use two only for independent tasks with disjoint files. Keep delegation one level deep. Review and merger are roles; do not keep idle agents running. These are shared-account procedures, not separate GitHub access controls.
+Use one implementer at a time by default. Do not start unnecessary parallel workers. Use two only for independent tasks with disjoint files when the split reduces work. Keep delegation one level deep. Review and merger are roles; do not keep idle agents running. These are shared-account procedures, not separate GitHub access controls.
 
-Read the project `orchestrator` skill for all work. Workers follow their bounded assignment; they do not start another team. Each worker must know that others share the project and must preserve their changes. Human file ownership remains in `docs/TEAM-HANDOFF.md`; the lead must assign those paths before concurrent work starts.
+Read both the project [operator](../skills/operator/SKILL.md) and [orchestrator](../skills/orchestrator/SKILL.md) skills for all work. The user's model choices override older skill defaults, including Terra and Sonnet. Do not use Claude implementers. Workers follow their bounded assignment; they do not start another team. Each worker must know that others share the project and must preserve their changes. Human file ownership remains in `docs/TEAM-HANDOFF.md`; the lead must assign those paths before concurrent work starts.
+
+## Model routing and dispatch
+
+| Model | Assigned work |
+|---|---|
+| `gpt-6-luna` | Well-defined, low-risk mechanical work. |
+| `gpt-6.1-sol` | Substantive or coupled work, design-sensitive work, debugging, or important review. |
+
+Leave effort unset. Use `[LUNA]` or `[SOL]` task labels. Give the worker a self-contained contract: objective, context, owned paths, invariants, exclusions, acceptance checks and required evidence. Do not silently substitute a model. Record observed model support and the runtime used.
+
+Runtime evidence supplied by the user on 2026-10-03: gpt-6.1-sol succeeded on Codex 0.159.2; gpt-6-luna authorized 2026-10-03 but not yet observed. Authorization alone does not establish model support.
+
+Implementation runs only through Claude Code's native `Agent(subagent_type="codex:codex-rescue")` with the official Codex plugin. Dispatch in the foreground with `--fresh --wait --model <model>`. Do not set `run_in_background` or use `--background`. The rescue subagent only forwards the task. The native Agent result is completion; do not poll a live rescue or dispatch status/result collectors. Never bypass the plugin with a direct Codex CLI task.
+
+A returned background ID or an empty result is a failed handoff. A background ID is also an enforcement failure. Stop new dispatch, preserve work and save recovery information: task, worktree, commit, owned job/session IDs, result and next safe action. Do not poll the failed handoff or retry blindly. Inspect owned jobs for recovery before any later dispatch.
+
+A tool-level Agent allowlist is unverified. Do not claim that it is enforced. Obey the rescue-only delegation boundary anyway; do not substitute another Agent type.
 
 ## One feature cycle
 
@@ -38,11 +56,11 @@ Do not repeat a full test suite on unchanged code. Do not add tests which only r
 
 ## Context and skills
 
-Use fresh Codex sessions per feature with `--fresh`. Reuse that session for fixes to the same feature. A fresh Claude lead session reads the saved task packet and current progress; it must check for active plugin jobs before dispatch. A fresh chat alone does not guarantee lower cost. Small task packets and selective reads reduce repeated context.
+Use bounded fresh Codex sessions per feature with `--fresh`. Fresh worker sessions are ephemeral here: `--resume-last` failed with a missing rollout. Reuse a session for fixes only when the runtime confirms that it exists. Otherwise use the saved compact handoff and a fresh worker. A fresh Claude lead session reads the saved task packet and current progress; it must check for active plugin jobs before dispatch. A fresh chat alone does not guarantee lower cost. Small task packets and selective reads reduce repeated context.
 
 Keep canonical project skills in `skills/`. Discover them through `.claude/skills/`, `.agents/skills/` and `.cursor/skills/`. Before installing another skill, check what is already present. Prefer the official publisher. Read its instructions and scripts, check source/license, and install only what the active task needs. Record source and version. Do not import large skill collections.
 
-Claude must delegate coding with `codex:codex-rescue` and the official runtime. Pass `--model gpt-6.1-sol`; leave effort unset unless the user selects it. The rescue subagent only forwards the task. Claude monitors through the plugin's status/result commands. Never silently switch model or bypass the plugin with a direct Codex CLI task. An empty result is a failure, not completion.
+Follow the model routing and foreground dispatch rules above. Supervise with evidence: inspect the native result, diff and actual checks against the worker contract. Use a separate reviewer for the exact commit before the sole merger integrates.
 
 ## Overnight limits
 
