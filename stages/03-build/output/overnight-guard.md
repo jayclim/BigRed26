@@ -1,6 +1,6 @@
 # One-run Claude guard
 
-Date: 2026-10-03. Status: implementation and fake-process checks complete. Live telemetry, permissions and official-plugin worker recovery are unverified.
+Date: 2026-10-03. Status: complete. 31 fake-process checks and one real host probe pass. Official-plugin worker recovery remains a manual owned-job check. Sections below the final one are history.
 
 Assignment: finish the two existing partial guard scripts. Base: `b1599fe25e71252dc2e76e476a8880c82aec3596`. Branch: `feat/overnight-guard`. Worktree: `.worktrees/overnight-guard`. Owned paths: `scripts/claude-run.mjs`, `scripts/claude-run.check.mjs`, this receipt, `docs/OVERNIGHT.md` and `PROGRESS.md`. No other agents, app edits, dependency changes or real model calls were used.
 
@@ -74,3 +74,15 @@ fatal: Unable to create '/Users/jaydenl/Dev/Hackathon/BigRed 2026/.git/worktrees
 ```
 
 The sandbox blocks writes to the parent Git directory. This fix remains in the three owned files. No commit or push was made. No private Git store or bundle was created. The host must commit and push this fix with the requested `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` trailer.
+
+## Host verification and integration, 2026-10-03
+
+The host committed the fix as `3ffd7cc` (PR #2). Independent host review confirmed it is the single line `args.push('--', prompt)` with two meaningful regression cases. `node scripts/claude-run.check.mjs` passed 31 tests.
+
+The real Node 24 probe at 2026-10-03T07:20:31Z completed: exit 0, success, one assistant turn, five-hour usage 0.02, seven-day usage 0.17, no overage. Private metadata stays in ignored `.overnight/usage.json` and the session log. This supersedes the earlier "no live probe" limit. The earlier sandbox Git and DNS failures above are history; the host published both PRs.
+
+Root-checkout `npm run check`, `npm run typecheck` and `npm run build` passed. `git diff fa16475 3ffd7cc -- src contracts package.json package-lock.json tsconfig.json` is empty, so the app sources match. PR #1 merged first; its detailed-action scope and queue item 1a were merged into this branch with documentation-only conflict resolution.
+
+PATH on this Mac: `/Users/jaydenl/.local/bin:/Users/jaydenl/.nvm/versions/node/v24.11.1/bin:$PATH`. It selects Node 24.11.1 and Codex 0.159.2. Prepending Node alone selects npm Codex 0.149.1, which rejects `gpt-6.1-sol`. The model was not changed.
+
+Limits: CI is not installed; PRs have no automated checks. The guard cannot prove that plugin workers are stopped. Next: queue item 1a, the detailed-action contract slice, before providers.

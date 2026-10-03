@@ -6,7 +6,7 @@ Updated: 2026-10-03. Read `knowledge/work-protocol.md` for all working rules. Th
 
 1. Put Gemini and, if available, ElevenLabs credentials in an ignored local environment file. Give the lead its path, the model/voice choice if required, and the free-tier or credit limit. Do not paste keys into chat. A key alone does not establish free usage.
 2. Run `cursor-agent login`, complete browser sign-in, then check `cursor-agent status`. This host's Cursor CLI was not signed in during preflight. Confirm that paid overages are off.
-3. Use the bounded guard below. Its fake-process checks pass. A live probe and official-plugin task are still unverified. Claude's prior 17% weekly observation is historical evidence, not a current allowance. Codex sign-in and model availability were checked.
+3. Use the bounded guard below. Its 31 fake-process checks and one real host probe pass. Claude's prior 17% weekly observation is historical evidence, not a current allowance. Codex sign-in and model availability were checked.
 4. Leave this Mac on power with its lid open and the controlling app running. Do not close the app, log out, shut down or switch off networking during the run.
 5. Optional: authorize a private HTTPS preview if phone testing is needed. Do not deploy the current file-store design to an ephemeral host without first choosing durable storage.
 
@@ -16,8 +16,9 @@ No route recording is needed to implement the next code slices. After waking, su
 
 | Order | Slice | Acceptance evidence |
 |---|---|---|
-| 0 | Publish the local baseline and add PR checks | Public repo has the reviewed baseline; CI checks a feature PR. |
-| 1 | Guard unattended runs | Controller and fake-process checks are complete. Next: fresh live telemetry and one bounded official-plugin task. The lock covers controller runs; plugin job recovery needs a separate check. |
+| 0 | Publish the local baseline and add PR checks | Baseline published. CI is not installed yet; add it so CI checks a feature PR. |
+| 1 | Guard unattended runs | Done: 31 fake-process checks and one real host probe pass. Plugin job recovery remains a manual, owned-job check. |
+| 1a | Support detailed route actions | Implement [the accepted action scope](../stages/01-scope/output/complex-route-guidance.md): named doors, ordered floor transitions, side-specific instructions, optional arrows and evidence-based completion. Must precede provider slices. |
 | 2 | Teach a route from uploaded media | Bounded input validation and storage, editable extraction draft, useful errors. Use official APIs and existing contracts. |
 | 3 | Gemini draft extraction | Structured checkpoint output is validated and stays unapproved until human review. Record real provider response separately from synthetic fixture checks. |
 | 4 | Live frame matching | Approved route context, bounded frame rate, stale-response rejection, unknown/reorient states, no unsupported turn or arrival. |
@@ -37,11 +38,11 @@ Each fresh handoff needs only: active feature, owner/role, branch/worktree, base
 
 ## One guarded launch
 
-Run from the assigned worktree. Use Node 24. This controller launches one fresh Claude lead. It has no scheduler or automatic retry.
+Run from the assigned worktree. Use Node 24. Keep `~/.local/bin` first: Node alone selects npm Codex 0.149.1, which rejects `gpt-6.1-sol`. Never change the model to work around it. This controller launches one fresh Claude lead. It has no scheduler or automatic retry.
 
 ```sh
 cd "/Users/jaydenl/Dev/Hackathon/BigRed 2026/.worktrees/overnight-guard"
-export PATH="/Users/jaydenl/.nvm/versions/node/v24.11.1/bin:$PATH"
+export PATH="/Users/jaydenl/.local/bin:/Users/jaydenl/.nvm/versions/node/v24.11.1/bin:$PATH"  # Node 24.11.1 + Codex 0.159.2
 node scripts/claude-run.check.mjs
 node scripts/claude-run.mjs check
 ```
@@ -88,4 +89,4 @@ Cursor should do real work: inspect a PR, find UX defects, verify an error path 
 
 ## Current launch state
 
-The controller passes 29 fake-process checks under Node 24.11.1. Core checks and typecheck pass. The default build is blocked by worktree dependency resolution; the supported Webpack fallback is blocked by Google Fonts DNS resolution. No real probe or lead run was made for this change. See [the guard receipt](../stages/03-build/output/overnight-guard.md) and `PROGRESS.md`. A live launch and owned plugin job recovery remain unverified.
+The guard passes 31 fake-process checks. The real Node 24 probe at 2026-10-03T07:20:31Z exited 0: five-hour 0.02, seven-day 0.17, no overage, one assistant turn. Root `npm run check`, `npm run typecheck` and `npm run build` pass. The heartbeat `breadcrumb-mvp-until-noon` is active every 20 minutes until 2026-10-03T16:00Z. CI is not installed. No footage, API file or Cursor sign-in is available. See [the guard receipt](../stages/03-build/output/overnight-guard.md) and `PROGRESS.md`.
