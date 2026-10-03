@@ -3,3 +3,5 @@
 .replay { color: #dbbaff; background: #2b193d; }
 .live { color: #99f0d0; background: #12382c; }
 .check { position: absolute; left: .6rem; bottom: .6rem; }
+.speechSource { margin: -.35rem 0 .4rem; text-align: right; font-size: .75rem; color: var(--on-night-muted); }
+.voiceStatus { margin: .25rem 1rem; font-size: .85rem; }

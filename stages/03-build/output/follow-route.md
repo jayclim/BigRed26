@@ -182,3 +182,83 @@ The production provider config is captured at module load. Restart after env cha
 Part A note: src/server/extraction/extraction.ts also throws on non-OK Gemini responses without cancelling the body. Part B did not edit it.
 
 Next action: owner reviews and registers the module, adds the check to CI, and reruns build and HTTP smoke after registration. A live provider call requires separate authorization.
+
+# Follow route: Part B, PR 3 (voice consumer)
+
+## Status
+
+Implemented and host-verified with fake voice and audio adapters. Date: 2026-10-03.
+Browser speech states were rendered in the real app mount. No provider call was made. Generated-voice states were not rendered in a browser.
+
+## Branch
+
+feat/follow-voice. PR base: feat/follow-recognizer. Depends on PR 12, base 045ea2b.
+The host lead commits. The integration owner merges.
+
+## Changes
+
+GuideScreen accepts an optional VoiceAdapter. Required props stay required.
+Without the adapter, browser speech keeps its existing instruction-id rule.
+A visible line under the top controls says Browser speech / Voz del navegador, or Generated voice / Voz generada. The sound button references it with aria-describedby.
+Sound starts off. Captions and navigation state stay independent of voice.
+Voice failures use a separate translated status line. Provider error bodies are not shown or logged.
+
+voicePlayback.ts has no React imports or DOM globals at import time.
+It forwards the exact accepted Guidance.text, locale and instructionId.
+DEFAULT_VOICE_ID is the exported guide token 'default'.
+Native audio plays the returned audioUrl. No browser speech fallback runs with an adapter.
+Instruction id, locale and text form the deduplication key. Sequence changes do not replay speech.
+Only the current key is deduplicated, as with browser speech. A, B, A speaks A again.
+A failed key is not retried until the instruction changes or sound is turned off and on.
+A new instruction cancels old audio. Mute, locale changes and unmount cancel obsolete work.
+Cancellation pauses audio, clears its src and invalidates late results with a generation token.
+Mute clears deduplication. Enabling sound again speaks the current instruction once.
+A successful play or mute clears voice status. No timer advances navigation.
+
+## Checks
+
+Commands below ran in this checkout. All exited 0.
+
+| Command | Actual result |
+| --- | --- |
+| node src/features/guide/voicePlayback.check.ts | PASS. 7 groups, 0 failures. Duplicate instructions and exact fields; mute and re-enable; Spanish switch; stale synthesis; playback and synthesis failures; dispose; source label and caption assertion. |
+| node src/features/guide/checkView.check.ts | PASS. 8 groups, 0 failures. Existing guide, sequence, locale, manual and capture checks. |
+| npm run check | PASS. Core and media checks passed. Extraction passed 32 cases with no network calls. Core and media do not print case counts. |
+| npm run typecheck | PASS. tsc --noEmit. |
+| npm run build | PASS. Compiled successfully and generated 6 static pages. Six dynamic filesystem tracing warnings came from existing server files. |
+| git diff --check | PASS. No whitespace errors. |
+| Host: node src/features/guide/voicePlayback.check.ts | PASS, 7 groups, after the lead repair below. |
+| Host: node src/features/guide/checkView.check.ts; npm run check; npm run typecheck | PASS. |
+| Host: npm run build | PASS. Compiled successfully. |
+| Host: node scripts/follow-camera.check.mjs 3153 | PASS, all 8 groups. Existing mock, live, replay, keyboard and denied-camera behavior is unchanged. |
+| Host: scratch CDP render at 390x844 and 1280x800 (not committed) | PASS both widths. Real app mount, no voice prop, speechSynthesis stubbed to record calls. Sound off by default with a visible Browser speech line. Tab reaches the sound button with a 3px focus ring; Enter turns sound on and Space mutes. One mock pick speaks the exact fixture text once with en-US; a repeated pick does not repeat it. Mute cancels speech and keeps the caption. The Spanish switch speaks the exact Spanish text once with es-ES and shows Voz del navegador. Label stays between the top bar and the camera stage. Controls have equal heights and no overlap. No horizontal scroll. |
+
+node scripts/smoke-api.mjs was not run. This change adds no HTTP handler.
+
+Lead repairs after the worker handback:
+1. The worker's player remembered every spoken key until mute, so A, B, A did not speak A again. Browser speech repeats it. The player now deduplicates only the current key. The check now expects A, B, A to make 3 requests.
+2. The first label sat inside the controls row and stretched the other controls. The first fix overlapped the camera stage by 6px on the phone. The label is now an in-flow line under the top controls.
+
+The voice check uses only fake synthesis and fake audio.
+The labeling check reads source. It does not establish rendered layout or browser playback.
+
+## Limitations
+
+Generated voice is not wired into the app mount in this PR.
+Generated-voice UI states (Generated voice label, Voice unavailable status) were not rendered in a browser. The app mount is outside Part B ownership, and a temporary local mount patch was not permitted. The node check covers their logic only.
+audio.play() runs after the synthesize promise, outside the tap gesture. Mobile Safari may reject it. The rejection shows Voice unavailable and does not change navigation. Phone behavior is unverified.
+Real provider success, browser autoplay permission and physical phone audio remain unverified.
+A synthesis request cannot be aborted through the current VoiceAdapter contract.
+Late results are ignored. Part C owns provider deadlines and audio delivery.
+The existing action caption can differ from the full accepted guidance text. This PR preserves it.
+No Next API was added or changed. No dependency or shared contract was changed.
+
+## Integration requests
+
+The integration owner wires voice={httpVoice} in src/app/follow/[routeId]/page.tsx only after Part C's src/client/voice.ts exists and both PRs pass.
+Add node src/features/guide/voicePlayback.check.ts to npm run check and CI.
+Part C maps DEFAULT_VOICE_ID to a server-side voice id. That mapping is Part C's concern.
+
+## Next action
+
+Independent review of the exact PR head. After Part C merges, the integration owner wires voice={httpVoice}, renders the generated-voice and failure states at phone and desktop widths, and tests audio on the target phone.
