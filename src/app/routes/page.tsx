@@ -58,7 +58,7 @@ function RouteCard({ route, origin }: { route: RouteSummary; origin: string }) {
       <p className="meta">To: {route.destinationLabel}</p>
       {approved
         ? <dl className="route-links">
-            <CopyLink label="Follow" url={`${origin}/follow/${id}`} />
+            <CopyLink label="Camera check view" url={`${origin}/follow/${id}?mode=live`} />
             <CopyLink label="Live voice guide" url={`${origin}/follow/${id}?mode=stream`} />
           </dl>
         : <p className="meta">Approve this route to get visitor links.</p>}
@@ -91,7 +91,10 @@ export default function Page() {
       <header>
         <div className="creator-top">
           <Brand />
-          <div className="creator-context"><Link href="/" className="creator-nav">Teach a route</Link></div>
+          <div className="creator-context">
+            <Link href="/bounties" className="creator-nav">Bounties</Link>
+            <Link href="/" className="creator-nav">Teach a route</Link>
+          </div>
         </div>
         <div className="route-title"><h1>All routes</h1></div>
         <p className="notice">Open a route to edit it, or copy a visitor link once it is approved.</p>
