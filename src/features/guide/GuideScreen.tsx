@@ -8,6 +8,7 @@ import actionFixture from '@contracts/fixture.actions.v1.json';
 import { Brand } from '@/ui/Brand.tsx';
 import { Camera } from './Camera.tsx';
 import { uploadFrame as realUploadFrame } from '@/client/frameUpload.ts';
+import { liveGuideEnabled } from '@/client/liveProbe.ts';
 import { checkView } from './checkView.ts';
 import styles from './mode.module.css';
 import { reconcileGuide } from './reconcileGuide.ts';
@@ -65,6 +66,7 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
   const [problem, setProblem] = useState<string | null>(null);
   const [fatal, setFatal] = useState<{ code: string; message: string } | null>(null);
   const [sound, setSound] = useState(false);
+  const [liveAvailable, setLiveAvailable] = useState(false); // shown only when the server reports the live guide enabled
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>(null);
   const voicePlayer = useRef<ReturnType<typeof createVoicePlayer> | null>(null);
   const mounted = useRef(false);
@@ -76,6 +78,12 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
 
   const locale: Locale = session?.locale ?? 'en';
   const t = T[locale];
+
+  useEffect(() => {
+    let current = true;
+    void liveGuideEnabled().then((enabled) => { if (current) setLiveAvailable(enabled); });
+    return () => { current = false; };
+  }, []);
 
   useEffect(() => {
     mounted.current = true;
@@ -257,7 +265,7 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
                 {sound ? t.soundOn : t.soundOff}
               </button>
               <button className="ctl" disabled={pending} onClick={switchLocale} lang={locale === 'en' ? 'es' : 'en'}>{t.other}</button>
-              <a className="ctl" href={`/follow/${encodeURIComponent(routeId)}?mode=stream`}>{t.liveVoice}</a>
+              {liveAvailable && <a className="ctl" href={`/follow/${encodeURIComponent(routeId)}?mode=stream`}>{t.liveVoice}</a>}
               <a className="ctl" href={exitHref}>{t.exit}</a>
             </div>
           </div>

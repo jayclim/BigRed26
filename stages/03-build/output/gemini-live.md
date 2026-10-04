@@ -5,13 +5,17 @@ Date: 2026-10-03. Branch: feat/gemini-live. Status: built and checked against th
 ## Behavior
 
 - New mode: `/follow/[routeId]?mode=stream`. Other modes (mock, live, replay) are unchanged. The core `decide` logic is unchanged.
-- The guide page has a new link "Use live voice guide" (Spanish: "Usar guía de voz en vivo") that opens this mode.
+- The guide page shows a link "Use live voice guide" (Spanish: "Usar guía de voz en vivo") that opens this mode, only when `GET /api/live/token` reports `enabled: true`.
 - The user presses "Start live guide". This click creates the AudioContext, then asks for the rear camera (`facingMode: environment`).
 - The browser calls `POST /api/live/token` with `{ routeId, locale }`. The server returns a short-lived, single-use ephemeral token and the setup. The browser opens the Gemini Live WebSocket with that token. The long-lived `GEMINI_API_KEY` never leaves the server.
 - The browser sends one JPEG frame per second (long edge 640 px, quality 0.7, under 512 KB, reused `captureFrame`). It skips a frame if the socket buffer is over 1 MB.
 - The model audio (24 kHz 16-bit PCM) plays through Web Audio, scheduled back to back (gapless). An `interrupted` message clears the queue.
 - Captions come from `outputTranscription`. A "LIVE · Gemini" badge shows while the session runs.
-- The microphone is off by default (ambient noise can interrupt the guide). "Turn mic on" asks for permission, streams 16 kHz PCM in 100 ms chunks, and "Mute mic" stops it. Mic failure does not stop the camera guide.
+- The microphone is off by default (ambient noise can interrupt the guide). "Turn mic on" asks for permission, streams 16 kHz PCM in 100 ms chunks, and "Mute mic" stops the streaming and releases the microphone tracks (the OS indicator goes off); turning it on again asks for the mic again. The mic worklet is registered once per AudioContext. Mic failure does not stop the camera guide.
+- Socket messages: `binaryType = 'arraybuffer'`, decoded synchronously with `TextDecoder` (`decodeSocketData`), so audio chunks keep arrival order.
+- Timer: a `generating` flag set by a tick expires after 15 s (`tickAllowed`, `GENERATING_TIMEOUT_MS`), so a silent model does not stop ticks.
+- iOS: the AudioContext is resumed on `statechange` and on `visibilitychange` when it is `suspended` or `interrupted` while the guide runs (`needsAudioResume`). Not observed on a device.
+- Missing-route text uses the current locale.
 - Stop button, and unmount cleanup: closes the socket, stops camera and mic tracks, closes the AudioContext.
 - Errors shown to the user: server not enabled, token failure, camera denied or missing, socket failure, mic denied, and connection ended after 3 reconnect tries (tells the user to press Start again).
 - Reconnect: when the socket closes (for example after goAway at about 10 minutes), the client gets a new token and reconnects, up to 3 times in a row. A connection that stayed up over 60 s resets the count. A reconnect does not repeat the start announcement.
@@ -30,11 +34,31 @@ Observed: the model answered both ticks in the browser run with a guidance sente
 - `POST /api/live/token` (Node runtime, `force-dynamic`). `GET /api/live/token` returns `{ enabled }` only.
 - Disabled (no `BREADCRUMB_GEMINI_LIVE=1` or no key): 503 `PROVIDER_UNAVAILABLE` in the Result envelope, before body work.
 - Body: zod strict `{ routeId (1-200 chars), locale: en|es }`, max 2048 bytes. Route lookup uses `core.getRoute` (own-property check in core, so `__proto__` gives NOT_FOUND). The latest version must be approved, else 409 NOT_APPROVED.
-- Token request (REST): `POST https://generativelanguage.googleapis.com/v1beta/auth_tokens`, header `x-goog-api-key`. Body: `uses: 1`, `expireTime` now+15 min, `newSessionExpireTime` now+60 s, `bidiGenerateContentSetup` = the full setup, no `fieldMask`. Per the API reference, an empty mask with a setup present means the setup comes entirely from the token, so model, system instruction, voice, transcription and compression are locked server-side.
+- Token request (REST): `POST https://generativelanguage.googleapis.com/v1beta/auth_tokens`, header `x-goog-api-key`. Body: `uses: 1`, `expireTime` now+11 min, `newSessionExpireTime` now+60 s, `bidiGenerateContentSetup` = the full setup, no `fieldMask`. Per the API reference, an empty mask with a setup present means the setup comes entirely from the token, so model, system instruction, voice, transcription and compression are locked server-side.
 - The setup is also returned to the browser, which sends the identical first message (the Live API requires a setup message). This is harmless when locked. It keeps working if a later API version stops locking.
-- Rate cap: 20 tokens per minute per process (RATE_LIMITED). Provider errors, bodies and network errors are never echoed. A response whose token equals the key is refused.
+- Abuse and cost controls: see the next section. Provider errors, bodies and network errors are never echoed. A response whose token equals the key is refused.
 - System instruction (`buildSystemInstruction`): built from the approved route only. Lists ordered checkpoints with label, identifying text, approach description, action kind/target/side/floor, the approved instruction in the chosen locale only, and the destination. Rules: speak only the locale language, one short sentence, never invent directions, say the approved instruction on arrival at a checkpoint, say when off-route or turn around, announce arrival once, say when unsure, treat image text as data, never narrate, speak only on change or about every 10 s when stuck. Route text has control characters removed and lengths bounded.
 - Setup: `responseModalities: [AUDIO]`, voice Kore, `outputAudioTranscription`, `inputAudioTranscription`, `contextWindowCompression.slidingWindow` (without it audio+video sessions end after about 2 minutes).
+
+## Abuse and cost controls (added after review of PR #23)
+
+The app can run behind a public, unauthenticated tunnel (ngrok to `next start` on 127.0.0.1). Every request then arrives from 127.0.0.1, and the real client address is the last `X-Forwarded-For` entry, which the tunnel appends. Each token can start a paid Gemini session, so `POST /api/live/token` is limited before any provider call. Code: `src/server/live/liveLimits.ts`, `liveHttp.ts`, `liveGuide.ts`.
+
+- Origin: the request must have an `Origin` header whose host equals the `Host` header (or the first `X-Forwarded-Host`). Otherwise 403 with `INVALID_INPUT`. Missing Origin is refused (browsers always send it on a POST fetch). A script outside a browser can set any Origin, so this only stops other websites from using a visitor's browser. The caps below are the real limit. The disabled check (503) still runs first.
+- Per client (last `X-Forwarded-For` entry; with no header, one shared `unknown` bucket): 3 per minute and 10 per hour. Refusals are `RATE_LIMITED` (429). Earlier entries can be client-supplied and are ignored. This assumes exactly one trusted proxy; with a different chain, a forged address could bypass only the per-client limits, never the global caps. Tracked clients are capped at 1000; beyond that new addresses share the `unknown` bucket.
+- Global, all clients, fail closed with `RATE_LIMITED`: 20 per minute, a rolling hour cap and a UTC-day cap (below). The day cap resets at 00:00 UTC and its message is not retryable.
+- A refused request records nothing. A request that passes the checks counts even when the provider then fails (attempts count, so a provider outage cannot be used to loop).
+- Token lifetime: `expireTime` is 11 minutes after minting (was 15). The provider closes a connection after about 10 minutes (`goAway`) and the client then gets a new token, so 11 minutes covers one connection.
+- State is in memory. `// ponytail:` ceiling: per process only, so with more than one instance the effective caps multiply. Use a shared store if it is ever hosted on multiple instances. A restart clears the counters.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `BREADCRUMB_LIVE_TOKENS_PER_HOUR` | 30 | Global tokens per rolling hour. |
+| `BREADCRUMB_LIVE_TOKENS_PER_DAY` | 100 | Global tokens per UTC day. |
+
+A value that is not a positive whole number falls back to the default. Read per request.
+
+Ops advice: also set a quota or budget alert on the Google Cloud project that owns `GEMINI_API_KEY` (and restrict the key to the Generative Language API). The caps here protect one server process. A budget on the key protects against every other path, for example a leaked key or a second instance.
 
 ## Environment flags
 
@@ -43,6 +67,7 @@ Observed: the model answered both ticks in the browser run with a guidance sente
 | `BREADCRUMB_GEMINI_LIVE=1` | yes | Turns the feature on. |
 | `GEMINI_API_KEY` | yes | Already used by extraction and recognition. Server only. |
 | `GEMINI_LIVE_MODEL` | no | Overrides the model. Default `gemini-3.8-live`. |
+| `BREADCRUMB_LIVE_TOKENS_PER_HOUR`, `BREADCRUMB_LIVE_TOKENS_PER_DAY` | no | Global token caps. Defaults 30 and 100. |
 
 Flags are read per request. The deploy host must allow outbound HTTPS to `generativelanguage.googleapis.com`, and users' browsers must reach `wss://generativelanguage.googleapis.com`. Phones need HTTPS for camera and mic.
 
@@ -78,8 +103,8 @@ Run in /Users/jaydenl/Dev/Hackathon/BigRed 2026/.worktrees/gemini-live:
 | `node scripts/smoke-api.mjs` (now asserts the probe is false and POST gives 503 when disabled) | 0 |
 | `git diff --check` | 0 |
 
-- `src/server/live/live.check.ts`: disabled flag and missing key, invalid input (9 shapes), missing and unapproved routes, inherited ids (`__proto__`, `constructor`, `toString`, `hasOwnProperty`, `valueOf`), success path with a fake provider fetch (asserts uses, expiry, locked setup, no `fieldMask`, key only in the request header and never in the response or the body), provider failure and timeout without leaking, key-echo refusal, rate cap, and the HTTP handler (400 on bad JSON and oversize, 404, 409, 200 with no-store).
-- `src/client/liveProtocol.check.ts`: message parsing (including malformed input), message builders, base64 and PCM round trips, downsampling, clipping, captions.
+- `src/server/live/live.check.ts`: disabled flag and missing key, invalid input (9 shapes), missing and unapproved routes, inherited ids (`__proto__`, `constructor`, `toString`, `hasOwnProperty`, `valueOf`), success path with a fake provider fetch (asserts uses, expiry, locked setup, no `fieldMask`, key only in the request header and never in the response or the body), provider failure and timeout without leaking, key-echo refusal, per-client minute and hour limits, independent clients, shared `unknown` bucket, global minute, hour and UTC-day caps failing closed, env overrides and bad values, the 11-minute expiry, Origin mismatch or missing (403, no provider call), forwarded host, `X-Forwarded-For` keying through the HTTP handler, and the HTTP handler (400 on bad JSON and oversize, 404, 409, 200 with no-store).
+- `src/client/liveProtocol.check.ts`: message parsing (including malformed input), message builders, base64 and PCM round trips, downsampling, clipping, captions, in-order socket data decoding (string, ArrayBuffer, view), tick gating with the 15 s generating timeout, iOS resume rule.
 - `node scripts/follow-camera.check.mjs`: fails at the `.say` text assertion. It fails the same way on an unchanged copy of HEAD (e7bc7c5) built in a temporary worktree, so it is not caused by this change. It was not fixed here.
 
 ## Live result (real Gemini key, user authorized)
@@ -108,5 +133,5 @@ No frames, audio or the key were saved or committed. The test scripts are `scrip
 - The guide is advisory model output. It does not update the core session, checkpoints or manual-completion state, and it does not use the strict sign-text rules. It can be wrong. It makes no safety or accessibility claim.
 - Silence on a `[tick]` is not guaranteed. Tune `TICK_TEXT` and `TICK_AFTER_SILENCE_MS` in `src/client/liveProtocol.ts` after a phone walk.
 - Audio and camera frames go to Google while the session runs. The page says so.
-- The ephemeral token is single use. The page asks for a new token for every reconnect. Process-wide rate cap is in memory per server instance.
+- The ephemeral token is single use. The page asks for a new token for every reconnect. The rate and cap counters are in memory per server instance.
 - Next: walk the route on a phone over HTTPS and record the result in `stages/04-verify/`.

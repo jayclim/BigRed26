@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {
-  audioEndMessage, audioMessage, base64ToBytes, bytesToBase64, createCaptions, durationMs, floatToPcm16, liveUrl,
-  parseServerMessage, pcm16ToFloat32, setupMessage, textMessage, videoMessage,
+  audioEndMessage, audioMessage, base64ToBytes, bytesToBase64, createCaptions, decodeSocketData, durationMs, floatToPcm16, GENERATING_TIMEOUT_MS, liveUrl,
+  needsAudioResume, parseServerMessage, tickAllowed, TICK_AFTER_SILENCE_MS, pcm16ToFloat32, setupMessage, textMessage, videoMessage,
 } from './liveProtocol.ts';
 
 // Server messages seen in the real session: setup, audio with transcription, turn end, resumption updates, go-away.
@@ -44,4 +44,24 @@ assert.deepEqual(c.push('Turn left'), ['Turn left']); assert.deepEqual(c.push(' 
 c.endTurn(); assert.deepEqual(c.push('Arrived.'), ['Turn left at the board.', 'Arrived.']);
 c.endTurn(); assert.deepEqual(c.push('Wait.'), ['Arrived.', 'Wait.']);
 assert.deepEqual(c.reset(), []); assert.deepEqual(c.lines, []);
+// Socket frames decode synchronously and in order: string, ArrayBuffer and views give the same text; other data is dropped.
+const enc = new TextEncoder();
+const frames = ['{"setupComplete":{}}', '{"serverContent":{"turnComplete":true}}', '{"a":"é"}'];
+assert.deepEqual([frames[0], enc.encode(frames[1]).buffer, enc.encode(frames[2])].map(decodeSocketData), frames);
+assert.equal(decodeSocketData(new ArrayBuffer(0)), '');
+for (const bad of [null, undefined, 5, {}, []]) assert.equal(decodeSocketData(bad), null);
+
+// The tick timer: blocked while speaking or waiting for the model, but a stuck `generating` flag clears after the timeout.
+const base = { ready: true, generating: false, generatingSince: 0, playing: false, lastSpoke: 0, now: TICK_AFTER_SILENCE_MS };
+assert.equal(tickAllowed(base), true);
+assert.equal(tickAllowed({ ...base, ready: false }), false);
+assert.equal(tickAllowed({ ...base, playing: true }), false);
+assert.equal(tickAllowed({ ...base, now: TICK_AFTER_SILENCE_MS - 1 }), false);
+const stuck = { ...base, generating: true, generatingSince: 1000, lastSpoke: 1000 };
+assert.equal(tickAllowed({ ...stuck, now: 1000 + GENERATING_TIMEOUT_MS - 1 }), false);
+assert.equal(tickAllowed({ ...stuck, now: 1000 + GENERATING_TIMEOUT_MS + TICK_AFTER_SILENCE_MS }), true);
+
+// iOS audio resume.
+assert.deepEqual(['running', 'suspended', 'interrupted', 'closed'].map((st) => needsAudioResume(st, true)), [false, true, true, false]);
+assert.equal(needsAudioResume('interrupted', false), false);
 console.log('live protocol checks passed');

@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import type { Result, Route } from '../../../contracts/contracts.ts';
 import { createCore, emptyState } from '../core/core.ts';
-import { DEFAULT_LIVE_MODEL, TOKEN_ENDPOINT, TOKENS_PER_MINUTE, buildSystemInstruction, mintLiveToken } from './liveGuide.ts';
+import { DEFAULT_LIVE_MODEL, SESSION_WINDOW_MS, TOKEN_ENDPOINT, buildSystemInstruction, mintLiveToken } from './liveGuide.ts';
+import { CLIENT_PER_HOUR, CLIENT_PER_MINUTE, DEFAULT_TOKENS_PER_DAY, DEFAULT_TOKENS_PER_HOUR, GLOBAL_PER_MINUTE, clientKey, createLimitState, liveCaps, sameOrigin } from './liveLimits.ts';
 
 const fixture = JSON.parse(readFileSync('contracts/fixture.v1.json', 'utf8')).route as Route;
 const actions = JSON.parse(readFileSync('contracts/fixture.actions.v1.json', 'utf8')).route as Route;
@@ -20,7 +21,7 @@ const err = (r: Result<unknown>, code: string) => {
 
 let calls: Array<{ url: string; init: RequestInit }> = [];
 const okFetch = (async (url: string, init: RequestInit) => { calls.push({ url, init }); return Response.json({ name: 'auth_tokens/ephemeral-abc' }); }) as unknown as typeof fetch;
-const mint = (input: unknown, extra: object = {}) => mintLiveToken(input, { core, config, fetchImpl: okFetch, recent: [], ...extra });
+const mint = (input: unknown, extra: object = {}) => mintLiveToken(input, { core, config, fetchImpl: okFetch, limits: createLimitState(), ...extra });
 const body = { routeId: actions.id, locale: 'en' };
 
 // Instruction builder: approved texts in order, in the chosen locale only; control characters removed.
@@ -63,8 +64,8 @@ assert.ok(result.ok, JSON.stringify(result)); if (!result.ok) throw new Error();
 assert.equal(calls.length, 1);
 assert.equal(calls[0].url, TOKEN_ENDPOINT);
 const sent = JSON.parse(calls[0].init.body as string);
-assert.equal(sent.uses, 1);
-assert.equal(sent.expireTime, '2026-10-03T12:15:00.000Z'); assert.equal(sent.newSessionExpireTime, '2026-10-03T12:01:00.000Z');
+assert.equal(sent.uses, 1); assert.equal(SESSION_WINDOW_MS, 11 * 60_000);
+assert.equal(sent.expireTime, '2026-10-03T12:11:00.000Z'); assert.equal(sent.newSessionExpireTime, '2026-10-03T12:01:00.000Z');
 assert.equal(sent.fieldMask, undefined); // empty mask + setup = the whole setup is locked
 assert.equal(sent.bidiGenerateContentSetup.model, `models/${DEFAULT_LIVE_MODEL}`);
 assert.deepEqual(sent.bidiGenerateContentSetup.generationConfig.responseModalities, ['AUDIO']);
@@ -88,16 +89,87 @@ err(await mint(body, { fetchImpl: bodyFetch(200, JSON.stringify({ name: KEY })) 
 err(await mint(body, { fetchImpl: (async () => { throw new Error(`boom ${KEY}`); }) as unknown as typeof fetch }), 'PROVIDER_UNAVAILABLE');
 err(await mint(body, { fetchImpl: ((_u: string, init: RequestInit) => new Promise((_r, rej) => init.signal!.addEventListener('abort', () => rej(new Error('abort'))))) as unknown as typeof fetch, timeoutMs: 20 }), 'PROVIDER_UNAVAILABLE');
 
-// Process-wide rate cap.
-const recent: number[] = [];
-for (let i = 0; i < TOKENS_PER_MINUTE; i++) assert.ok((await mint(body, { recent, now: () => t0 })).ok);
-err(await mint(body, { recent, now: () => t0 + 1000 }), 'RATE_LIMITED');
-assert.ok((await mint(body, { recent, now: () => t0 + 61_000 })).ok);
+// Abuse controls. Each case uses its own limit state; `at` picks the client address and the clock.
+const minute = 60_000, hour = 3_600_000;
+const spend = (limits: ReturnType<typeof createLimitState>, client: string, now: number, caps?: { perHour: number; perDay: number }) =>
+  mint(body, { limits, client, now: () => now, ...(caps ? { caps } : {}) });
+const wide = { perHour: 1000, perDay: 1000 };
+{ // per client: 3 a minute, then the window slides
+  const limits = createLimitState();
+  for (let i = 0; i < CLIENT_PER_MINUTE; i++) assert.ok((await spend(limits, '1.1.1.1', t0 + i * 1000, wide)).ok);
+  err(await spend(limits, '1.1.1.1', t0 + 5000, wide), 'RATE_LIMITED');
+  assert.ok((await spend(limits, '2.2.2.2', t0 + 5000, wide)).ok); // another address is independent
+  assert.ok((await spend(limits, '1.1.1.1', t0 + minute + 1001, wide)).ok); // the oldest grant left the minute window
+}
+{ // per client: 10 an hour, spread so the minute limit never applies
+  const limits = createLimitState();
+  for (let k = 0; k < CLIENT_PER_HOUR; k++) assert.ok((await spend(limits, '1.1.1.1', t0 + k * 5 * minute, wide)).ok);
+  const late = t0 + 50 * minute;
+  err(await spend(limits, '1.1.1.1', late, wide), 'RATE_LIMITED');
+  assert.ok((await spend(limits, '1.1.1.2', late, wide)).ok); // another address is independent
+  assert.ok((await spend(limits, '1.1.1.1', t0 + hour + 1000, wide)).ok); // the first grant aged out
+  err(await spend(limits, '1.1.1.1', t0 + hour + 2000, wide), 'RATE_LIMITED');
+}
+{ // clients without a forwarded address share one bucket
+  const limits = createLimitState();
+  for (let i = 0; i < CLIENT_PER_MINUTE; i++) assert.ok((await mint(body, { limits, now: () => t0 })).ok);
+  err(await mint(body, { limits, now: () => t0 }), 'RATE_LIMITED');
+  assert.equal(clientKey(null), 'unknown'); assert.equal(clientKey(''), 'unknown'); assert.equal(clientKey('9.9.9.9, '), 'unknown');
+  assert.equal(clientKey('10.0.0.1, 203.0.113.7'), '203.0.113.7'); assert.equal(clientKey('  203.0.113.7  '), '203.0.113.7');
+}
+{ // global per minute burst
+  const limits = createLimitState();
+  for (let i = 0; i < GLOBAL_PER_MINUTE; i++) assert.ok((await spend(limits, `10.0.0.${i}`, t0, wide)).ok);
+  err(await spend(limits, '10.0.1.1', t0 + 1000, wide), 'RATE_LIMITED');
+  assert.ok((await spend(limits, '10.0.1.1', t0 + minute + 1, wide)).ok);
+}
+{ // global hour cap fails closed, even for fresh addresses; it frees as grants age out
+  const limits = createLimitState(), caps = { perHour: 5, perDay: 1000 };
+  for (let i = 0; i < 5; i++) assert.ok((await spend(limits, `10.0.0.${i}`, t0 + i * 2 * minute, caps)).ok);
+  const hit = await spend(limits, '10.0.9.9', t0 + 10 * minute, caps);
+  err(hit, 'RATE_LIMITED'); assert.ok(!hit.ok && /hourly/.test(hit.error.message) && hit.error.retryable);
+  assert.ok((await spend(limits, '10.0.9.9', t0 + hour + 1, caps)).ok);
+}
+{ // global UTC day cap resets at 00:00 UTC, not on a rolling window
+  const limits = createLimitState(), caps = { perHour: 1000, perDay: 4 };
+  const evening = Date.parse('2026-10-03T22:00:00Z');
+  for (let i = 0; i < 4; i++) assert.ok((await spend(limits, `10.0.0.${i}`, evening + i * 20 * minute, caps)).ok);
+  const hit = await spend(limits, '10.0.9.9', evening + 90 * minute, caps);
+  err(hit, 'RATE_LIMITED'); assert.ok(!hit.ok && /daily/.test(hit.error.message) && !hit.error.retryable);
+  assert.ok((await spend(limits, '10.0.9.9', Date.parse('2026-10-04T00:00:01Z'), caps)).ok);
+}
+{ // a refused request records nothing, and a provider failure still uses a slot
+  const limits = createLimitState();
+  for (let i = 0; i < CLIENT_PER_MINUTE; i++) await spend(limits, '3.3.3.3', t0, wide);
+  const before = limits.global.length;
+  err(await spend(limits, '3.3.3.3', t0, wide), 'RATE_LIMITED');
+  assert.equal(limits.global.length, before);
+  const bad = await mint(body, { limits, client: '4.4.4.4', now: () => t0, fetchImpl: bodyFetch(500, 'x') });
+  err(bad, 'PROVIDER_UNAVAILABLE'); assert.equal(limits.global.length, before + 1);
+}
+// Cap environment variables: defaults, overrides, and bad values fall back to the defaults.
+assert.deepEqual(liveCaps({}), { perHour: DEFAULT_TOKENS_PER_HOUR, perDay: DEFAULT_TOKENS_PER_DAY });
+assert.deepEqual([DEFAULT_TOKENS_PER_HOUR, DEFAULT_TOKENS_PER_DAY], [30, 100]);
+assert.deepEqual(liveCaps({ BREADCRUMB_LIVE_TOKENS_PER_HOUR: '7', BREADCRUMB_LIVE_TOKENS_PER_DAY: '12' }), { perHour: 7, perDay: 12 });
+for (const bad of ['', ' ', '0', '-3', '2.5', 'abc', 'Infinity']) assert.deepEqual(liveCaps({ BREADCRUMB_LIVE_TOKENS_PER_HOUR: bad, BREADCRUMB_LIVE_TOKENS_PER_DAY: bad }), { perHour: 30, perDay: 100 }, `bad cap ${bad}`);
+{ // the default caps come from process.env at request time
+  const keep = [process.env.BREADCRUMB_LIVE_TOKENS_PER_HOUR, process.env.BREADCRUMB_LIVE_TOKENS_PER_DAY];
+  process.env.BREADCRUMB_LIVE_TOKENS_PER_HOUR = '2'; process.env.BREADCRUMB_LIVE_TOKENS_PER_DAY = '100';
+  const limits = createLimitState();
+  assert.ok((await spend(limits, '5.5.5.1', t0)).ok); assert.ok((await spend(limits, '5.5.5.2', t0)).ok);
+  err(await spend(limits, '5.5.5.3', t0), 'RATE_LIMITED');
+  for (const [k, v] of [['BREADCRUMB_LIVE_TOKENS_PER_HOUR', keep[0]], ['BREADCRUMB_LIVE_TOKENS_PER_DAY', keep[1]]] as const) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+}
+// Origin rule.
+assert.ok(sameOrigin('https://a.example', 'a.example')); assert.ok(sameOrigin('http://localhost:3012', 'localhost:3012'));
+assert.ok(sameOrigin('https://a.example', '127.0.0.1:3012', 'a.example'));
+for (const [o, h] of [[null, 'a.example'], ['https://evil.example', 'a.example'], ['https://a.example:8443', 'a.example'], ['null', 'a.example'], ['not a url', 'a.example'], ['https://a.example', null]] as const)
+  assert.equal(sameOrigin(o, h), false, `${o} vs ${h}`);
 
 // The HTTP handler: disabled by default, GET probe is a boolean only.
 const { liveTokenPost, liveTokenProbe } = await import('./liveHttp.ts');
-const post = (text: string, cfg: object, extra: object = {}) =>
-  liveTokenPost(new Request('http://x/api/live/token', { method: 'POST', body: text }), core, { config: cfg, fetchImpl: okFetch, recent: [], ...extra });
+const post = (text: string, cfg: object, extra: object = {}, headers: Record<string, string> = { origin: 'http://x' }) =>
+  liveTokenPost(new Request('http://x/api/live/token', { method: 'POST', body: text, headers }), core, { config: cfg, fetchImpl: okFetch, limits: createLimitState(), ...extra });
 const off = await post(JSON.stringify(body), {});
 assert.equal(off.status, 503); assert.ok(!(await off.text()).includes(KEY));
 assert.deepEqual(await liveTokenProbe({ config: {} }).json(), { ok: true, value: { enabled: false } });
@@ -109,4 +181,22 @@ assert.equal((await post(JSON.stringify({ routeId: fixture.id, locale: 'en' }), 
 const good = await post(JSON.stringify(body), config);
 assert.equal(good.status, 200); assert.equal(good.headers.get('cache-control'), 'private, no-store');
 const goodText = await good.text(); assert.ok(!goodText.includes(KEY)); assert.ok(goodText.includes('auth_tokens/ephemeral-abc'));
+// Origin: required and same host. Rejected before the body is read and before any provider call.
+const callsBefore = calls.length;
+for (const headers of [{} as Record<string, string>, { origin: 'https://evil.example' }, { origin: 'http://x:81' }]) {
+  const denied = await post(JSON.stringify(body), config, {}, headers);
+  assert.equal(denied.status, 403); assert.equal((await denied.json()).error.code, 'INVALID_INPUT');
+}
+assert.equal(calls.length, callsBefore);
+assert.equal((await post(JSON.stringify(body), config, {}, { origin: 'https://a.example', 'x-forwarded-host': 'a.example' })).status, 200); // Host is 127.0.0.1-style behind a tunnel
+assert.equal((await post(JSON.stringify(body), {}, {}, {})).status, 503); // disabled still answers 503 first
+// The client address comes from the last X-Forwarded-For entry (the one the tunnel appended); a forged first entry is ignored. Four rapid posts from one address: the fourth is 429; another address still works.
+{
+  const limits = createLimitState();
+  const from = (ip: string) => post(JSON.stringify(body), config, { limits, now: () => t0 }, { origin: 'http://x', 'x-forwarded-for': `203.0.113.9, ${ip}` });
+  for (let i = 0; i < 3; i++) assert.equal((await from('198.51.100.1')).status, 200);
+  const limited = await from('198.51.100.1');
+  assert.equal(limited.status, 429); assert.equal((await limited.json()).error.code, 'RATE_LIMITED');
+  assert.equal((await from('198.51.100.2')).status, 200);
+}
 console.log('live guide checks passed');

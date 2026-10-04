@@ -14,6 +14,7 @@ const T = {
     micOn: 'Turn mic on', micOff: 'Mute mic', micHint: 'Mic is off. Turn it on to talk to the guide.',
     listening: 'Mic on', speaking: 'Guide is speaking', quiet: 'Watching the camera', waiting: 'The guide will speak when you start walking.',
     preview: 'Camera preview', captions: 'Guide captions', loading: 'Loading route…',
+    missing: 'This route was not found. Check the link or ask the organizer.',
     off: 'The live voice guide is not enabled on this server.', notApproved: "This route isn't approved yet. Ask the organizer to review and approve it.",
     f: {
       unavailable: 'The live voice guide is not available here. Use the check-view guide instead.',
@@ -34,6 +35,7 @@ const T = {
     micOn: 'Activar micrófono', micOff: 'Silenciar micrófono', micHint: 'El micrófono está apagado. Actívalo para hablar con la guía.',
     listening: 'Micrófono activo', speaking: 'La guía está hablando', quiet: 'Observando la cámara', waiting: 'La guía hablará cuando empieces a caminar.',
     preview: 'Vista previa de la cámara', captions: 'Subtítulos de la guía', loading: 'Cargando ruta…',
+    missing: 'No se encontró esta ruta. Revisa el enlace o pregunta al organizador.',
     off: 'La guía de voz en vivo no está activada en este servidor.', notApproved: 'Esta ruta aún no está aprobada. Pide al organizador que la revise y la apruebe.',
     f: {
       unavailable: 'La guía de voz en vivo no está disponible aquí. Usa la guía de comprobar vista.',
@@ -101,7 +103,7 @@ export function LiveStream({ routeId, exitHref }: { routeId: string; exitHref: s
   }
 
   const failureText = failure ? (t.f[failure.kind]) : null;
-  const blockedText = blocked === 'off' ? t.off : blocked === 'notApproved' ? t.notApproved : blocked === 'missing' ? T.en.f.token : null;
+  const blockedText = blocked === 'off' ? t.off : blocked === 'notApproved' ? t.notApproved : blocked === 'missing' ? t.missing : null;
   const statusText = status === 'starting' ? t.starting : status === 'reconnecting' ? t.reconnecting : status === 'live' ? (speaking ? t.speaking : mic ? t.listening : t.quiet) : status === 'stopped' ? t.stopped : '';
 
   return (

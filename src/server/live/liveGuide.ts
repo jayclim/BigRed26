@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import type { CoreAdapter, ErrorCode, Locale, Result, Route } from '../../../contracts/contracts.ts';
 import { LocaleSchema } from '../../../contracts/schemas.ts';
+import { checkAndRecord, createLimitState, liveCaps, UNKNOWN_CLIENT, type LimitState, type LiveCaps } from './liveLimits.ts';
 
 export const DEFAULT_LIVE_MODEL = 'gemini-3.8-live';
 export const LIVE_VOICE = 'Kore';
@@ -12,8 +13,7 @@ export const LIVE_WS_ENDPOINT = 'wss://generativelanguage.googleapis.com/ws/goog
 export const MAX_BODY_BYTES = 2048;
 export const MAX_PROVIDER_BODY_BYTES = 16_384;
 export const NEW_SESSION_WINDOW_MS = 60_000; // the browser must open the socket within one minute
-export const SESSION_WINDOW_MS = 15 * 60_000; // messages are refused after this; the client reconnects with a new token
-export const TOKENS_PER_MINUTE = 20; // process-wide cap, so a loop cannot spend the key
+export const SESSION_WINDOW_MS = 11 * 60_000; // messages are refused after this; goAway comes at about 10 minutes and the client reconnects with a new token
 const MAX_CHECKPOINTS = 40;
 
 export const LiveTokenBodySchema = z.object({
@@ -84,9 +84,9 @@ export interface LiveTokenValue {
 }
 export interface LiveTokenDeps {
   core: Pick<CoreAdapter, 'getRoute'>; config?: LiveConfig; fetchImpl?: typeof fetch;
-  now?: () => number; timeoutMs?: number; recent?: number[];
+  now?: () => number; timeoutMs?: number; limits?: LimitState; caps?: LiveCaps; client?: string;
 }
-const defaultRecent: number[] = [];
+const defaultLimits = createLimitState();
 const AuthTokenResponse = z.object({ name: z.string().min(1).max(2000) });
 
 export async function mintLiveToken(input: unknown, deps: LiveTokenDeps): Promise<Result<LiveTokenValue>> {
@@ -100,10 +100,8 @@ export async function mintLiveToken(input: unknown, deps: LiveTokenDeps): Promis
   const route = found.value;
   if (route.status !== 'approved') return fail('NOT_APPROVED', "This route isn't approved yet. Ask the organizer to review and approve it.");
   const now = (deps.now ?? Date.now)();
-  const recent = deps.recent ?? defaultRecent;
-  while (recent.length && recent[0] <= now - 60_000) recent.shift();
-  if (recent.length >= TOKENS_PER_MINUTE) return fail('RATE_LIMITED', 'Too many live guide starts. Wait a minute and retry.', true);
-  recent.push(now);
+  const denied = checkAndRecord(deps.limits ?? defaultLimits, deps.client ?? UNKNOWN_CLIENT, now, deps.caps ?? liveCaps());
+  if (denied) return fail('RATE_LIMITED', denied.message, denied.retryable); // counts attempts, so a provider failure still uses a slot
 
   const model = config.model || DEFAULT_LIVE_MODEL;
   const setup = buildLiveSetup(route, locale, model);

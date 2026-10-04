@@ -5,6 +5,7 @@ export const OUTPUT_SAMPLE_RATE = 24_000; // model audio: raw 16-bit little-endi
 export const INPUT_SAMPLE_RATE = 16_000; // microphone audio the model expects
 export const FRAME_INTERVAL_MS = 1000; // documented cap: 1 video frame per second
 export const TICK_AFTER_SILENCE_MS = 12_000;
+export const GENERATING_TIMEOUT_MS = 15_000; // a silent model must not stop the timer forever
 export const START_TEXT = '[start] The walk is starting now. Look at the camera. If the person is at the first checkpoint, say its approved instruction in one short sentence. Otherwise tell them in a few words to face the start of the route.';
 export const TICK_TEXT = '[tick] Camera updated. If the person reached the next checkpoint, changed direction, went off route or seems stuck, give one short guidance sentence now. Otherwise stay silent.';
 
@@ -96,3 +97,26 @@ export function createCaptions(maxLines = 3) {
     get lines() { return [...lines]; },
   };
 }
+
+const textDecoder = new TextDecoder();
+/**
+ * Socket frames are text or binary. Binary frames arrive as ArrayBuffer (binaryType 'arraybuffer') and are decoded in the
+ * same call, so message order is the arrival order. An async Blob.text() could finish out of order and scramble audio.
+ */
+export function decodeSocketData(data: unknown): string | null {
+  if (typeof data === 'string') return data;
+  if (data instanceof ArrayBuffer) return textDecoder.decode(data);
+  if (ArrayBuffer.isView(data)) return textDecoder.decode(data);
+  return null;
+}
+
+export interface TickState { ready: boolean; generating: boolean; generatingSince: number; playing: boolean; lastSpoke: number; now: number }
+/** Whether the silence timer may send a [tick]. A `generating` flag older than GENERATING_TIMEOUT_MS is treated as cleared. */
+export function tickAllowed(s: TickState): boolean {
+  if (!s.ready || s.playing) return false;
+  if (s.generating && s.now - s.generatingSince < GENERATING_TIMEOUT_MS) return false;
+  return s.now - s.lastSpoke >= TICK_AFTER_SILENCE_MS;
+}
+
+/** iOS Safari moves an AudioContext to 'interrupted' (calls, Siri, tab switches); browsers may also suspend it. */
+export const needsAudioResume = (state: string, running: boolean) => running && (state === 'suspended' || state === 'interrupted');

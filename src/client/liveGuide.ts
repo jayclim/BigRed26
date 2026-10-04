@@ -4,9 +4,11 @@ import type { Locale, Result } from '@contracts/contracts.ts';
 import { captureFrame } from '@/features/guide/frameCapture.ts';
 import {
   FRAME_INTERVAL_MS, INPUT_SAMPLE_RATE, OUTPUT_SAMPLE_RATE, START_TEXT, TICK_AFTER_SILENCE_MS, TICK_TEXT,
-  audioEndMessage, audioMessage, base64ToBytes, bytesToBase64, createCaptions, floatToPcm16, liveUrl, parseServerMessage,
-  pcm16ToFloat32, setupMessage, textMessage, videoMessage, type LiveEvent,
+  audioEndMessage, audioMessage, base64ToBytes, bytesToBase64, createCaptions, decodeSocketData, floatToPcm16, liveUrl, needsAudioResume,
+  parseServerMessage, pcm16ToFloat32, tickAllowed, setupMessage, textMessage, videoMessage, type LiveEvent,
 } from './liveProtocol.ts';
+
+export { liveGuideEnabled } from './liveProbe.ts';
 
 export interface LiveTokenInfo { token: string; endpoint: string; setup: unknown; routeName: string; locale: Locale }
 export type LiveStatus = 'idle' | 'starting' | 'live' | 'reconnecting' | 'stopped' | 'error';
@@ -28,14 +30,6 @@ export async function fetchLiveToken(routeId: string, locale: Locale): Promise<R
     return await res.json() as Result<LiveTokenInfo>;
   } catch { return { ok: false, error: { code: 'PROVIDER_UNAVAILABLE', message: "Can't reach the Breadcrumb server.", retryable: true } }; }
 }
-export async function liveGuideEnabled(): Promise<boolean> {
-  try {
-    const res = await fetch('/api/live/token', { cache: 'no-store' });
-    const json = await res.json() as Result<{ enabled: boolean }>;
-    return res.ok && json.ok && json.value.enabled === true;
-  } catch { return false; }
-}
-
 const MIC_WORKLET = `class Tap extends AudioWorkletProcessor { process(inputs) { const c = inputs[0] && inputs[0][0]; if (c) this.port.postMessage(c.slice(0)); return true; } }
 registerProcessor('breadcrumb-mic-tap', Tap);`;
 
@@ -64,10 +58,11 @@ export class LiveGuideSession {
   private o: LiveOptions; private h: LiveHandlers;
   private ctx: AudioContext | null = null; private player: PcmPlayer | null = null;
   private camera: MediaStream | null = null; private mic: MediaStream | null = null; private micNode: AudioWorkletNode | null = null; private micSource: MediaStreamAudioSourceNode | null = null;
-  private micOn = false; private micPending = new Uint8Array(0);
+  private micOn = false; private micPending = new Uint8Array(0); private micRequest = 0;
+  private workletLoaded = new WeakSet<AudioContext>(); // addModule once per AudioContext
   private ws: WebSocket | null = null; private ready = false; private stopped = false; private reconnects = 0; private generation = 0;
   private frameTimer: ReturnType<typeof setInterval> | null = null; private capturing = false;
-  private lastSpoke = 0; private connectedAt = 0; private announced = false; private tickTimer: ReturnType<typeof setInterval> | null = null; private generating = false;
+  private lastSpoke = 0; private connectedAt = 0; private announced = false; private tickTimer: ReturnType<typeof setInterval> | null = null; private generating = false; private generatingSince = 0;
   private captions = createCaptions(); private speaking = false;
 
   constructor(options: LiveOptions) { this.o = options; this.h = options.handlers; }
@@ -79,12 +74,27 @@ export class LiveGuideSession {
     const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!Ctx) { this.fail('unavailable'); return; }
     this.ctx = new Ctx(); void this.ctx.resume();
+    this.ctx.onstatechange = () => this.resumeAudio();
+    document.addEventListener('visibilitychange', this.resumeAudio);
     this.player = new PcmPlayer(this.ctx, () => this.setSpeaking(false));
     if (!(await this.startCamera())) return;
     await this.connect();
   }
 
+  /** iOS moves the AudioContext to 'interrupted' (a call, Siri, a tab switch). Resume it while the guide runs. */
+  private resumeAudio = () => {
+    const ctx = this.ctx;
+    if (!ctx || !needsAudioResume(ctx.state, !this.stopped)) return;
+    if (document.visibilityState === 'hidden') return; // resume() would be refused; visibilitychange tries again
+    void ctx.resume().catch(() => {});
+  };
+  private releaseAudio() {
+    document.removeEventListener('visibilitychange', this.resumeAudio);
+    if (this.ctx) this.ctx.onstatechange = null;
+  }
+
   stop() {
+    this.releaseAudio();
     this.stopped = true; this.generation++;
     this.teardownSocket(1000);
     this.stopMic(); this.camera?.getTracks().forEach((t) => t.stop()); this.camera = null;
@@ -94,24 +104,31 @@ export class LiveGuideSession {
     this.captions.reset(); this.h.onCaptions([]); this.h.onStatus('stopped');
   }
 
+  /** Off releases the microphone (the OS indicator goes away). On asks for it again; the browser remembers a granted permission. */
   async setMic(on: boolean) {
     if (on === this.micOn) return;
-    if (!on) { this.micOn = false; this.mic?.getAudioTracks().forEach((t) => { t.enabled = false; }); this.micPending = new Uint8Array(0); this.send(audioEndMessage()); return; }
-    if (!this.ctx) return;
+    const request = ++this.micRequest;
+    if (!on) { this.micOn = false; this.stopMic(); this.send(audioEndMessage()); return; }
+    const ctx = this.ctx; if (!ctx) return;
+    let stream: MediaStream | null = null;
     try {
-      if (!this.mic) {
-        if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error('no mic'), { name: 'NotFoundError' });
-        this.mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
+      if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error('no mic'), { name: 'NotFoundError' });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
+      if (this.stopped || request !== this.micRequest || ctx !== this.ctx) { stream.getTracks().forEach((t) => t.stop()); return; } // muted or stopped while asking
+      if (!this.workletLoaded.has(ctx)) {
         const url = URL.createObjectURL(new Blob([MIC_WORKLET], { type: 'application/javascript' }));
-        try { await this.ctx.audioWorklet.addModule(url); } finally { URL.revokeObjectURL(url); }
-        this.micSource = this.ctx.createMediaStreamSource(this.mic);
-        this.micNode = new AudioWorkletNode(this.ctx, 'breadcrumb-mic-tap');
-        this.micNode.port.onmessage = (e: MessageEvent<Float32Array>) => this.onMicSamples(e.data);
-        this.micSource.connect(this.micNode); // not connected to the speakers
+        try { await ctx.audioWorklet.addModule(url); } finally { URL.revokeObjectURL(url); }
+        this.workletLoaded.add(ctx); // registering the same processor name twice throws
+        if (this.stopped || request !== this.micRequest || ctx !== this.ctx) { stream.getTracks().forEach((t) => t.stop()); return; }
       }
-      this.mic.getAudioTracks().forEach((t) => { t.enabled = true; });
+      this.mic = stream;
+      this.micSource = ctx.createMediaStreamSource(stream);
+      this.micNode = new AudioWorkletNode(ctx, 'breadcrumb-mic-tap');
+      this.micNode.port.onmessage = (e: MessageEvent<Float32Array>) => this.onMicSamples(e.data);
+      this.micSource.connect(this.micNode); // not connected to the speakers
       this.micOn = true;
     } catch (e) {
+      stream?.getTracks().forEach((t) => t.stop());
       this.stopMic(); this.micOn = false;
       const name = (e as DOMException)?.name;
       this.h.onFailure(name === 'NotAllowedError' || name === 'SecurityError' ? 'mic_denied' : 'mic_error');
@@ -157,10 +174,11 @@ export class LiveGuideSession {
     try { ws = new WebSocket(liveUrl(info.endpoint, info.token)); } catch { this.fail('socket'); return; }
     this.ws = ws;
     ws.onopen = () => { if (gen === this.generation) ws.send(setupMessage(info.setup)); };
-    ws.onmessage = async (event) => {
+    ws.binaryType = 'arraybuffer'; // decode in the handler itself: an async Blob read could reorder audio chunks
+    ws.onmessage = (event) => {
       if (gen !== this.generation) return;
-      const raw = typeof event.data === 'string' ? event.data : await (event.data as Blob).text();
-      if (gen !== this.generation) return;
+      const raw = decodeSocketData(event.data);
+      if (raw === null) return;
       for (const ev of parseServerMessage(raw)) this.handle(ev, gen);
     };
     ws.onerror = () => { /* onclose follows and reports */ };
@@ -170,15 +188,15 @@ export class LiveGuideSession {
   private handle(ev: LiveEvent, gen: number) {
     switch (ev.kind) {
       case 'setupComplete':
-        this.ready = true; this.generating = false; this.lastSpoke = Date.now();
+        this.ready = true; this.setGenerating(false); this.lastSpoke = Date.now();
         this.connectedAt = Date.now(); this.h.onStatus('live'); this.startTimers(gen);
         // Only the first connection announces the start. A refreshed connection stays quiet until the timer asks.
-        if (!this.announced) { this.announced = true; this.send(textMessage(START_TEXT)); this.generating = true; }
+        if (!this.announced) { this.announced = true; this.send(textMessage(START_TEXT)); this.setGenerating(true); }
         break;
-      case 'audio': this.generating = true; this.setSpeaking(true); this.player?.push(base64ToBytes(ev.data)); break;
+      case 'audio': this.setGenerating(true); this.setSpeaking(true); this.player?.push(base64ToBytes(ev.data)); break;
       case 'output': this.h.onCaptions(this.captions.push(ev.text)); break;
-      case 'turnComplete': this.generating = false; this.lastSpoke = Date.now(); this.h.onCaptions(this.captions.endTurn()); break;
-      case 'interrupted': this.player?.clear(); this.generating = false; this.h.onCaptions(this.captions.endTurn()); break;
+      case 'turnComplete': this.setGenerating(false); this.lastSpoke = Date.now(); this.h.onCaptions(this.captions.endTurn()); break;
+      case 'interrupted': this.player?.clear(); this.setGenerating(false); this.h.onCaptions(this.captions.endTurn()); break;
       case 'goAway': break; // the socket closes soon after; onClosed reconnects with a fresh token
       case 'input': break;
     }
@@ -189,8 +207,10 @@ export class LiveGuideSession {
     this.frameTimer = setInterval(() => { void this.sendFrame(gen); }, FRAME_INTERVAL_MS);
     // The model answers turns, not raw video. A quiet timer turn asks it to speak only if guidance changed.
     this.tickTimer = setInterval(() => {
-      if (!this.ready || this.generating || this.player?.playing || Date.now() - this.lastSpoke < TICK_AFTER_SILENCE_MS) return;
-      this.lastSpoke = Date.now(); this.generating = true; this.send(textMessage(TICK_TEXT));
+      const now = Date.now();
+      // A silent model never sends turnComplete, so `generating` expires after GENERATING_TIMEOUT_MS and ticks continue.
+      if (!tickAllowed({ ready: this.ready, generating: this.generating, generatingSince: this.generatingSince, playing: !!this.player?.playing, lastSpoke: this.lastSpoke, now })) return;
+      this.lastSpoke = now; this.setGenerating(true); this.send(textMessage(TICK_TEXT));
     }, 2000);
   }
   private clearTimers() {
@@ -208,6 +228,7 @@ export class LiveGuideSession {
     } catch { /* no frame yet; try again next second */ } finally { this.capturing = false; }
   }
 
+  private setGenerating(on: boolean) { this.generating = on; this.generatingSince = on ? Date.now() : 0; }
   private send(message: string) { if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(message); }
   private setSpeaking(on: boolean) { if (this.speaking !== on) { this.speaking = on; this.h.onSpeaking(on); } }
 
@@ -218,7 +239,7 @@ export class LiveGuideSession {
   }
 
   private onClosed(code: number) {
-    this.teardownSocket(1000); this.generating = false;
+    this.teardownSocket(1000); this.setGenerating(false);
     if (this.connectedAt && Date.now() - this.connectedAt > 60_000) this.reconnects = 0; // a long healthy session earns fresh retries
     this.connectedAt = 0;
     if (this.reconnects >= MAX_RECONNECTS) { this.fail('limit'); return; }
@@ -233,6 +254,7 @@ export class LiveGuideSession {
     if (kind === 'mic_denied' || kind === 'mic_error') return; // the camera guide keeps running without the mic
     this.teardownSocket(1000);
     this.stopMic(); this.camera?.getTracks().forEach((t) => t.stop()); this.camera = null;
+    this.releaseAudio();
     this.player?.clear(); void this.ctx?.close().catch(() => {}); this.ctx = null; this.player = null;
     this.stopped = true; this.generation++;
     this.h.onStatus('error');
