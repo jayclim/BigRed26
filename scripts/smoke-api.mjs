@@ -16,11 +16,12 @@ const oldMediaDir = process.env.BREADCRUMB_MEDIA_DIR;
 process.env.BREADCRUMB_MEDIA_DIR = mediaDir;
 process.on('exit', () => rmSync(mediaDir, { recursive: true, force: true }));
 // Explicitly disable extraction, live recognition and generated voice for this child; never pass provider credentials.
-const savedGeminiEnv = Object.fromEntries(['BREADCRUMB_GEMINI_EXTRACTION', 'BREADCRUMB_GEMINI_RECOGNITION', 'GEMINI_API_KEY', 'GEMINI_MODEL', 'BREADCRUMB_ELEVENLABS_VOICE', 'ELEVENLABS_API_KEY'].map((key) => [key, process.env[key]]));
+const savedGeminiEnv = Object.fromEntries(['BREADCRUMB_GEMINI_EXTRACTION', 'BREADCRUMB_GEMINI_RECOGNITION', 'GEMINI_API_KEY', 'GEMINI_MODEL', 'BREADCRUMB_ELEVENLABS_VOICE', 'ELEVENLABS_API_KEY', 'BREADCRUMB_GEMINI_LIVE', 'GEMINI_LIVE_MODEL'].map((key) => [key, process.env[key]]));
 for (const key of Object.keys(savedGeminiEnv)) delete process.env[key];
 process.env.BREADCRUMB_GEMINI_EXTRACTION = '0';
 process.env.BREADCRUMB_GEMINI_RECOGNITION = '0';
 process.env.BREADCRUMB_ELEVENLABS_VOICE = '0';
+process.env.BREADCRUMB_GEMINI_LIVE = '0';
 const { base } = await startIsolatedServer(Number(process.argv[2] ?? 3107));
 for (const [key, value] of Object.entries(savedGeminiEnv)) {
   if (value === undefined) delete process.env[key];
@@ -39,6 +40,11 @@ const call = async (method, path, body) => {
 
 const voiceProbe = await call('GET', '/api/speech');
 assert.deepEqual([voiceProbe.status, voiceProbe.value.enabled], [200, false]); // guide keeps labeled browser speech
+const liveProbe = await call('GET', '/api/live/token');
+assert.deepEqual([liveProbe.status, liveProbe.value.enabled], [200, false]);
+const liveDisabled = await call('POST', '/api/live/token', { routeId: 'anything', locale: 'en' });
+assert.equal(liveDisabled.status, 503);
+assert.equal(liveDisabled.error.code, 'PROVIDER_UNAVAILABLE');
 const extractionDisabled = await call('POST', `/api/media/${randomUUID()}/extract`);
 assert.equal(extractionDisabled.status, 503);
 assert.equal(extractionDisabled.error.code, 'PROVIDER_UNAVAILABLE');
