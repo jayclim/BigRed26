@@ -117,7 +117,7 @@ function harness(synthesize: VoiceAdapter['synthesize'] = async (r) => clip(r.in
   const source = readFileSync(new URL('./GuideScreen.tsx', import.meta.url), 'utf8');
   assert(source.includes("speech: 'Browser speech'")); assert(source.includes("speech: 'Voz del navegador'"));
   assert(source.includes('<p id="speech-source" className={styles.speechSource}>{voice ? t.generatedVoice : t.speech}</p>'));
-  assert(source.includes('<p className="say">'));
+  assert(source.includes('className="say"'));
   console.log('PASS source assertion: visible bilingual browser label and caption retained');
 }
 

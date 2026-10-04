@@ -6,6 +6,7 @@ import fixture from '../../../contracts/fixture.v1.json';
 import actionFixture from '../../../contracts/fixture.actions.v1.json';
 import { fixtureRecognizer } from './actionFixture.ts';
 import { createCore, emptyState } from './core.ts';
+import { liveRecognitionEnabled, liveRecognizer } from '../recognition/gemini.ts';
 import { loadState, persistState } from './store.ts';
 
 const file = resolve(process.env.BREADCRUMB_DATA_FILE ?? '.data/store.json');
@@ -30,8 +31,9 @@ function build(): CoreAdapter {
   return createCore({
     state: loaded.state,
     persist: (state) => persistState(file, state),
-    // Live (Gemini) and replay recognizers register here in the next milestone. Absent = start fails honestly.
-    recognizers: { mock: fixtureRecognizer },
+    // Live needs BREADCRUMB_GEMINI_RECOGNITION=1 and GEMINI_API_KEY. Absent = live start fails honestly, no fallback.
+    // Replay has no recognizer yet. ponytail: flags are read once at process start.
+    recognizers: { mock: fixtureRecognizer, ...(liveRecognitionEnabled() ? { live: liveRecognizer } : {}) },
   });
 }
 
