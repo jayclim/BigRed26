@@ -309,7 +309,7 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
             </div>
 
             <div className={g.col}>
-              {action && <section className={`action-details ${g.stepCard}`} aria-labelledby="this-step-h">
+              {action && <section className={`action-details ${g.stepCard}`} aria-labelledby="this-step-h" aria-live="polite">
                 <h2 id="this-step-h">{t.thisStep}</h2>
                 {guidance?.state !== 'guiding' && <p><strong>{t.active}: {active!.label}</strong></p>}
                 <p><strong>{t.target}:</strong> {action.target}</p>

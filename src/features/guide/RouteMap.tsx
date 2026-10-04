@@ -9,12 +9,14 @@ const T = {
     summary: (n: number) => `Route map, ${n} steps. Not started.`,
     at: (i: number, n: number, l: string) => `Route map, step ${i} of ${n}: ${l}.`, next: (l: string) => ` Next: ${l}.`,
     arrived: (l: string) => `Route map: arrived at ${l}.`,
+    status: { done: 'done', next: 'next', todo: 'not reached', arrived: 'arrived' } as Record<string, string>,
   },
   es: {
     title: 'Ruta', notStarted: 'Sin empezar', of: (i: number, n: number) => `${i} de ${n}`,
     summary: (n: number) => `Mapa de la ruta, ${n} pasos. Sin empezar.`,
     at: (i: number, n: number, l: string) => `Mapa de la ruta, paso ${i} de ${n}: ${l}.`, next: (l: string) => ` Siguiente: ${l}.`,
     arrived: (l: string) => `Mapa de la ruta: llegaste a ${l}.`,
+    status: { done: 'hecho', next: 'siguiente', todo: 'pendiente', arrived: 'llegada' } as Record<string, string>,
   },
 } as const;
 
@@ -93,7 +95,7 @@ export function RouteMap({ checkpoints, statuses, current, guiding, flow, reduce
         })}
       </div>
       <ol className="sr-only" aria-label={name}>
-        {checkpoints.map((c, i) => <li key={c.id}>{c.label}: {statuses[i]}</li>)}
+        {checkpoints.map((c, i) => <li key={c.id}>{c.label}: {t.status[statuses[i]] ?? statuses[i]}</li>)}
       </ol>
     </section>
   );

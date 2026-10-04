@@ -1,6 +1,6 @@
 # Guide redesign (Part B)
 
-Status: implemented on `feat/guide-redesign`, not committed. Code checks pass. Rendered review by the lead is pending. Date: 2026-10-03. Source: approved mockup `Main.dc.html` (phone) and `GuideDesktop.dc.html` (desktop) in the lead's scratchpad.
+Status: implemented on `feat/guide-redesign` (first commit `c969735`). Code checks and the lead's rendered review pass; see the lead follow-up. Date: 2026-10-03. Source: approved mockup `Main.dc.html` (phone) and `GuideDesktop.dc.html` (desktop) in the lead's scratchpad.
 
 ## Decisions
 
@@ -81,17 +81,19 @@ Kept: `.card` with `data-state`, `data-sequence`, `data-arrow`, `aria-live`, `ar
 | `npm run check` | Exit 0 |
 | `npm run typecheck` | Exit 0 |
 | `npm run build` | Exit 0 (Turbopack) |
-| `node scripts/follow-camera.check.mjs` | Exit 1 at the first `.say` text assertion. HEAD without this change also fails after the same three PASS lines, with the same falsy-assertion message (2 of 2 runs). Cause: the `AnimatePresence mode="wait"` text crossfade keeps the old `.say` in the DOM for about 120ms after `aria-busy` turns false. A scratch copy that waits 500ms before reading `.say` passed every remaining assertion with this redesign, including 390/1280 control overlap, keyboard Tab/Enter, locale and denied-camera checks. |
+| `node scripts/follow-camera.check.mjs` | Superseded by the lead follow-up (now passes). Original worker run: exit 1 at the first `.say` text assertion. HEAD without this change also fails after the same three PASS lines, with the same falsy-assertion message (2 of 2 runs). Cause: the `AnimatePresence mode="wait"` text crossfade keeps the old `.say` in the DOM for about 120ms after `aria-busy` turns false. A scratch copy that waits 500ms before reading `.say` passed every remaining assertion with this redesign, including 390/1280 control overlap, keyboard Tab/Enter, locale and denied-camera checks. |
 
 The browser check saved screenshots as a side effect. They are not a visual review.
 
-## Lead follow-up (2026-10-04, host, Node 24.21.0)
+## Lead follow-up (2026-10-03, host, Node 24.21.0)
 
 - Confirmed the `.say` race on unchanged main: `node scripts/follow-camera.check.mjs` fails at the same assertion on `origin/main` `e7bc7c5`. Fixed the check (Part B file): it now waits until exactly one `.say` shows the accepted instruction. With the redesign it passes all groups (8 PASS lines), twice.
 - Added a static blurred halo behind the instruction card (`.glow::before`, same state gradient, no animation). The 2px tinted edge alone was too faint in renders.
 - Rendered review with a scratch CDP harness (not committed): mock mode, `demo-route` and `action-fixture`, 390x844 and 1280x800. States: start, forward, reorient, turn left, uncertain, provider error, arrived, turn left in Spanish, turn left with reduced motion, door action. 20 screenshots, each inspected; no horizontal overflow (`scrollWidth - innerWidth = 0`).
 - Observed: cue flows only in guiding states with a direction; reorient and uncertain show still amber dots; door action (direction null) shows still dim dots; arrival shows the green check and a green destination node. Map bends left on the legacy fixture and stays straight on the action fixture, with a `Floor 3` chip on the lift edge. Spanish strings fit at both widths. Reduced motion shows static dots graded toward the head.
 - Still not seen: a real phone, real camera frames, motion feel over time (screenshots are single frames), and screen-reader output.
+- Review of `c969735` (independent, approve, no P1): repaired its P3 notes. The This step section is now `aria-live="polite"`; screen-reader statuses on the map are localized (EN/ES); the halo inset is reduced so it no longer reaches the camera stage on phones; this document's status and checks table are corrected. Not changed: the global entrance fade selectors in `theme.css` (`.guide > .stage`, `.guide > .card`) no longer match the new column layout, so the stage and card skip the mount fade; `theme.css` is integration-owned.
+- Open, decision for the integration owner before merge: `knowledge/design-system.md` still forbids infinite motion and animated direction cues and says the card border transitions with state. Apply the amendments above (plus: the guide card border is static; the glow carries state) or reject the cue.
 - Open, non-blocking: on phones the brand shows only the trail mark (pre-existing compact brand); reorient does not highlight the candidate node; the desktop map sits right of center in its card.
 
 ## Limitations
