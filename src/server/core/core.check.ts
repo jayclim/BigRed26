@@ -305,6 +305,17 @@ assert.equal(must(await actionCore.getRoute(actionDraft.id, 1)).checkpoints[1].a
 assert.equal(must(await actionCore.getRoute(actionDraft.id, 1)).checkpoints[1].action!.steps[0].en, 'Enter Lift A.');
 assert.equal(must(await actionCore.currentGuidance(raceSession.id))!.routeVersion, 1);
 
+// Inherited object names are not session or route ids on any path.
+for (const name of ['__proto__', 'constructor', 'toString', 'hasOwnProperty']) {
+  assert.equal(errCode(await core.getSession(name)), 'NOT_FOUND', `getSession ${name}`);
+  assert.equal(errCode(await core.setLocale(name, 'es')), 'NOT_FOUND', `setLocale ${name}`);
+  assert.equal(errCode(await core.reserveFrameSequence(name)), 'NOT_FOUND', `reserve ${name}`);
+  assert.equal(errCode(await core.matchFrame({ sessionId: name, routeVersion: 1, sequence: 1, capturedAt: new Date().toISOString(), mediaId: 'mock:unrelated' })), 'NOT_FOUND', `matchFrame ${name}`);
+  assert.equal(errCode(await core.getRoute(name)), 'NOT_FOUND', `getRoute ${name}`);
+  assert.equal(errCode(await core.startSession(name, 'en', 'mock')), 'NOT_FOUND', `startSession ${name}`);
+  assert.equal(errCode(await core.saveDraft({ ...draft, id: name, version: 1 })), 'INVALID_INPUT', `saveDraft ${name}`);
+}
+
 // Store loading: only a missing file seeds; unreadable, corrupt or foreign files fail and stay byte-for-byte intact.
 const dir = mkdtempSync(join(tmpdir(), 'breadcrumb-check-'));
 try {

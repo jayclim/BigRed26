@@ -15,10 +15,12 @@ const mediaDir = mkdtempSync(join(tmpdir(), 'breadcrumb-media-smoke-'));
 const oldMediaDir = process.env.BREADCRUMB_MEDIA_DIR;
 process.env.BREADCRUMB_MEDIA_DIR = mediaDir;
 process.on('exit', () => rmSync(mediaDir, { recursive: true, force: true }));
-// Explicitly disable extraction for this child; never pass provider credentials.
-const savedGeminiEnv = Object.fromEntries(['BREADCRUMB_GEMINI_EXTRACTION', 'GEMINI_API_KEY', 'GEMINI_MODEL'].map((key) => [key, process.env[key]]));
+// Explicitly disable extraction, live recognition and generated voice for this child; never pass provider credentials.
+const savedGeminiEnv = Object.fromEntries(['BREADCRUMB_GEMINI_EXTRACTION', 'BREADCRUMB_GEMINI_RECOGNITION', 'GEMINI_API_KEY', 'GEMINI_MODEL', 'BREADCRUMB_ELEVENLABS_VOICE', 'ELEVENLABS_API_KEY'].map((key) => [key, process.env[key]]));
 for (const key of Object.keys(savedGeminiEnv)) delete process.env[key];
 process.env.BREADCRUMB_GEMINI_EXTRACTION = '0';
+process.env.BREADCRUMB_GEMINI_RECOGNITION = '0';
+process.env.BREADCRUMB_ELEVENLABS_VOICE = '0';
 const { base } = await startIsolatedServer(Number(process.argv[2] ?? 3107));
 for (const [key, value] of Object.entries(savedGeminiEnv)) {
   if (value === undefined) delete process.env[key];
@@ -35,6 +37,8 @@ const call = async (method, path, body) => {
   return { status: res.status, ...json };
 };
 
+const voiceProbe = await call('GET', '/api/speech');
+assert.deepEqual([voiceProbe.status, voiceProbe.value.enabled], [200, false]); // guide keeps labeled browser speech
 const extractionDisabled = await call('POST', `/api/media/${randomUUID()}/extract`);
 assert.equal(extractionDisabled.status, 503);
 assert.equal(extractionDisabled.error.code, 'PROVIDER_UNAVAILABLE');
@@ -64,6 +68,9 @@ for (const bytes of [new Uint8Array(), Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8])
 }
 const nonMultipart = await call('POST', '/api/media', { file: 'not a video' });
 assert.deepEqual([nonMultipart.status, nonMultipart.error.code], [400, 'INVALID_INPUT']);
+const nonMultipartHeaders = await fetch(`${base}/api/media`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+assert.equal(nonMultipartHeaders.headers.get('connection'), 'close');
+await nonMultipartHeaders.arrayBuffer();
 assert.equal(readdirSync(mediaDir).length, 2); // rejected uploads and temp files left nothing behind
 
 // A real chunked HTTP upload: no Content-Length and no large fixture on disk.
@@ -90,7 +97,7 @@ const oversized = await new Promise((resolve, reject) => {
     res.on('data', (part) => parts.push(part));
     res.on('error', reject);
     res.on('end', () => {
-      resolve({ status: res.statusCode, json: JSON.parse(Buffer.concat(parts).toString('utf8')) });
+      resolve({ status: res.statusCode, connection: res.headers.connection, json: JSON.parse(Buffer.concat(parts).toString('utf8')) });
       req.destroy();
     });
   });
@@ -112,6 +119,7 @@ const oversized = await new Promise((resolve, reject) => {
 });
 assert.deepEqual([oversized.status, oversized.json.error.code, oversized.json.error.retryable], [400, 'INVALID_INPUT', false]);
 assert.match(oversized.json.error.message, /upload body is too large/);
+assert.equal(oversized.connection, 'close'); // the server ends a connection whose body it left unread
 assert.deepEqual(readdirSync(mediaDir).sort(), beforeOversized);
 console.log('POST ', '/api/media (chunked over cap)'.padEnd(48), oversized.status, oversized.json.error.code);
 
