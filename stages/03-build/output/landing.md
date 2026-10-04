@@ -1,6 +1,6 @@
 # Landing page and bounty to teach flow
 
-Date: 2026-10-04. Branch `feat/landing`, PR #33. Review fixes: email contacts keep their dots in the `sms:` link; the header Teach link clears an open route.
+Date: 2026-10-04. Branch `feat/landing`, PR #33. Review fixes: email contacts keep their dots in the `sms:` link; the header Teach link is a full page load, so `/teach` always starts empty (a new draft changes the URL with replaceState, which does not update page props); the browser asks before a reload or full navigation drops unsaved draft edits.
 
 ## Behavior
 

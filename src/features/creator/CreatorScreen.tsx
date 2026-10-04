@@ -114,6 +114,12 @@ export function CreatorScreen({ core, routeId, followPath, bounty, onRouteCreate
   }, [extractionError, guardMedia, pendingDraft]);
 
   useEffect(() => () => { token.current++; request.current?.abort(); request.current = null; }, []); // leaving the page cancels extraction
+  useEffect(() => { // the browser asks before a reload or full navigation drops unsaved edits
+    if (!route || saved) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [route, saved]);
   useEffect(() => {
     setOrigin(window.location.origin);
     if (!routeId) { // a new route: the first extracted draft opens it

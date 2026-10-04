@@ -18,7 +18,10 @@ export function SiteHeader({ current, children }: { current?: (typeof NAV)[numbe
       <Link href="/" data-plain className={`brand-link ${styles.home}`} aria-label="Breadcrumb home"><Brand /></Link>
       <div className={styles.right}>
         <nav className={styles.nav} aria-label="Main">
-          {NAV.map((n) => <Link key={n.key} href={n.href} data-plain aria-current={current === n.key ? 'page' : undefined}>{n.label}</Link>)}
+          {NAV.map((n) => n.key === 'teach'
+            // ponytail: a full page load always starts /teach empty, even after a draft changed the URL in place
+            ? <a key={n.key} href={n.href} data-plain aria-current={current === n.key ? 'page' : undefined}>{n.label}</a>
+            : <Link key={n.key} href={n.href} data-plain aria-current={current === n.key ? 'page' : undefined}>{n.label}</Link>)}
           <LookToggle className={styles.look} />
         </nav>
         {children}
