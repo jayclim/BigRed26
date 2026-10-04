@@ -155,7 +155,7 @@ node scripts/smoke-api.mjs was not run. This change adds no HTTP handler and cha
 
 ### Review repair: blank evidence
 
-2026-10-03, PR #12: after trimming, each evidence item must contain at least one character outside whitespace, \p{C}, \p{Z}, Default_Ignorable_Code_Point and U+2800. A rejected item rejects the full provider output as retryable `PROVIDER_UNAVAILABLE`, including when the item is mixed with valid evidence. Rejected examples include `\u200b`, `\u200d\u200c`, `\u2060`, `\u00ad`, `\u200e`, tabs/newlines and spaces. Preserved examples include `Room 204`, `Salida`, `→`, `Room\u200b204` and `👩‍💻`. Commit 6f5feb0 added `minLength: 1` to provider JSON Schema evidence items (`{"type":"string","minLength":1,"maxLength":200}`). Trim and the visibility rule are runtime-only. The JSON Schema `minLength: 1` assertion remains.
+2026-10-03, PR #12: after trimming, each evidence item must contain at least one character outside whitespace, \p{C}, \p{Z}, \p{M}, Default_Ignorable_Code_Point and U+2800. A rejected item rejects the full provider output as retryable `PROVIDER_UNAVAILABLE`, including when the item is mixed with valid evidence. Rejected examples include `\u200b`, `\u200d\u200c`, `\u2060`, `\u00ad`, `\u200e`, tabs/newlines and spaces. Preserved examples include `Room 204`, `Salida`, `→`, `Room\u200b204` and `👩‍💻`. Commit 6f5feb0 added `minLength: 1` to provider JSON Schema evidence items (`{"type":"string","minLength":1,"maxLength":200}`). Trim and the visibility rule are runtime-only. The JSON Schema `minLength: 1` assertion remains.
 
 Before the fix, a temporary schema assertion for `['\u200b']` failed with `AssertionError [ERR_ASSERTION]: Expected values to be strictly equal: true !== false` (`actual: true`, `expected: false`). After the fix, `node src/server/recognition/recognizer.check.ts` passed all six groups, including the entrance rejection cases with unchanged checkpoint and guidance, destination mixed evidence, preserved schema examples and JSON Schema assertion. `npm run check` passed core, media and extraction (32 cases; no network calls). `npm run typecheck` passed (`tsc --noEmit`). No real fetch or provider call was used.
 
@@ -163,13 +163,23 @@ Actual checks in this worktree: `node src/server/recognition/recognizer.check.ts
 
 ### Review repair: default-ignorable evidence
 
-2026-10-03, PR #12, P2/P3: the previous regex accepted evidence made only of default-ignorable characters outside \p{C} and \p{Z}. The rule now also excludes Default_Ignorable_Code_Point and U+2800. The lead chose to reject U+2800 because it renders blank. Braille U+2801–U+28FF remains accepted.
+2026-10-03, PR #12, P2/P3: the previous regex accepted evidence made only of default-ignorable characters outside \p{C} and \p{Z}. The rule now excludes \p{C}, \p{Z}, \p{M}, whitespace, Default_Ignorable_Code_Point and U+2800. The lead chose to reject U+2800 because it renders blank. Braille U+2801–U+28FF remains accepted.
 
-The blank-evidence group rejects `\u034f`, `\ufe0f`, `\u3164`, `\u115f`, `\u1160`, `\uffa0` and `\u2800`, alone and beside `Room 204`. Each returns retryable `PROVIDER_UNAVAILABLE` through matchFrame with checkpoint and guidance unchanged. Schema checks still accept `Room 204`, `\u2192`, `\ud83d\udc69\u200d\ud83d\udcbb`, `Room\u200b204`, `\u00e9`, `\u4e2d`, `\u0301` and `\u2801`.
+The blank-evidence group rejects `\u034f`, `\ufe0f`, `\u3164`, `\u115f`, `\u1160`, `\uffa0` and `\u2800`, alone and beside `Room 204`. Each returns retryable `PROVIDER_UNAVAILABLE` through matchFrame with checkpoint and guidance unchanged. Schema checks still accept `Room 204`, `\u2192`, `\ud83d\udc69\u200d\ud83d\udcbb`, `Room\u200b204`, `\u00e9`, `\u4e2d`, `e\u0301`, `\u0915\u093f` and `\u2801`.
 
 Actual checks in this worktree (Node 26.8.2): `node src/server/recognition/recognizer.check.ts` passed all six groups. With only the regex temporarily restored to its previous value, the same command failed on the first new rejection case (`\u034f`): matchFrame accepted it; `AssertionError [ERR_ASSERTION]`, `true !== false`, exit 1. The repaired regex was restored and the check passed again. `npm run check` passed core, media and extraction (32 cases; no network calls). `npm run typecheck` passed (`tsc --noEmit`). No network or real provider call was made.
 
 Host rerun by the lead (Node 24.21.0, after merging main 9b65316): a direct regex probe shows all seven rejected code points pass the previous rule and fail the new one; the eight preserved examples pass. recognizer.check.ts passed all six groups; npm run check, npm run typecheck and npm run build passed in this worktree. smoke-api was not run because no HTTP handler changed.
+
+Full closure still needs core matching against `identifyingEvidence`. This remains an integration-owner decision. Next action: owner reviews this repair and decides the core evidence rule.
+
+### Review repair: mark-only evidence
+
+2026-10-03, PR #12, P3 advisory on f943fcb: lone U+0301 still counted as recognition evidence. The lead chose to reject evidence made only of combining marks. Text with a base character stays accepted. VISIBLE now also excludes \p{M}. The invisible list adds `\u0301`, `\u0301\u0308` and `\u0903`. Each is checked alone and beside `Room 204` through matchFrame, with checkpoint and guidance unchanged. Accepted examples include `e\u0301` and `\u0915\u093f`; the other accepted items remain.
+
+Actual checks in this worktree (Node 26.8.2): `node src/server/recognition/recognizer.check.ts` passed all six groups. Temporarily restoring only the previous regex made the same command fail on lone `\u0301`: matchFrame accepted it; `AssertionError [ERR_ASSERTION]`, `true !== false`, exit 1. The repaired regex was restored and all six groups passed again. `npm run check` passed core, media and extraction (32 cases; no network calls). `npm run typecheck` passed (`tsc --noEmit`). No sandbox write or temp-directory block occurred. No network or provider call was made.
+
+Host rerun by the lead (Node 24.21.0): a direct regex probe shows `\u0301`, `\u0301\u0308` and `\u0903` pass the previous rule and fail the new one; `e\u0301`, `\u0915\u093f`, `Room 204`, CJK, emoji ZWJ and `\u2801` pass. recognizer.check.ts passed all six groups; npm run check, npm run typecheck and npm run build passed. smoke-api was not run because no HTTP handler changed.
 
 Full closure still needs core matching against `identifyingEvidence`. This remains an integration-owner decision. Next action: owner reviews this repair and decides the core evidence rule.
 

@@ -64,7 +64,7 @@ try {
   error(await s.match(`frame_${randomUUID()}`), 'NOT_FOUND', false); error(await s.match('../unsafe'), 'INVALID_INPUT', false); assert.equal(calls, beforeMissing);
   console.log('PASS approved guidance, pinned version, validation, approach, unknown, window and media');
 
-  const invisible = ['\u034f', '\ufe0f', '\u3164', '\u115f', '\u1160', '\uffa0', '\u2800'];
+  const invisible = ['\u034f', '\ufe0f', '\u3164', '\u115f', '\u1160', '\uffa0', '\u2800', '\u0301', '\u0301\u0308', '\u0903'];
   for (const evidence of [[''], ['   '], ['\u200b'], ['\u200d\u200c'], ['\u2060'], ['\u00ad'], ['\u200e'], ['\t\n'], ['\u00a0'],
     ...invisible.flatMap((item) => [[item], ['Room 204', item]])]) {
     const blank = await setup(async () => observation('entrance', true, [...evidence]));
@@ -98,7 +98,7 @@ try {
     properties: { evidence: { items?: { minLength?: number } } };
   }).properties.evidence;
   assert.equal(evidenceSchema.items?.minLength, 1);
-  for (const item of ['Room 204', '\u2192', '\ud83d\udc69\u200d\ud83d\udcbb', 'Room\u200b204', '\u00e9', '\u4e2d', '\u0301', '\u2801'])
+  for (const item of ['Room 204', '\u2192', '\ud83d\udc69\u200d\ud83d\udcbb', 'Room\u200b204', '\u00e9', '\u4e2d', 'e\u0301', '\u0915\u093f', '\u2801'])
     assert.equal(RecognitionOutputSchema.safeParse(observation('entrance', true, [item])).success, true);
   assert.equal(RecognitionOutputSchema.safeParse(observation('entrance', true, ['\u200b'])).success, false);
   console.log('PASS blank evidence rejected without progress; valid evidence trimmed; JSON schema minLength 1');
