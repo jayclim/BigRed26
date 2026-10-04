@@ -1,6 +1,6 @@
 # Creator redesign
 
-Status: implemented on `feat/creator-redesign` (base `566171f`, from `feat/guide-redesign`). Code checks pass. Rendered review is pending; the lead renders. Date: 2026-10-03. Source: approved mockups `Creator.dc.html` (desktop) and `CreatorPhone.dc.html` (phone) in the lead's scratchpad. Integration-owner approval: Jayden, 2026-10-03.
+Status: implemented on `feat/creator-redesign` (base `566171f`, from `feat/guide-redesign`). Code checks and the lead's rendered review pass (see Lead verification). Date: 2026-10-03. Source: approved mockups `Creator.dc.html` (desktop) and `CreatorPhone.dc.html` (phone) in the lead's scratchpad. Integration-owner approval: Jayden, 2026-10-03.
 
 ## Decisions
 
@@ -42,7 +42,7 @@ Route preview:
 
 ## States covered by the styles
 
-Loading and load error, draft, unsaved draft, approved with visitor link, new version, mock fixture route, upload (pick, too large, compressing, compressed, stored, upload error), extraction running with Cancel, extraction error with Retry/Dismiss, unsaved-edits guard, held new draft, action editor with ordered steps, disabled approved fields, save/approve messages. These are covered by CSS only; none was rendered in this change.
+Loading and load error, draft, unsaved draft, approved with visitor link, new version, mock fixture route, upload (pick, too large, compressing, compressed, stored, upload error), extraction running with Cancel, extraction error with Retry/Dismiss, unsaved-edits guard, held new draft, action editor with ordered steps, disabled approved fields, save/approve messages. These are covered by CSS only; the lead rendered draft, one step checked, video selected, all checked and approved at 390 and 1280, and the other states are styled but not rendered.
 
 ## Shared files and guide impact
 
@@ -65,18 +65,20 @@ Contrast (computed, not rendered): white on #0a6f82 5.82:1; muted on page 5.54:1
 ## Lead verification (2026-10-04, host, Node 24.21.0)
 
 - Rendered with a scratch CDP harness (not committed), one fresh isolated server per width, 390x844 and 1280x900: draft, one step checked, synthetic video selected (`src/features/creator/fixtures/unknown-secondary-audio.mp4`, upload and compress controls shown), all steps checked, approved with visitor link. 10 screenshots, each inspected; no horizontal overflow.
-- Found and fixed two defects: (1) "Open guide" (a link rendered as a button) took the creator link color, teal on dark ink, about 2.9:1; links styled as buttons are now excluded from the link color rule. (2) The sticky Save/Approve bar was translucent, so content showed through its text; it is now 98% opaque with blur.
+- Found and fixed two defects: (1) "Open guide" (a link rendered as a button) took the creator link color, teal on dark ink, about 2.9:1; links styled as buttons are now excluded from the link color rule. (2) The sticky Save/Approve bar was translucent, so content showed through its text; it is now opaque.
 - Approve stayed disabled until all three steps were checked; "Approve version 1" then produced the approved state and visitor link.
 - Guide unchanged: guide renders on this branch are byte-identical to the PR 25 build for the compared states; `node scripts/follow-camera.check.mjs` 8 PASS.
 - `npm run check`, `npm run typecheck`, `npm run build` and `node scripts/smoke-api.mjs` pass.
 - Not covered here: the ignored creator extraction harness (`.overnight/ui-extraction.mjs`, not in this checkout), extraction success and failure states with injected responses, keyboard focus walk, and a real phone.
 
+- Review of `d601dd2` (independent, approve): fixed its P2 (keyboard focus on a checked review pill now shows a white outline and an ink ring; confirmed in a render after real Tab key presses, `:focus-visible` true) and P3 notes (video heading weight, sticky column height, stale text here).
+
 ## Limitations
 
-- No rendered review in this change. Glow strength, sticky column height at short viewports, the 390px top bar with mock and status badges, and long route names are unverified.
-- `backdrop-filter` on the bar is decorative; without it the bar is still 92% white.
+- Not rendered: extraction running, success and error, unsaved extraction guard, upload errors, new version, long route names and short desktop viewports. The sticky column now has a max height and scrolls inside itself, so its bottom stays reachable.
+- The bar is opaque (#fbfbfa). An earlier translucent version let content show through its text.
 - The preview reuses the guide map's label truncation; long labels truncate with the full text in the sr-only list.
 
 ## Next action
 
-Lead renders 390px and 1280px: draft, approved/visitor link, unsaved extraction guard, upload states, keyboard focus and horizontal overflow. Run `scripts/screenshots.mjs` and check the guide shots against the PR 25 captures.
+Integration owner: run the ignored creator extraction harness on this head (extraction success, failure, cancel and the unsaved-draft guard), then review and merge after PR 25. Then test on a real phone.

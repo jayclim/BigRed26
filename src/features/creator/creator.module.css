@@ -85,7 +85,7 @@
 .videoHead { display: flex; gap: 14px; align-items: flex-start; min-width: 0; }
 .videoHead svg { flex: none; color: var(--cyan-ink); margin-top: 2px; }
 .videoHead > div { display: grid; gap: 4px; min-width: 0; }
-.videoHead h2 { margin: 0; font-size: 1.0625rem; font-weight: 700; letter-spacing: -.015em; }
+.prompt .videoHead h2 { margin: 0; font-size: 1.0625rem; font-weight: 700; letter-spacing: -.015em; }
 .prompt :global(input[type='file']) { border-radius: 12px; padding: 6px; font-size: .8125rem; }
 .prompt :global(input[type='file']::file-selector-button) { border-radius: 999px; min-height: 36px; padding: 0 14px; font-weight: 600; }
 .prompt :global(.row) { justify-content: flex-end; gap: 8px; }
@@ -134,6 +134,9 @@
 .page :global(.step .review:has(input:checked)) { background: var(--cyan-ink); border-color: var(--cyan-ink); color: #ffffff; }
 .page :global(.step .review:has(input:checked):hover) { background: var(--accent-ink); }
 .page :global(.step .review:has(input:checked) input) { accent-color: #ffffff; }
+/* Keyboard focus stays visible on the filled pill: a white outline on the box and an ink ring on the pill. */
+.page :global(.step .review:has(input:checked) input:focus-visible) { outline-color: #ffffff; }
+.page :global(.step .review:has(input:focus-visible)) { box-shadow: 0 0 0 3px var(--ink); }
 
 /* Route preview: the guide's schematic map on a dark card. No flow, no position. */
 .preview {
@@ -160,7 +163,7 @@
 /* Sticky Save / Approve bar, full width. */
 .page :global(.approve-bar) {
   justify-content: flex-end; gap: 8px 12px; border-top-color: var(--rule-soft);
-  background: rgb(251 251 250 / .98); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  background: #fbfbfa;
   padding: 14px max(32px, calc((100% - 1116px) / 2)) max(14px, env(safe-area-inset-bottom));
   font-size: .875rem;
 }
@@ -168,7 +171,8 @@
 .page :global(.approve-bar > .notice) { order: 1; }
 
 @media (min-width: 900px) {
-  .page :global(.creator-sidebar) { position: sticky; top: 20px; }
+  /* Sticky only while the column fits; otherwise it scrolls with the page so nothing hides off-screen. */
+  .page :global(.creator-sidebar) { position: sticky; top: 20px; max-height: calc(100dvh - 120px); overflow-y: auto; }
 }
 @media (max-width: 899px) {
   .inner { padding: 16px 24px 40px; }
