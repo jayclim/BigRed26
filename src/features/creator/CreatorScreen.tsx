@@ -116,7 +116,10 @@ export function CreatorScreen({ core, routeId, followPath, bounty, onRouteCreate
   useEffect(() => () => { token.current++; request.current?.abort(); request.current = null; }, []); // leaving the page cancels extraction
   useEffect(() => {
     setOrigin(window.location.origin);
-    if (!routeId) return; // a new route: the first extracted draft opens it
+    if (!routeId) { // a new route: the first extracted draft opens it
+      if (openId.current) { openId.current = null; clearExtraction(); setRoute(null); setSaved(true); setMsg(null); } // header Teach link from an open route
+      return;
+    }
     if (openId.current === routeId) return; // the URL caught up with a draft opened here; keep its unsaved edits
     let active = true;
     clearExtraction();

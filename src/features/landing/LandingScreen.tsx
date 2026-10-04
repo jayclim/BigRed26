@@ -21,7 +21,7 @@ const STEPS = [
 ];
 
 /** `+1 607 555 0100` or an Apple ID email. The sms: scheme opens Messages for both. */
-const smsHref = (contact: string) => `sms:${contact.replace(/[\s().-]/g, '')}`;
+const smsHref = (contact: string) => `sms:${contact.includes('@') ? contact.trim() : contact.replace(/[\s().-]/g, '')}`;
 
 export function LandingScreen({ agentContact }: { agentContact: string | null }) {
   const [origin, setOrigin] = useState('');

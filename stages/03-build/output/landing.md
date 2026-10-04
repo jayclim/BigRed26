@@ -1,6 +1,6 @@
 # Landing page and bounty to teach flow
 
-Date: 2026-10-04. Worktree `landing`, branch `feat/landing`. Not committed.
+Date: 2026-10-04. Branch `feat/landing`, PR #33. Review fixes: email contacts keep their dots in the `sms:` link; the header Teach link clears an open route.
 
 ## Behavior
 
