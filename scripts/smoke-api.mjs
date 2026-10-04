@@ -16,7 +16,7 @@ const oldMediaDir = process.env.BREADCRUMB_MEDIA_DIR;
 process.env.BREADCRUMB_MEDIA_DIR = mediaDir;
 process.on('exit', () => rmSync(mediaDir, { recursive: true, force: true }));
 // Explicitly disable extraction, live recognition and generated voice for this child; never pass provider credentials.
-const savedGeminiEnv = Object.fromEntries(['BREADCRUMB_GEMINI_EXTRACTION', 'BREADCRUMB_GEMINI_RECOGNITION', 'GEMINI_API_KEY', 'GEMINI_MODEL', 'BREADCRUMB_ELEVENLABS_VOICE', 'ELEVENLABS_API_KEY', 'BREADCRUMB_GEMINI_LIVE', 'GEMINI_LIVE_MODEL'].map((key) => [key, process.env[key]]));
+const savedGeminiEnv = Object.fromEntries(['BREADCRUMB_GEMINI_EXTRACTION', 'BREADCRUMB_GEMINI_RECOGNITION', 'GEMINI_API_KEY', 'GEMINI_MODEL', 'BREADCRUMB_ELEVENLABS_VOICE', 'ELEVENLABS_API_KEY', 'BREADCRUMB_GEMINI_LIVE', 'GEMINI_LIVE_MODEL', 'BREADCRUMB_AGENT', 'XAI_API_KEY', 'BREADCRUMB_AGENT_SECRET'].map((key) => [key, process.env[key]]));
 for (const key of Object.keys(savedGeminiEnv)) delete process.env[key];
 process.env.BREADCRUMB_GEMINI_EXTRACTION = '0';
 process.env.BREADCRUMB_GEMINI_RECOGNITION = '0';
@@ -45,6 +45,9 @@ assert.deepEqual([liveProbe.status, liveProbe.value.enabled], [200, false]);
 const liveDisabled = await call('POST', '/api/live/token', { routeId: 'anything', locale: 'en' });
 assert.equal(liveDisabled.status, 503);
 assert.equal(liveDisabled.error.code, 'PROVIDER_UNAVAILABLE');
+const agentDisabled = await call('POST', '/api/agent/message', { conversationId: 'smoke', text: 'hello' });
+assert.equal(agentDisabled.status, 503); // no flag, key or secret: the iMessage agent endpoint refuses before any provider call
+assert.equal(agentDisabled.error.code, 'PROVIDER_UNAVAILABLE');
 const extractionDisabled = await call('POST', `/api/media/${randomUUID()}/extract`);
 assert.equal(extractionDisabled.status, 503);
 assert.equal(extractionDisabled.error.code, 'PROVIDER_UNAVAILABLE');

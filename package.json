@@ -10,11 +10,14 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "check": "node src/server/core/core.check.ts && node src/server/media/media.check.ts && node src/server/extraction/extraction.check.ts && node src/features/creator/compressVideo.check.ts && node src/server/recognition/recognizer.check.ts && node src/server/frames/frames.check.ts && node src/server/voice/voice.check.ts && node src/features/guide/voicePlayback.check.ts && node src/features/guide/checkView.check.ts && node src/server/live/live.check.ts && node src/client/liveProtocol.check.ts",
+    "check": "node src/server/core/core.check.ts && node src/server/media/media.check.ts && node src/server/extraction/extraction.check.ts && node src/features/creator/compressVideo.check.ts && node src/server/recognition/recognizer.check.ts && node src/server/frames/frames.check.ts && node src/server/voice/voice.check.ts && node src/features/guide/voicePlayback.check.ts && node src/features/guide/checkView.check.ts && node src/server/live/live.check.ts && node src/client/liveProtocol.check.ts && node src/server/agent/agent.check.ts",
+    "photon-agent": "node scripts/photon-agent.mjs",
     "reset": "node -e \"require('fs').rmSync('.data',{recursive:true,force:true})\""
   },
   "dependencies": {
     "@radix-ui/react-slot": "1.2.4",
+    "@spectrum-ts/core": "12.10.1",
+    "@spectrum-ts/imessage": "12.10.1",
     "@tailwindcss/postcss": "4.3.3",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
