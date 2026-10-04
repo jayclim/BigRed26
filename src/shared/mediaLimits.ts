@@ -21,3 +21,10 @@ export function mediaInputError(file: { type: string; size: number }): string | 
   if (!isMediaType(file.type)) return `This file type is not supported. ${MEDIA_LIMIT_TEXT}`;
   return null;
 }
+
+// Picker only: supported oversized files can be compressed before server validation.
+export function mediaPickError(file: { type: string; size: number }): string | null {
+  if (file.size === 0) return `This video is empty (0 bytes). ${MEDIA_LIMIT_TEXT}`;
+  if (!isMediaType(file.type)) return `This file type is not supported. ${MEDIA_LIMIT_TEXT}`;
+  return null;
+}

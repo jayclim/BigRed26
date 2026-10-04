@@ -1,6 +1,6 @@
 # Current state
 
-Updated: 2026-10-03. PRs 1–9 are merged and pushed. Teach upload, extraction draft editing, review and approval pass fixture/code/browser gates. Main `9f0da2f` has passing CI. Live extraction and physical navigation remain unverified. Use [TEAM-HANDOFF](docs/TEAM-HANDOFF.md) for current ownership and [the work protocol](knowledge/work-protocol.md) for execution rules. The overnight run is stopped and its heartbeat is paused.
+Updated: 2026-10-04 (UTC). PR15 (`477eb3e`), PR16 (`4b100fc`) and PR17 (`187831a`) were squash-merged at their independently reviewed heads with passing CI. PR18 repair `b0f6701` rejects unknown or undecodable audio instead of dropping it; a fresh independent review found no blockers, and host checks plus a desktop Chrome harness passed. Main merged into PR18 has the same tree as the host-checked combination (check, typecheck, Webpack build pass). PR19 `6d10ec1` needs changes: record the vendored Archify skill's source, version and licence, and document its update-check network call (opt-out `ARCHIFY_UPDATE_CHECK_DISABLED=1`); then rebase on main (conflicts in `CreatorScreen.tsx` with PR15 and `GuideScreen.tsx` with PR17). Live providers, target-phone compression and physical navigation remain unverified. See [the takeover handoff](docs/CLAUDE-TAKEOVER.md) for the gates.
 
 | Stage | State | Evidence / next action |
 |---|---|---|
@@ -51,3 +51,7 @@ Follow camera, Part B PR 1, 2026-10-03: [PR #11](https://github.com/jayclim/BigR
 Host checks ran on `2993ab9` merged with main `5c4f790`. The Webpack build, core check and typecheck passed. The frame-upload check passed 2 groups. The follow-camera check passed at 390x844 and 1280x800. It covered keyboard use, denial recovery, stop, and six synthetic uploads and recognitions. Tests use isolated fixture data. There is no live provider or physical navigation evidence.
 
 Follow-ups for the integration owner: add an own-property check and a regression to core `sessionOf` (`src/server/core/core.ts:170`). Add the PR11 checks to `npm run check` and CI. Next: rebase PR12 on integrated main and review its exact head.
+
+## Video compression (PR 18, 2026-10-04)
+
+Branch `feat/video-compression`: lazy-loaded mediabunny 1.61.1 compresses a selected video in Teach before upload. Output long edge is capped at 1920 and short edge at 1080. typecheck, check and Webpack build passed on the host. An independent review of commit beac2e2 found no defects. Synthetic headless Chrome checks passed: landscape and portrait 4K compression with audio kept, local upload, no overflow at 390/1280, Cancel and the unsupported-browser error. Repair `b0f6701` rejects unknown or undecodable audio in any track instead of dropping it; host check, typecheck, Webpack build and a desktop Chrome harness (including a real 83 MB phone `.mov` with AAC kept) passed, and a fresh independent review found no blockers. Not done: real phone, HEVC, HDR, rotation metadata, long video and the original 302 MiB file. See [stage output](stages/03-build/output/video-compression.md).
