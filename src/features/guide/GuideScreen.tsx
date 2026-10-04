@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import type { CoreAdapter, Guidance, Id, Locale, Mode, Route, Session } from '@contracts/contracts.ts';
 import { Arrow, DIRECTION_TEXT } from '@/ui/Arrow.tsx';
 import { mockScenes } from '@/shared/mockScenes.ts';
@@ -51,6 +52,7 @@ const T = {
 } as const;
 
 export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uploadFrame = realUploadFrame }: GuideScreenProps) {
+  const reduceMotion = useReducedMotion();
   const [session, setSession] = useState<Session | null>(null);
   const [route, setRoute] = useState<Route | null>(null);
   const [guidance, setGuidance] = useState<Guidance | null>(null);
@@ -212,6 +214,14 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
   const active = cps.find((c) => c.id === confirmedId);
   const action = !arrived ? active?.action : undefined;
   const hasArrow = guidance?.state === 'guiding' && guidance.direction !== null;
+  const stateText = !guidance ? t.startLabel : guidance.state === 'guiding' ? t.guiding(cpLabel(guidance.checkpointId)) : t[guidance.state];
+  const instructionText = guidance?.state === 'guiding' && action ? active!.instruction[locale] : guidance ? guidance.text : t.start(route.startDescription);
+  const textMotion = {
+    initial: reduceMotion ? false as const : { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0, transition: { duration: reduceMotion ? 0 : 0.12, ease: 'easeIn' as const } },
+    transition: { duration: reduceMotion ? 0 : 0.16 },
+  };
 
   return (
     <main className="guide-page" lang={locale}>
@@ -260,12 +270,12 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
               <div className="sign-empty" style={{ borderColor: 'var(--night-rule)', color: 'var(--on-night-muted)' }} aria-hidden="true">·</div>
             ) : null}
             <div>
-              <p className="state">
-                {!guidance ? t.startLabel
-                  : guidance.state === 'guiding' ? t.guiding(cpLabel(guidance.checkpointId))
-                  : t[guidance.state]}
-              </p>
-              <p className="say">{guidance?.state === 'guiding' && action ? active!.instruction[locale] : guidance ? guidance.text : t.start(route.startDescription)}</p>
+              <AnimatePresence initial={false} mode="wait">
+                <motion.p key={stateText} className="state" {...textMotion}>{stateText}</motion.p>
+              </AnimatePresence>
+              <AnimatePresence initial={false} mode="wait">
+                <motion.p key={`${state}:${instructionText}`} className="say" {...textMotion}>{instructionText}</motion.p>
+              </AnimatePresence>
               {action && <div className="action-details">
                 {guidance?.state !== 'guiding' && <p><strong>{t.active}: {active!.label}</strong></p>}
                 <p><strong>{t.target}:</strong> {action.target}</p>

@@ -19,7 +19,7 @@ The executable source is `src/ui/theme.css`. Keep these tokens there:
 | Space | 4, 8, 12, 16, 24, 32, 48px |
 | Radius | 6, 8, 10px; circles only for route nodes |
 | Shadow | Small control shadow and restrained sticky-bar shadow |
-| Motion | 120, 160, 240ms; creator status uses 160ms |
+| Motion | 120, 160, 240ms; entrances finish within 400ms; creator status uses 160ms |
 
 Computed contrast checks: primary on white 6.15:1; secondary text on white 5.52:1; guide text on its surface 14.20:1; guide secondary text 8.20:1. These pairs do not establish whole-screen accessibility. Always name the state in text.
 
@@ -35,6 +35,10 @@ Guide: foreground route progress and the current instruction. Keep the camera av
 
 ## Motion and review
 
-The root MotionConfig uses `reducedMotion="user"`. Creator status and message changes use a short opacity transition; `useReducedMotion` disables it when requested. CSS also disables animations and transitions under `prefers-reduced-motion`. Do not animate route progress, arrows or the camera to suggest observed movement. Do not animate input mounts or focus changes.
+User decision, 2026-10-03: the user requested a smooth, animated UI. Motion now covers screen entrance, control press feedback, state text crossfade and a single checkpoint review pop. Keep the existing palette, fonts and layout. Use the spring-like ease-out for entry and feedback, and ease-in for exits. Creator entrance uses a 10px rise; trail items stagger by 32ms with a 160ms delay cap. All page entrance motion finishes within 400ms. Guide chrome, stage and card fade once on mount.
+
+The root MotionConfig keeps `reducedMotion="user"`. `useReducedMotion` removes opacity/translate transition time when requested. CSS disables animations and transitions under `prefers-reduced-motion`, including press and hover transforms. Creator notices stay in normal flow during opacity/translate exits; no height or layout animation is used. Guide state and instruction text use `AnimatePresence mode="wait"`; the card border color transitions with state. Review nodes change color and pop once after a review action. The approved visitor-link panel fades and rises on mount. Inputs have border and soft cyan focus-shadow transitions, with visible focus outlines and no mount animation.
+
+Keep the progress, arrow and camera constraints. Do not animate route progress, arrows or the camera to suggest observed movement. Progress dots and links remain instant in this change. No lifecycle, navigation, camera, route state or data flow changes are part of motion polish. Do not add infinite decorative motion.
 
 Inspect 390px and 1280px renders before accepting visual quality. Check editor, upload, unsaved extraction recovery, approved/share, guiding, uncertainty, reorientation, arrival, errors and Spanish. Check keyboard focus, sticky-bar overlap and actual horizontal overflow. A successful build or computed contrast pair is not a rendered review or physical navigation gate.

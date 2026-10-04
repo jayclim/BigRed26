@@ -2,7 +2,7 @@
 import { Button } from '@/ui/button';
 import { Textarea } from '@/ui/textarea';
 import { Badge } from '@/ui/badge';
-import { motion, useReducedMotion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import type { Checkpoint, CoreAdapter, Direction, Id, Result, Route } from '@contracts/contracts.ts';
 import { DIRECTION_TEXT } from '@/ui/Arrow.tsx';
@@ -114,6 +114,13 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
   const approved = route.status === 'approved';
   const fixtureRoute = route.id === 'demo-route' || route.id === actionFixture.route.id;
   const allReviewed = route.checkpoints.every((c) => reviewed.has(c.id));
+  // Keep notices in flow until their exit completes; never animate their height.
+  const noticeMotion = {
+    initial: reduceMotion ? false as const : { opacity: 0, y: 4 },
+    animate: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: reduceMotion ? 0 : -4, transition: { duration: reduceMotion ? 0 : 0.12, ease: 'easeIn' as const } },
+    transition: { duration: reduceMotion ? 0 : 0.16 },
+  };
 
   function edit(id: Id, patch: Partial<Checkpoint>) {
     setRoute((r) => r && { ...r, checkpoints: r.checkpoints.map((c) => (c.id === id ? { ...c, ...patch } : c)) });
@@ -179,11 +186,13 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
         </div>
         <div className="route-title">
           <h1 ref={heading} tabIndex={-1}>{route.name}</h1>
-          <motion.span key={`${route.status}-${saved}`} initial={reduceMotion ? false : { opacity: 0.5 }} animate={{ opacity: 1 }} transition={{ duration: reduceMotion ? 0 : 0.16 }}>
-            <Badge variant="secondary" className="status" data-status={route.status}>
-              {approved ? `Approved · v${route.version}` : `Draft · v${route.version}${saved ? '' : ' · Unsaved'}`}
-            </Badge>
-          </motion.span>
+          <AnimatePresence initial={false} mode="wait">
+            <motion.span key={`${route.status}-${saved}`} {...noticeMotion}>
+              <Badge variant="secondary" className="status" data-status={route.status}>
+                {approved ? `Approved · v${route.version}` : `Draft · v${route.version}${saved ? '' : ' · Unsaved'}`}
+              </Badge>
+            </motion.span>
+          </AnimatePresence>
         </div>
         <dl className="route-summary">
           <div><dt>Start</dt><dd>{route.startDescription}</dd></div>
@@ -206,11 +215,12 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
         </aside>
         <section className="creator-route" aria-label="Review route">
 
-      {extracting && <div className="notice" role="status">
+      <AnimatePresence initial={false}>
+      {extracting && <motion.div key="extracting" {...noticeMotion} className="notice" role="status">
         <p>Creating a draft from your video… this can take a minute</p>
         <Button variant="outline" onClick={() => { clearExtraction(); setMsg({ kind: 'ok', text: 'Draft creation canceled. Your current route is unchanged.' }); }}>Cancel</Button>
-      </div>}
-      {(extractionError || guardMedia || pendingDraft) && <div ref={extractionNotice} tabIndex={-1}
+      </motion.div>}
+      {(extractionError || guardMedia || pendingDraft) && <motion.div key="extraction-notice" {...noticeMotion} ref={extractionNotice} tabIndex={-1}
         className={`notice extraction-notice${extractionError ? ' error' : ''}`} role={extractionError ? 'alert' : 'status'}>
         {extractionError && <>
           <p>{extractionError}</p>
@@ -234,7 +244,8 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
             <Button variant="outline" disabled={busy} onClick={() => setPendingDraft(null)}>Keep my edits</Button>
           </div>
         </>}
-      </div>}
+      </motion.div>}
+      </AnimatePresence>
 
       {approved && (
         <section className="share" aria-labelledby="share-h">
@@ -257,7 +268,7 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
       </div>
       <ol className="trail" aria-label="Route checkpoints in walking order">
         {route.checkpoints.map((c, i) => (
-          <li key={c.id} data-reviewed={approved || reviewed.has(c.id)}>
+          <li key={c.id} data-reviewed={approved || reviewed.has(c.id)} style={{ animationDelay: `${Math.min((i + 2) * 32, 160)}ms` }}>
             <div className={`node${c.isDestination ? ' dest' : ''}`} aria-hidden="true">{i + 1}</div>
             <article className="step" aria-labelledby={`cp-${c.id}`}>
               <h2 id={`cp-${c.id}`}>
@@ -319,7 +330,9 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
             </span>
           </>
         )}
-        {msg && <motion.p key={msg.text} initial={reduceMotion ? false : { opacity: 0.5 }} animate={{ opacity: 1 }} transition={{ duration: reduceMotion ? 0 : 0.16 }} className={`notice ${msg.kind}`} role={msg.kind === 'error' ? 'alert' : 'status'} style={{ margin: 0 }}>{msg.text}</motion.p>}
+        <AnimatePresence initial={false} mode="wait">
+          {msg && <motion.p key={`${msg.kind}:${msg.text}`} {...noticeMotion} className={`notice ${msg.kind}`} role={msg.kind === 'error' ? 'alert' : 'status'} style={{ margin: 0 }}>{msg.text}</motion.p>}
+        </AnimatePresence>
       </div>
     </main>
   );
