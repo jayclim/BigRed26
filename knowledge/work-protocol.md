@@ -16,6 +16,10 @@ Use one implementer at a time by default. Do not start unnecessary parallel work
 
 Read both the project [operator](../skills/operator/SKILL.md) and [orchestrator](../skills/orchestrator/SKILL.md) skills for all work. The user's model choices override older skill defaults, including Terra and Sonnet. Do not use Claude implementers. Workers follow their bounded assignment; they do not start another team. Each worker must know that others share the project and must preserve their changes. Human file ownership remains in `docs/TEAM-HANDOFF.md`; the lead must assign those paths before concurrent work starts.
 
+User decision, 2026-10-04: until the user says otherwise, do not use the Codex plugin. Claude subagents implement and review. Cursor CLI (`cursor-agent`) runs the git commit, push and PR merge commands, and adds `Co-authored-by: Cursor <cursoragent@cursor.com>`. Claude prepares and verifies each change first. The Codex rules below are paused, not deleted.
+
+Incident, 2026-10-04: `npm ci` in a worktree whose `node_modules` was a symlink emptied the link target (`.worktrees/video-compression/node_modules`), which the phone demo also uses. It was reinstalled within minutes from the identical lockfile; the demo pages answered 200 afterward. Before `npm ci`, check that `node_modules` is not a symlink.
+
 ## Model routing and dispatch
 
 | Model | Assigned work |

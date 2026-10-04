@@ -1,6 +1,6 @@
 # Current state
 
-Updated: 2026-10-03. PRs 1–9 are merged and pushed. Teach upload, extraction draft editing, review and approval pass fixture/code/browser gates. Main `9f0da2f` has passing CI. Live extraction and physical navigation remain unverified. Use [TEAM-HANDOFF](docs/TEAM-HANDOFF.md) for current ownership and [the work protocol](knowledge/work-protocol.md) for execution rules. The overnight run is stopped and its heartbeat is paused.
+Updated: 2026-10-04 (UTC). PR15 (`477eb3e`), PR16 (`4b100fc`) and PR17 (`187831a`) were squash-merged at their independently reviewed heads with passing CI. PR18 repair `b0f6701` rejects unknown or undecodable audio instead of dropping it; a fresh independent review found no blockers, and host checks plus a desktop Chrome harness passed. Main merged into PR18 has the same tree as the host-checked combination (check, typecheck, Webpack build pass). PR19 `6d10ec1` needs changes: record the vendored Archify skill's source, version and licence, and document its update-check network call (opt-out `ARCHIFY_UPDATE_CHECK_DISABLED=1`); then rebase on main (conflicts in `CreatorScreen.tsx` with PR15 and `GuideScreen.tsx` with PR17). Live providers, target-phone compression and physical navigation remain unverified. See [the takeover handoff](docs/CLAUDE-TAKEOVER.md) for the gates.
 
 | Stage | State | Evidence / next action |
 |---|---|---|
