@@ -196,7 +196,8 @@ for (const [name, f] of [
   for (const bad of ['http://evil.example', 'https://evil.example/claim', 'www.evil.example', 'Free pizza: evil.example/claim', 'evil.example/claim', 'x.com', 'go to bit.ly/abc',
     'evil\u3002example/claim', 'evil\uff0eexample', 'evil.e\u200bxample', 'a@b.co', '/follow/other', 'EVIL.COM',
     'tel:5551234', 'sms:+16075550199&body=hi', 'callto:5551234', 'maps:q=x', 'Call 555-123-4567', 'Call (607) 555-0199 now', '+1 607 555 0199', '2130706433',
-    '٥٥٥١٢٣٤٥٦٧', 'Call ٥٥٥-١٢٣-٤٥٦٧', '۵۵۵۱۲۳۴۵۶۷', '555–123–4567', '555—123—4567', '555‐123‐4567', '555−123−4567', '1-800-FLOWERS', '1 800 FLOWERS', '607-555-CAKE'])
+    '٥٥٥١٢٣٤٥٦٧', 'Call ٥٥٥-١٢٣-٤٥٦٧', '۵۵۵۱۲۳۴۵۶۷', '555–123–4567', '555—123—4567', '555‐123‐4567', '555−123−4567', '1-800-FLOWERS', '1 800 FLOWERS', '607-555-CAKE',
+    '1800FLOWERS', '800GOFEDEX', '1-800-GO-FEDEX', '800 MY APPLE', '555ー123ー4567', '607ー555ー0199'])
     assert.ok(looksLikeLink(bad), bad);
   for (const fine of ['To the AEP study room', 'Room 204 entrance', 'Stairwell B', 'Floor 2.5', 'Cafe, 2nd floor', 'Note: turn left', 'Room 2041', 'Room 204 entrance', 'Rooms 101-120', 'Open 9:00-17:00', 'Gate 3, 2024', '']) assert.ok(!looksLikeLink(fine), fine);
 

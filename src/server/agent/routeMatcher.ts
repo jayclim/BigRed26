@@ -27,9 +27,9 @@ export const matcherConfig = (): MatcherConfig => ({ apiKey: process.env.XAI_API
 export const clean = (value: unknown, max: number): string =>
   (typeof value === 'string' ? value : '').replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]+/gu, ' ').replace(/\s+/gu, ' ').trim().slice(0, max);
 
-const URLISH = /https?:|www\.|[\p{L}\p{N}-]+\.\p{L}{2,}|:\/\/|\/follow|\w@\w|\b[a-z][a-z0-9+.-]{1,30}:(?=\S)|\+?\p{Nd}(?:[\s().\p{Pd}−]*\p{Nd}){6,}/iu;
-// Vanity numbers such as 1-800-FLOWERS. Capitals only, so 'Room 204 entrance' is not a link.
-const VANITY = /\p{Nd}{3}[\s.\p{Pd}\u2212]\p{Lu}{4,}/u;
+const URLISH = /https?:|www\.|[\p{L}\p{N}-]+\.\p{L}{2,}|:\/\/|\/follow|\w@\w|\b[a-z][a-z0-9+.-]{1,30}:(?=\S)|\+?\p{Nd}(?:[\s().\p{Pd}−ー]*\p{Nd}){6,}/iu;
+// Vanity numbers such as 1-800-FLOWERS, 1800FLOWERS or 1-800-GO-FEDEX. Capitals only, so 'Room 204 entrance' is not a link.
+const VANITY = /\p{Nd}{3}[\s.\p{Pd}\u2212]?\p{Lu}{2,}[\s.\p{Pd}\u2212]?\p{Lu}{2,}/u;
 /** True when text could be read as a link: scheme, www, a bare domain such as evil.example/claim, x.com or bit.ly, an email, our own path, any scheme such as tel: or sms:, or a phone number (7+ digits).
  *  Messages auto-links schemes and phone numbers, so they count as links.
  *  Checked after Unicode folding, so full-width dots and zero-width characters do not hide a link. Errs toward true. */
