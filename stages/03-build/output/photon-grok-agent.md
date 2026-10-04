@@ -141,3 +141,5 @@ Live check, endpoint (server running with the variables above):
 ```sh
 curl -s http://localhost:3012/api/agent/message -H 'content-type: application/json' -H "x-breadcrumb-agent-secret: $BREADCRUMB_AGENT_SECRET" -d '{"conversationId":"live-1","text":"I want to go to the AEP study room"}'
 ```
+
+Link filter extension (2026-10-04, after re-review): Apple's NSDataDetector (the detector family Messages uses) auto-links `tel:`, `sms:`, `callto:`, `maps:` and bare phone numbers. `looksLikeLink` now also treats any `scheme:` followed by a non-space and any run of 7 or more digits (with spaces, dots, dashes or parentheses) as a link. Check cases added. Accepted false positives: names such as `Room:204` or long room numbers are not offered. Residual forms that the detector does not auto-link (`evil[.]example`, raw IP addresses, `localhost:3000`) are not filtered.

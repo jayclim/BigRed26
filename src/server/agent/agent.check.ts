@@ -194,9 +194,10 @@ for (const [name, f] of [
 // Route text comes from the public. A link in a name or destination: the route is never offered. In a stop or evidence: that text is dropped.
 {
   for (const bad of ['http://evil.example', 'https://evil.example/claim', 'www.evil.example', 'Free pizza: evil.example/claim', 'evil.example/claim', 'x.com', 'go to bit.ly/abc',
-    'evil\u3002example/claim', 'evil\uff0eexample', 'evil.e\u200bxample', 'a@b.co', '/follow/other', 'EVIL.COM'])
+    'evil\u3002example/claim', 'evil\uff0eexample', 'evil.e\u200bxample', 'a@b.co', '/follow/other', 'EVIL.COM',
+    'tel:5551234', 'sms:+16075550199&body=hi', 'callto:5551234', 'maps:q=x', 'Call 555-123-4567', 'Call (607) 555-0199 now', '+1 607 555 0199', '2130706433'])
     assert.ok(looksLikeLink(bad), bad);
-  for (const fine of ['To the AEP study room', 'Room 204 entrance', 'Stairwell B', 'Floor 2.5', 'Cafe, 2nd floor', '']) assert.ok(!looksLikeLink(fine), fine);
+  for (const fine of ['To the AEP study room', 'Room 204 entrance', 'Stairwell B', 'Floor 2.5', 'Cafe, 2nd floor', 'Note: turn left', 'Room 2041', '']) assert.ok(!looksLikeLink(fine), fine);
 
   const evilState = emptyState();
   evilState.routes['good'] = [mk('good', 'Study room', 'Study', ['Hall', 'Study'])];
