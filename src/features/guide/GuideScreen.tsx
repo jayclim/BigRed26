@@ -6,6 +6,7 @@ import { Arrow, DIRECTION_TEXT } from '@/ui/Arrow.tsx';
 import { mockScenes } from '@/shared/mockScenes.ts';
 import actionFixture from '@contracts/fixture.actions.v1.json';
 import { Brand } from '@/ui/Brand.tsx';
+import { MotionCue } from '@/ui/MotionCue.tsx';
 import { Camera } from './Camera.tsx';
 import { uploadFrame as realUploadFrame } from '@/client/frameUpload.ts';
 import { checkView } from './checkView.ts';
@@ -250,6 +251,7 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
     <main className="guide-page" lang={locale}>
       <div className="guide-layout">
         <section className="guide" aria-label={route.name}>
+          {guidance?.state === 'guiding' && guidance.direction && <MotionCue key={guidance.direction} direction={guidance.direction} still={!!reduceMotion} />}
           <div className="guide-top">
             <Brand compact />
             <div className="controls">

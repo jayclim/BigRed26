@@ -200,7 +200,7 @@
 .guide-page { min-height: 100dvh; background: var(--night); color: var(--on-night); color-scheme: dark; }
 .guide-page :focus-visible { outline-color: var(--cyan); }
 .guide-layout { display: grid; gap: var(--space-8); padding: var(--space-4); max-width: 1100px; margin: 0 auto; }
-.guide { display: grid; gap: var(--space-6); min-width: 0; }
+.guide { display: grid; gap: var(--space-6); min-width: 0; position: relative; }
 .guide-top { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); min-height: 44px; }
 .guide-top .controls { display: flex; gap: var(--space-1); }
 .ctl { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; background: transparent; border: 1px solid var(--night-rule); color: var(--on-night); border-radius: var(--radius-sm); padding: .55rem .75rem; font-weight: 500; cursor: pointer; text-decoration: none; font-size: var(--type-sm); line-height: 1.35; }
@@ -324,6 +324,50 @@
 .guide > .stage { animation: breadcrumb-fade calc(var(--motion-entrance) - 40ms) var(--motion-ease-out) 40ms backwards; }
 .guide > .card { animation: breadcrumb-fade calc(var(--motion-entrance) - 80ms) var(--motion-ease-out) 80ms backwards; }
 .card { transition: border-top-color var(--motion-slow) var(--motion-ease-out); }
+
+/* Motion cue: gutter dots drift in the confirmed direction only while the arrow shows. */
+.motion-cue { position: absolute; inset: 0; pointer-events: none; }
+.motion-cue-strip {
+  --cue-x: 0px; --cue-y: -12px;
+  position: absolute; top: 0; bottom: 0; width: 10px; opacity: .4; pointer-events: none;
+  background-image: radial-gradient(circle, var(--on-night-muted) 1.5px, transparent 2px); background-size: 10px 12px; background-position: 0 0;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 15%, #000 85%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 15%, #000 85%, transparent);
+  animation: breadcrumb-cue-drift 1.4s linear infinite;
+}
+.motion-cue-strip[data-side='left'] { left: -13px; }
+.motion-cue-strip[data-side='right'] { right: -13px; }
+.motion-cue:is([data-direction='up'], [data-direction='down']) .motion-cue-strip {
+  background-image: radial-gradient(circle at 50% 4px, var(--on-night-muted) 1.5px, transparent 2px),
+    radial-gradient(circle at 50% 10px, var(--on-night-muted) 1.5px, transparent 2px);
+  background-size: 10px 20px; animation-duration: 1.6s;
+}
+.motion-cue[data-direction='up'] .motion-cue-strip { --cue-y: -20px; }
+.motion-cue[data-direction='down'] .motion-cue-strip { --cue-y: 20px; }
+.motion-cue[data-direction='left'] .motion-cue-strip { --cue-x: -10px; --cue-y: 0px; }
+.motion-cue[data-direction='right'] .motion-cue-strip { --cue-x: 10px; --cue-y: 0px; }
+@keyframes breadcrumb-cue-drift { to { background-position: var(--cue-x) var(--cue-y); } }
+/* Still cue: no loop; a static cluster biased to the instructed side. */
+.motion-cue[data-still='true'] .motion-cue-strip { animation: none; }
+.motion-cue[data-still='true'][data-direction='left'] [data-side='right'],
+.motion-cue[data-still='true'][data-direction='right'] [data-side='left'] { display: none; }
+.motion-cue[data-still='true']:is([data-direction='forward'], [data-direction='up']) .motion-cue-strip {
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent 35%); mask-image: linear-gradient(to bottom, #000, transparent 35%);
+}
+.motion-cue[data-still='true'][data-direction='down'] .motion-cue-strip {
+  -webkit-mask-image: linear-gradient(to top, #000, transparent 35%); mask-image: linear-gradient(to top, #000, transparent 35%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .motion-cue .motion-cue-strip { animation: none; }
+  .motion-cue[data-direction='left'] [data-side='right'],
+  .motion-cue[data-direction='right'] [data-side='left'] { display: none; }
+  .motion-cue:is([data-direction='forward'], [data-direction='up']) .motion-cue-strip {
+    -webkit-mask-image: linear-gradient(to bottom, #000, transparent 35%); mask-image: linear-gradient(to bottom, #000, transparent 35%);
+  }
+  .motion-cue[data-direction='down'] .motion-cue-strip {
+    -webkit-mask-image: linear-gradient(to top, #000, transparent 35%); mask-image: linear-gradient(to top, #000, transparent 35%);
+  }
+}
 
 :is([data-slot='button'], .ctl, .scene, .step .review) {
   transition: transform var(--motion-fast) var(--motion-ease-out),
