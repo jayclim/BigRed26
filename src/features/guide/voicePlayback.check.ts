@@ -4,7 +4,7 @@ import type { Guidance, Result, SpeechClip, SpeechRequest, VoiceAdapter } from '
 import { createVoicePlayer, DEFAULT_VOICE_ID, type AudioLike, type VoiceStatus } from './voicePlayback.ts';
 
 const guidance = (instructionId = 'A', locale: 'en' | 'es' = 'en', text = '  Turn left.\nKeep B214.  ', sequence = 1, sessionId = 'session'): Guidance => ({
-  instructionId, locale, text, sequence, sessionId, routeVersion: 1, mode: 'mock',
+  instructionId, locale, text, sequence, sessionId, routeVersion: 1, mode: 'live',
   state: 'uncertain', checkpointId: null, direction: null, approachConfirmed: false, evidence: [], processingMs: 0,
 });
 const clip = (url: string): Result<SpeechClip> => ({ ok: true, value: { audioUrl: url, provider: 'elevenlabs', cached: false } });

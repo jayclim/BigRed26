@@ -11,7 +11,7 @@ async function startWindowsServer(port) {
   const directory = mkdtempSync(join(tmpdir(), 'breadcrumb-data-'));
   const dataFile = join(directory, 'store.json');
   const proc = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '--hostname', '127.0.0.1', '-p', String(port)], {
-    env: { ...process.env, BREADCRUMB_DATA_FILE: dataFile }, stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, BREADCRUMB_DATA_FILE: dataFile, BREADCRUMB_TEST_FIXTURES: '1' }, stdio: ['ignore', 'pipe', 'pipe'],
   });
   let ready = false; let output = ''; let failure;
   const collect = (chunk) => { output = (output + chunk).slice(-2000); ready ||= output.includes('Ready in'); };

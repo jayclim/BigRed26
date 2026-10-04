@@ -6,6 +6,7 @@ import { LiveGuideSession, liveGuideEnabled, type LiveFailure, type LiveStatus }
 import { LIVE_LANGUAGES, LIVE_LANGUAGE_STORAGE_KEY, DEFAULT_LIVE_LANGUAGE, isLiveLanguage, liveLanguage, pickDefaultLanguage, uiLocaleFor } from '@/server/live/liveLanguages.ts';
 import styles from './mode.module.css';
 import picker from './liveStream.module.css';
+import g from './guide.module.css';
 
 const T = {
   en: {
@@ -119,7 +120,7 @@ export function LiveStream({ routeId, exitHref }: { routeId: string; exitHref: s
   const statusText = status === 'starting' ? t.starting : status === 'reconnecting' ? t.reconnecting : status === 'live' ? (speaking ? t.speaking : mic ? t.listening : t.quiet) : status === 'stopped' ? t.stopped : '';
 
   return (
-    <main className="guide-page" lang={locale}>
+    <main className={`guide-page ${g.page}`} lang={locale}>
       <div className="guide-layout">
         <section className="guide" aria-label={name ?? t.loading}>
           <div className="guide-top">
@@ -131,7 +132,7 @@ export function LiveStream({ routeId, exitHref }: { routeId: string; exitHref: s
                   {LIVE_LANGUAGES.map((l) => <option key={l.code} value={l.code} lang={l.code}>{l.native}</option>)}
                 </select>
               </label>
-              <a className="ctl" href={`/follow/${encodeURIComponent(routeId)}`}>{t.classic}</a>
+              <a className="ctl" href={`/follow/${encodeURIComponent(routeId)}?mode=live`}>{t.classic}</a>
               <a className="ctl" href={exitHref}>{t.exit}</a>
             </div>
           </div>

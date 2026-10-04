@@ -1,7 +1,7 @@
 // Captures UI state screenshots with local Chrome over CDP (no test deps):
 //   npm run build && node scripts/screenshots.mjs [port] [chromePath]
 // Starts its own server on a throwaway data file (scripts/isolated-server.mjs); your .data/ is never touched.
-// Uses Chrome's fake camera; the "denied" shot runs a second browser that refuses permission prompts.
+// Uses Chrome's fake camera device.
 import { spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -56,43 +56,25 @@ async function browser(extra) {
   return page;
 }
 
+// The isolated server seeds the fictional test route demo-route (BREADCRUMB_TEST_FIXTURES=1), so the creator shots have a route.
 const p = await browser(['--use-fake-ui-for-media-stream']);
 await p.size(1280, 900);
-await p.go('/');
+await p.go('/?route=demo-route');
 await p.shot('01-creator-draft', true);
 await p.eval(`document.querySelectorAll('.review input').forEach((i) => i.click())`);
 await sleep(300);
 await p.click('Approve version 1');
 await p.shot('02-creator-approved');
 
+// /follow/<id> opens the Gemini Live voice guide. Live stays disabled here (no Gemini key), so this is its honest "not enabled" state.
 await p.size(390, 844, true);
 await p.go('/follow/demo-route');
-await p.shot('03-guide-start');
-await p.click('Unrelated view (not on this route)');
-await p.shot('04-guide-uncertain');
-await p.click('Entrance, facing unclear');
-await p.shot('05-guide-reorient');
-await p.click('Entrance, approached as recorded');
-await p.click('Blue mural, approached as recorded');
-await p.shot('06-guide-guiding');
-await p.click('Recognizer failure');
-await p.shot('07-guide-provider-error');
-await p.click('Español');
-await p.shot('08-guide-spanish-same-position');
-await p.click('Activar cámara');
-await sleep(800);
-await p.shot('09-guide-camera-on-fake-device');
-await p.click('Room 204, approached as recorded');
-await p.shot('10-guide-arrived');
+await p.shot('03-voice-guide-mobile');
 await p.size(1280, 900);
-await p.shot('11-guide-desktop', true);
+await p.shot('04-voice-guide-desktop', true);
+// ?mode=live is the camera check-view guide. Without a live recognizer it fails honestly; there is no fallback.
+await p.size(390, 844, true);
+await p.go('/follow/demo-route?mode=live');
+await p.shot('05-check-view-unavailable');
 await p.close();
-
-const d = await browser(['--deny-permission-prompts']);
-await d.size(390, 844, true);
-await d.go('/follow/demo-route');
-await d.click('Start camera');
-await sleep(800);
-await d.shot('12-guide-camera-denied');
-await d.close();
 process.exit(0);

@@ -30,7 +30,7 @@ The first real demonstration must include a named-door step and a floor transiti
 
 ## MVP boundaries
 
-Local slice: fictional sample route, editable review/approval, sessions, explicit mock observations, guiding/uncertain/reorient/arrived, locale switching and camera permission handling. This proves interactions and state handling, not recognition.
+Local slice: video upload, extraction, editable review/approval, sessions, guiding/uncertain/reorient/arrived, locale switching and camera permission handling, all on real data with no mock mode. This proves interactions and state handling, not recognition accuracy.
 
 First real MVP: one short taught route, Gemini extraction into an editable draft, independent follow footage/camera matching, detailed route instructions, orientation checks, uncertainty, arrival and ElevenLabs speech. The original 45–90 second/four-checkpoint target is a starting example, not a limit that removes required door or elevator steps. Measure second-phone behavior; report sample size and latency without invented reliability percentages.
 

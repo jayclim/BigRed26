@@ -7,8 +7,8 @@ import { join } from 'node:path';
 import type { CoreAdapter, FrameRequest, Route } from '../../../contracts/contracts.ts';
 import { approvalProblems, createCore, emptyState, type Recognizer } from './core.ts';
 import { loadState, persistState } from './store.ts';
-import { mockRecognizer } from '../../shared/mockScenes.ts';
-import { fixtureRecognizer } from './actionFixture.ts';
+import { mockRecognizer } from '../testing/mockScenes.ts';
+import { fixtureRecognizer } from '../testing/actionFixture.ts';
 import { RouteSchema } from '../../../contracts/schemas.ts';
 import { reconcileGuide } from '../../features/guide/reconcileGuide.ts';
 
