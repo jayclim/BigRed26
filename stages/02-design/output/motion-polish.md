@@ -38,3 +38,7 @@ The host replaced the `node_modules` symlink with an APFS clone and re-ran the c
 Rendered review: `next start` on port 3917, headless Chrome through CDP, 390x844 and 1280x900. Observed: entrances settle to full opacity; a review checkbox click sets `data-reviewed=true` on its trail item; approval shows the visitor-link panel and the "Version 1 approved" notice; the guide at 390px shows the Mock badge, an unanimated progress row, the instruction card and mock controls. No horizontal overflow at either width. Not observed: the motion frames themselves, keyboard focus traversal, reduced-motion mode, Spanish, uncertainty/arrival states, or a real phone.
 
 Next action: a separate reviewer checks this commit, with attention to the merge with PR #15 (`theme.css`, `CreatorScreen.tsx`) and PR #17 (`GuideScreen.tsx`).
+
+## Archify skill and architecture diagram
+
+PR #19 also vendors the Archify skill (`skills/archify/`, MIT, v3.0.1, upstream commit `d5a1333`) and adds `docs/architecture/breadcrumb.html`, made with it. This is not part of the motion work. Source, licence, network behavior and the `ARCHIFY_UPDATE_CHECK_DISABLED=1` opt-out are in [knowledge/reuse.md](../../../knowledge/reuse.md). Nothing in the skill runs automatically. Its scripts were not executed during this repair.

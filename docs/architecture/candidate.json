@@ -3,7 +3,7 @@
   "diagram_type": "architecture",
   "meta": {
     "title": "Breadcrumb App Architecture",
-    "output": ".archify/architecture-breadcrumb-20261003-205741/breadcrumb.html",
+    "output": "docs/architecture/breadcrumb.html",
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/jayclim/BigRed26.git",

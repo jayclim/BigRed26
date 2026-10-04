@@ -4,7 +4,8 @@ import { Input } from '@/ui/input';
 import { useEffect, useRef, useState } from 'react';
 import type { Id, Result } from '@contracts/contracts.ts';
 import type { StoredMedia } from '@/server/media/media.ts';
-import { MEDIA_ACCEPT, MEDIA_LIMIT_TEXT, mediaInputError } from '@/shared/mediaLimits.ts';
+import { MEDIA_ACCEPT, MEDIA_LIMIT_TEXT, mediaInputError, mediaPickError } from '@/shared/mediaLimits.ts';
+import { compressionErrorMessage, compressVideo } from './compressVideo.ts';
 
 type Message = { kind: 'error'; text: string } | { kind: 'ok'; media: StoredMedia };
 
@@ -12,12 +13,17 @@ export function VideoUpload({ onCreateDraft, onSelectionChange, extractionBusy, 
   onCreateDraft: (mediaId: Id) => void; onSelectionChange?: () => void; extractionBusy: boolean; extractionDisabled: boolean;
 }) {
   const [file, setFile] = useState<File | null>(null);
+  const [original, setOriginal] = useState<File | null>(null);
+  const [compressing, setCompressing] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [preview, setPreview] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<Message | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const messageRef = useRef<HTMLDivElement>(null);
   const requestRef = useRef<AbortController | null>(null);
+  const compressionRef = useRef<AbortController | null>(null);
+  const generationRef = useRef(0);
 
   useEffect(() => {
     if (!file) { setPreview(''); return; }
@@ -31,13 +37,26 @@ export function VideoUpload({ onCreateDraft, onSelectionChange, extractionBusy, 
       messageRef.current?.scrollIntoView({ block: 'center' });
     }
   }, [message]);
-  useEffect(() => () => requestRef.current?.abort(), []);
+  useEffect(() => () => {
+    requestRef.current?.abort();
+    generationRef.current += 1;
+    compressionRef.current?.abort();
+  }, []);
+
+  function cancelCompression() {
+    generationRef.current += 1;
+    compressionRef.current?.abort();
+    compressionRef.current = null;
+    setCompressing(false); setProgress(0);
+  }
 
   function select(selected: File | null) {
+    cancelCompression();
     onSelectionChange?.();
     setMessage(null);
-    const error = selected && mediaInputError(selected);
+    const error = selected && mediaPickError(selected);
     setFile(error ? null : selected);
+    setOriginal(error ? null : selected);
     if (error) {
       setMessage({ kind: 'error', text: error });
       if (inputRef.current) inputRef.current.value = '';
@@ -45,13 +64,53 @@ export function VideoUpload({ onCreateDraft, onSelectionChange, extractionBusy, 
   }
 
   function chooseAnother() {
+    cancelCompression();
     onSelectionChange?.();
-    setFile(null); setMessage(null);
+    setFile(null); setOriginal(null); setMessage(null);
     if (inputRef.current) { inputRef.current.value = ''; inputRef.current.focus(); }
   }
 
+  async function compress() {
+    if (!original || busy || compressing || extractionBusy) return;
+    cancelCompression();
+    onSelectionChange?.();
+    const generation = generationRef.current;
+    const controller = new AbortController();
+    compressionRef.current = controller;
+    setCompressing(true); setProgress(0); setMessage(null);
+    try {
+      const result = await compressVideo(original, {
+        signal: controller.signal,
+        onProgress: (value) => {
+          if (generation === generationRef.current && !controller.signal.aborted) {
+            setProgress(Math.round(Math.max(0, Math.min(1, value)) * 100));
+          }
+        },
+      });
+      if (generation !== generationRef.current || controller.signal.aborted) return;
+      setFile(result);
+      if (mediaInputError(result)) {
+        setMessage({ kind: 'error', text: 'The compressed video is still too large or cannot be uploaded. Trim the clip on your phone to make a shorter clip.' });
+      }
+    } catch (error) {
+      if (generation !== generationRef.current || controller.signal.aborted) return;
+      setMessage({ kind: 'error', text: compressionErrorMessage(error) });
+    } finally {
+      if (generation === generationRef.current) {
+        compressionRef.current = null;
+        setCompressing(false);
+      }
+    }
+  }
+
+  function useOriginal() {
+    cancelCompression();
+    onSelectionChange?.();
+    setFile(original); setMessage(null);
+  }
+
   async function upload() {
-    if (!file || busy) return;
+    if (!file || busy || compressing || extractionBusy || mediaInputError(file)) return;
     onSelectionChange?.();
     const controller = new AbortController();
     requestRef.current = controller;
@@ -83,23 +142,36 @@ export function VideoUpload({ onCreateDraft, onSelectionChange, extractionBusy, 
           onChange={(e) => select(e.currentTarget.files?.[0] ?? null)} />
       </label>
       <p className="meta" id="media-limits">{MEDIA_LIMIT_TEXT}</p>
+      <p className="meta">Larger supported videos can be compressed on this device before upload.</p>
       {file && (
         <>
           <p className="media-filename"><strong>{file.name}</strong> · {file.size.toLocaleString()} bytes ({(file.size / (1024 * 1024)).toFixed(2)} MB)</p>
+          {original && <p className="meta">Original size: {(original.size / (1024 * 1024)).toFixed(2)} MB
+            {file !== original && <> · Output size: {(file.size / (1024 * 1024)).toFixed(2)} MB</>}</p>}
+          {file === original && mediaInputError(file) && <p className="notice error">Too large to upload. Compress on this device</p>}
           {preview && <video className="media-preview" src={preview} controls muted playsInline preload="metadata" aria-label={`Local preview of ${file.name}`} />}
         </>
       )}
+      {compressing && <div className="media-message" role="status">
+        <p>Compressing on this device… {progress}%</p>
+        <progress value={progress} max={100} aria-label="Video compression progress">{progress}%</progress>
+        <Button variant="outline" onClick={cancelCompression}>Cancel</Button>
+      </div>}
       <div className="row">
-        <Button disabled={!file || busy || message?.kind === 'ok'} aria-busy={busy} onClick={upload}>
+        <Button disabled={!file || busy || compressing || extractionBusy || !!(file && mediaInputError(file)) || message?.kind === 'ok'} aria-busy={busy} onClick={upload}>
           {busy ? 'Uploading…' : message?.kind === 'error' && file ? 'Retry upload' : 'Upload video'}
         </Button>
+        {original && file === original && <Button variant="outline" disabled={busy || compressing || extractionBusy} onClick={compress}>
+          {mediaInputError(original) ? 'Compress' : 'Compress first'}
+        </Button>}
+        {original && file !== original && !mediaInputError(original) && <Button variant="outline" disabled={busy || extractionBusy} onClick={useOriginal}>Use original</Button>}
         {(file || message) && <Button variant="outline" disabled={busy || extractionBusy} onClick={chooseAnother}>Choose another file</Button>}
       </div>
       {message && (
         <div ref={messageRef} tabIndex={-1} className={`notice ${message.kind} media-message`}
           role={message.kind === 'error' ? 'alert' : 'status'}>
           {message.kind === 'error'
-            ? <p>{message.text} Choose another file{file ? ' or retry the upload' : ''}.</p>
+            ? <p>{message.text}</p>
             : <>
               <p><strong>Stored locally:</strong> {message.media.name}</p>
               <Button disabled={extractionBusy || extractionDisabled} aria-busy={extractionBusy}

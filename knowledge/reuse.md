@@ -21,6 +21,7 @@ Prefer adapting useful assets over redrawing them. Record the source/license of 
 | Typography | System sans stack in `src/ui/theme.css`; no font download or redistributed font asset |
 | Browser review | Available host browser tools first; existing screenshot script for repeatable local captures |
 | Knowledge/skills | Plain Markdown and shared local skills; no memory service dependency |
+| Browser video compression | Mediabunny 1.61.1, MPL-2.0; lazy-loaded with `await import('mediabunny')` when compression starts; installed types reviewed 2026-10-03. [Official source](https://github.com/Vanilagy/mediabunny). Teach uses its conversion API and browser codecs. |
 
 No icon pack, dashboard template or illustration library is adopted. Four shadcn source primitives are adapted for the creator interface. Add only primitives that the current screen uses. The original handoff fixture is already reused for deterministic mock observations.
 
@@ -41,3 +42,17 @@ Observed installed versions and package licenses, 2026-10-03. npm installed thes
 CVA is Apache-2.0, not MIT. Its installed package states this license. All other named additions are MIT.
 
 Copied source: [shadcn new-york Button](https://ui.shadcn.com/r/styles/new-york/button.json), and [new-york-v4 Input, Textarea and Badge](https://github.com/shadcn-ui/ui/tree/main/apps/v4/registry/new-york-v4/ui), inspected 2026-10-03. These sources are MIT. The notice is retained in `src/ui/shadcn-LICENSE.txt`. Local changes map tokens, trim unused variants, use the scoped Radix Slot, use small radii and retain 44px controls. Native select and checkbox behavior is reused. Tailwind preflight is omitted to preserve the guide interface.
+
+## Archify skill (vendored, not run automatically)
+
+Status: added in PR #19, 2026-10-03, for the architecture diagram `docs/architecture/breadcrumb.html`.
+
+| Item | Record |
+|---|---|
+| Source | https://github.com/tt-a1i/archify, commit `d5a1333` |
+| Version | 3.0.1 (`skills/archify/skill-release.json`) |
+| Licence | MIT |
+| Location | `skills/archify/`; symlinks `.claude/skills/archify` and `.agents/skills/archify` |
+| Third-party assets | `skills/archify/THIRD_PARTY_NOTICES.md` lists bundled brand marks. Some icons are CC-BY-NC-SA or CC-BY-SA. The Breadcrumb diagram uses none of them. Do not copy those icons into the product. |
+
+Network and process behavior: the finalize and deliver scripts fetch an update manifest (`DEFAULT_MANIFEST_URL` in `skills/archify/scripts/update-contract.mjs`, and `scripts/check-update.mjs`) and write a local cache. When invoked, the scripts also launch Chrome, the OS opener and git. Nothing runs automatically. Set `ARCHIFY_UPDATE_CHECK_DISABLED=1` before any Archify script run to disable the update check. Local run receipts go to `.archify/`, which is git-ignored because it contains absolute user paths. The vendored code has not had a full code review.

@@ -188,7 +188,7 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
           <h1 ref={heading} tabIndex={-1}>{route.name}</h1>
           <AnimatePresence initial={false} mode="wait">
             <motion.span key={`${route.status}-${saved}`} {...noticeMotion}>
-              <Badge variant="secondary" className="status" data-status={route.status}>
+              <Badge variant={approved ? 'success' : 'secondary'} className="status" data-status={route.status}>
                 {approved ? `Approved · v${route.version}` : `Draft · v${route.version}${saved ? '' : ' · Unsaved'}`}
               </Badge>
             </motion.span>
@@ -283,12 +283,12 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
               <div className="langs">
                 <label>
                   English instruction
-                  <Textarea value={c.instruction.en} disabled={approved}
+                  <Textarea value={c.instruction.en} disabled={approved} className="disabled:opacity-100 disabled:bg-secondary"
                     onChange={(e) => edit(c.id, { instruction: { ...c.instruction, en: e.target.value } })} />
                 </label>
                 <label>
                   Spanish instruction
-                  <Textarea lang="es" value={c.instruction.es} disabled={approved}
+                  <Textarea lang="es" value={c.instruction.es} disabled={approved} className="disabled:opacity-100 disabled:bg-secondary"
                     onChange={(e) => edit(c.id, { instruction: { ...c.instruction, es: e.target.value } })} />
                 </label>
               </div>

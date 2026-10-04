@@ -9,6 +9,7 @@ const badgeVariants = cva(
   { variants: { variant: {
     default: 'bg-primary text-primary-foreground',
     secondary: 'bg-secondary text-secondary-foreground',
+    success: 'bg-success text-success-foreground',
     outline: 'border-border text-foreground',
   } }, defaultVariants: { variant: 'default' } },
 );
