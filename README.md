@@ -1,96 +1,114 @@
-# Breadcrumb
+<div align="center">
 
-Record a route once. Let the next visitor follow it through their camera.
+# 🍞 Breadcrumb
 
-For the shared project brain, start with [AGENTS.md](AGENTS.md), then [CONTEXT.md](CONTEXT.md). See [PROGRESS.md](PROGRESS.md) for current evidence and [the teammate handoff](docs/TEAM-HANDOFF.md) for assignments. Claude Code leads development. Local knowledge, design and verification skills live in `skills/`, discovered by both Claude and Codex.
+**Lost indoors? Follow a voice that can see.**
 
-Breadcrumb works on real data. A route starts from a video you upload, the creator reviews and approves it, and a visitor follows it with the live voice guide or the camera check-view guide. A new data store starts empty: no sample route is added. Gemini extraction, live recognition, the live voice guide and generated voice each need their own server flag and key. Without them the matching feature reports that it is not available. Nothing falls back to fake data. Nothing here shows recognition accuracy or real-device navigation yet.
+Teach a short indoor route once with a walk-through video. Anyone can then follow it with a live voice guide that watches their camera.
 
-## Run
+[![Live demo](https://img.shields.io/badge/Live_demo-iamlostwheredoigo.us-0a6f82?style=for-the-badge&logo=googlechrome&logoColor=white)](https://iamlostwheredoigo.us)
 
-Requires Node ≥ 22.18 (tested on Node 24.11.1, npm 11.6.2).
+![Next.js](https://img.shields.io/badge/Next.js_16-000000?style=flat-square&logo=nextdotjs&logoColor=white)
+![React](https://img.shields.io/badge/React_19-20232a?style=flat-square&logo=react&logoColor=61dafb)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?style=flat-square&logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS_4-06b6d4?style=flat-square&logo=tailwindcss&logoColor=white)
+![Zod](https://img.shields.io/badge/Zod-3e67b1?style=flat-square&logo=zod&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node_24-5fa04e?style=flat-square&logo=nodedotjs&logoColor=white)
+<br>
+![Gemini](https://img.shields.io/badge/Gemini_Live-8e75b2?style=flat-square&logo=googlegemini&logoColor=white)
+![Grok](https://img.shields.io/badge/xAI_Grok-111111?style=flat-square&logo=x&logoColor=white)
+![iMessage](https://img.shields.io/badge/Photon_iMessage-34c759?style=flat-square&logo=imessage&logoColor=white)
+![Capital One](https://img.shields.io/badge/Capital_One_Nessie-d03027?style=flat-square&logo=capitalone&logoColor=white)
+![ElevenLabs](https://img.shields.io/badge/ElevenLabs-000000?style=flat-square&logo=elevenlabs&logoColor=white)
+![Cloudflare](https://img.shields.io/badge/Cloudflare_Tunnel-f38020?style=flat-square&logo=cloudflare&logoColor=white)
+![Cursor](https://img.shields.io/badge/Built_with_Cursor_%26_Claude-000000?style=flat-square&logo=cursor&logoColor=white)
+
+<img src="docs/screenshots/06-landing-desktop.png" alt="Breadcrumb landing page" width="820">
+
+</div>
+
+## ✨ What it does
+
+| | |
+|---|---|
+| 🎥 **Teach** | Upload one walk-through video. Gemini drafts the checkpoints; you review and **approve in one click**. |
+| 🗣️ **Follow** | Open the link on a phone. A **Gemini Live** voice guide watches the camera and says where to go next, in **25 languages**. |
+| 💬 **Text** | Message the **iMessage agent** (Photon) “how do I get to the study room?”. **Grok** picks the route and replies with the link. |
+| 💸 **Earn** | Post a **bounty** for a route you need. A creator teaches it, the poster approves, and payout goes through **Capital One Nessie** (sandbox money). |
+
+<p align="center">
+  <img src="docs/screenshots/08-landing-mobile.png" alt="Landing on a phone" width="220">
+  &nbsp;
+  <img src="docs/screenshots/03-voice-guide-mobile.png" alt="Live voice guide on a phone" width="220">
+  &nbsp;
+  <img src="docs/screenshots/09-teach-new-mobile.png" alt="Teach a new route" width="220">
+</p>
+
+## 🧭 How it works
+
+```mermaid
+flowchart LR
+  V[🎥 Walk-through video] -->|Gemini extraction| D[📝 Draft route]
+  D -->|One-click approve| R[✅ Approved route]
+  R -->|/follow link| G[🗣️ Gemini Live voice guide]
+  T[💬 iMessage] -->|Photon + Grok| R
+  B[💸 Bounty] -->|take request → teach| D
+  R -->|submit → approve & pay| N[🏦 Nessie payout]
+```
+
+- **Safe by design:** guidance comes only from an approved, immutable route version. No direction is shown before the approach is confirmed, and nothing silently falls back to fake data.
+- **Keys stay on the server:** the browser gets a short-lived, route-locked Gemini Live token. Live sessions and bounties are rate-limited.
+
+## 🚀 Quick start
+
+> Requires **Node ≥ 22.18** (tested on 24.11.1).
 
 ```sh
 npm install
-npm run dev            # http://localhost:3000
-# or a production build:
-npm run build && npm start
+# add your keys to .env.local (see the table below)
+npm run dev                  # http://localhost:3000
+# production: npm run build && npm start
 ```
 
-| Command | What it does |
+Each provider is off until its flag and key are set. Without them, the matching feature says it is not available.
+
+| Feature | Env |
 |---|---|
-| `npm run check` | Unit checks. They use injected test recognizers and fictional fixtures: approval, reorientation, arrival, stale ordering, provider failure, locale preservation, safe store loading |
+| 🎥 Video → draft | `BREADCRUMB_GEMINI_EXTRACTION=1`, `GEMINI_API_KEY` |
+| 🗣️ Live voice guide | `BREADCRUMB_GEMINI_LIVE=1`, `GEMINI_API_KEY` |
+| 📷 Camera check view | `BREADCRUMB_GEMINI_RECOGNITION=1`, `GEMINI_API_KEY` |
+| 💬 iMessage agent | `BREADCRUMB_AGENT=1`, `XAI_API_KEY`, `BREADCRUMB_AGENT_SECRET`, `BREADCRUMB_PUBLIC_URL`, `SPECTRUM_PROJECT_ID`, `SPECTRUM_PROJECT_SECRET` → run `npm run photon-agent` |
+| 💸 Bounties | `BREADCRUMB_BOUNTIES=1`, `NESSIE_API_KEY`, `NESSIE_FUNDING_ACCOUNT_ID`, `NESSIE_PAYOUT_MODE=ledger` |
+| 🔊 ElevenLabs voice (camera view) | `BREADCRUMB_ELEVENLABS_VOICE=1`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID` |
+
+Keep keys in an ignored `.env.local`; never commit them. Phones need **HTTPS** for the camera and microphone; use a tunnel such as Cloudflare Tunnel or ngrok.
+
+## 🧪 Checks
+
+| Command | Purpose |
+|---|---|
+| `npm run check` | Unit checks for core rules, media, extraction, live guide, agent, Nessie and bounties (no network) |
 | `npm run typecheck` | `tsc --noEmit` |
-| `node scripts/smoke-api.mjs [port]` | HTTP walk-through. Run `npm run build` first. Starts its own server (default port 3107) |
-| `node scripts/screenshots.mjs [port] [chromePath]` | Regenerates `docs/screenshots/` with local Chrome and reports horizontal overflow. Run `npm run build` first |
-| `npm run reset` | **Destructive:** deletes your `.data/` routes and sessions. Never needed for testing |
+| `node scripts/smoke-api.mjs` | HTTP walk-through on an isolated server (build first) |
+| `node scripts/follow-camera.check.mjs` | Headless Chrome guide checks at 390 and 1280 px |
+| `node scripts/screenshots.mjs` | Regenerates `docs/screenshots/` |
 
-The HTTP and browser scripts start the app with `BREADCRUMB_TEST_FIXTURES=1`. Only that test flag seeds the fictional test routes and registers the synthetic test recognizer. Normal runs never set it. Each script gives its server its own `BREADCRUMB_DATA_FILE` inside a fresh `mkdtemp` directory, and Chrome gets its own `mkdtemp` profile. Each script removes only the directories it created. Your `.data/` is never read or changed.
+Test scripts use their own temporary data and the `BREADCRUMB_TEST_FIXTURES=1` flag. They never touch your `.data/`.
 
-## What works
+## 🗂️ Project map
 
-1. **Landing** (`/`): what Breadcrumb is, how it works, then the route dashboard (`#routes`) and open bounties (`#bounties`) with a **Post a bounty** button. Set `BREADCRUMB_AGENT_CONTACT` (a phone number or Apple ID email) to show how to text the iMessage agent; the page shows no number without it. The logo on every page goes here. `/routes` redirects to `/#routes`; `/bounties` is the full board.
-2. **Creator** (`/teach`): `/teach` starts a new route from a video; `/teach?route=<id>` edits a stored route. The old `/?route=<id>` link redirects here. Teach a route by uploading a video, then review the draft. Edit the name, start, destination, English and Spanish instruction and the direction for each step, then click **Approve version N**. The click sends every checkpoint id as reviewed; the server still rejects approval unless every checkpoint is listed. The dashboard lists every route with Edit and, once approved, copyable Follow and Live voice guide links.
-3. **Bounty to route** (`/teach?bounty=<id>`): **Take this request** on a bounty opens its page and the claim form. After claiming, **Teach this route** opens the creator with the new draft named after the bounty. After approval, **Submit to bounty** uses the claim secret this browser saved, then the poster approves and pays on the bounty page.
-4. **Share:** after approval the page shows `http://localhost:3000/follow/<route-id>`. "Edit as version 2" creates a new draft. Version 1 stays immutable, and running sessions keep their version.
-3. **Guide** (`/follow/<route-id>`): opens the Gemini Live voice guide. It needs the live guide flag and key; otherwise the page says it is not enabled. `?mode=live` opens the camera check-view guide: a dark camera view whose "Check this view" button sends one frame to the server for recognition. It needs the live recognition flag and key; otherwise starting fails with a clear message.
-   - **Camera:** start/stop preview using `getUserMedia` with the rear camera preferred. Handles permission denied (with recovery steps and a retry), no camera or insecure context, and other errors.
-   - **States:** *guiding* (cyan arrow), *uncertain* and *reorient* (amber, no arrow), *arrived* (green). A provider failure shows an error banner, and the last confirmed step stays in place; no guessed turn.
-   - **Language:** "Español"/"English" switches the session locale on the server, then re-renders the same position in the new language.
-   - **Sound:** **browser speech** (`speechSynthesis`). It is off by default, speaks each instruction once, and cancels stale speech. This is not ElevenLabs.
-   - A trail of checkpoint dots shows progress.
+| Path | What lives there |
+|---|---|
+| `src/app/` | Pages (`/`, `/teach`, `/follow/[id]`, `/bounties`) and API routes |
+| `src/features/` | Landing, creator and guide UI |
+| `src/server/` | Core navigation rules, Gemini, live tokens, agent, Nessie, bounties |
+| `contracts/` | Shared types and zod schemas |
+| `knowledge/`, `stages/` | Design, architecture and verified build notes |
 
-### Core rules (server, `src/server/core/core.ts`)
-- **Runtime validation:** zod schemas (`contracts/schemas.ts`) check every API body. A session id in the path must match the body.
-- **Navigation needs approval:** only approved versions can be navigated, and approved versions are immutable.
-- **Allowed checkpoints:** a frame can only match the last confirmed checkpoint or the next one. Anything else is *uncertain*.
-- **Approach before a turn:** a checkpoint recognized without its approach gives *reorient*, with no arrow and no progress.
-- **Unknown scenes:** an unknown scene, or one with no evidence, gives *uncertain*, with no arrow.
-- **Arrival:** requires destination evidence plus a confirmed approach at the destination, which must be the next checkpoint.
-- **Frame ordering:** the server reserves sequences centrally and checks for stale frames twice: before recognition and again at commit, after the `await`. An older frame that resolves late gets `409 STALE_FRAME` and cannot regress state.
-- **Provider failures** return `503 PROVIDER_UNAVAILABLE` and record a `provider_error` event. They never produce guidance.
-- **No fallback:** asking for a session mode with no registered recognizer returns `503`. Production registers only `live`, and only when enabled. Nothing falls back to fake data.
-- **Events:** every frame is recorded as a `NavigationEvent` with its mode and route version. `GET /api/routes/:id/quality` defaults to `mode=live`.
+Contributors and agents: start with [AGENTS.md](AGENTS.md), then [PROGRESS.md](PROGRESS.md).
 
-### Persistence
-State is kept in `.data/store.json` (override with `BREADCRUMB_DATA_FILE`) and is written atomically on each change. It survives restarts. This is single-process only; don't run two servers on the same file.
+## ⚠️ Limits
 
-A missing file starts an empty store. If the file can't be read, isn't valid JSON, or doesn't look like Breadcrumb data:
-- it is left untouched;
-- the server logs the reason;
-- every API call returns `503 PROVIDER_UNAVAILABLE` with that reason.
-
-Fix or move the file, then restart.
-
-## Localhost vs phone
-- **This computer:** `http://localhost:3000` is a secure context, so the camera works.
-- **Another phone:** browsers allow the camera only over **HTTPS**. A plain `http://<LAN-IP>:3000` will load, but the camera reports it is unavailable (the app shows that message). Options for the next milestone:
-  - `next dev --experimental-https -H 0.0.0.0`: a self-signed certificate that the phone has to accept.
-  - A tunnel or a deployment. That needs an explicit team decision; nothing has been deployed.
-
-## Limitations
-- **Not proven:** nothing here shows recognition accuracy or real-device navigation.
-- **Recognition rules:** one frame is enough to change state. The kit's "two consistent frames" heuristic is still to be tuned on real footage.
-- **Untranslated text:** `approachDescription` and checkpoint labels are English-only in contract v1, so Spanish reorient text includes English fragments.
-- **Missing endpoints:** no help or manual-advance control yet. No upload or build endpoints; `startBuild` returns `PROVIDER_UNAVAILABLE`.
-- **Quality:** a quality view UI doesn't exist yet (the endpoint does).
-- **No accounts or auth:** anyone who can reach the server can edit routes.
-
-## Next live milestone
-- **Gemini:** checkpoint extraction from one real 45–90 s route video, and a live `Recognizer` registered in `src/server/core/instance.ts` (`recognizers.live`).
-- **Real-footage checks:** independent second-phone footage, an unrelated view, and wrong-facing evidence.
-- **Voice:** ElevenLabs `VoiceAdapter` plus `POST /api/speech`.
-- **Phone access:** an HTTPS origin for phones.
-- **Later:** Photon and Tiger Data, only after the core route works.
-
-Environment variable names are reserved but not read yet, apart from `BREADCRUMB_DATA_FILE`:
-- `GEMINI_API_KEY`
-- `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`
-- `ENABLE_VOICE`, `ENABLE_PHOTON`, `ENABLE_QUALITY_VIEW`
-- `PHOTON_API_KEY`, `PHOTON_WEBHOOK_SECRET`
-- `DATABASE_URL`
-
-Keep them in an ignored `.env.local`.
-
-## Stack
-Next.js 16.3.8 (App Router, Turbopack), React 19.3.0, zod 4.6.5, TypeScript 5.9.3. TypeScript is pinned to 5.x because Next's build-time type check uses the TypeScript JS API, which 7.x may not provide. The core check runs directly with Node's built-in TypeScript stripping, with no test framework.
+- 🧪 Hackathon build: one Node process with a local JSON store and local media. There are no accounts; anyone with the URL can edit routes.
+- 💵 Bounty payouts use **Nessie sandbox** money, and the sandbox does not update balances.
+- 📱 Real-phone navigation accuracy is still being tested on real routes.
