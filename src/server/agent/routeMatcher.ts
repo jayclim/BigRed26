@@ -27,12 +27,16 @@ export const matcherConfig = (): MatcherConfig => ({ apiKey: process.env.XAI_API
 export const clean = (value: unknown, max: number): string =>
   (typeof value === 'string' ? value : '').replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]+/gu, ' ').replace(/\s+/gu, ' ').trim().slice(0, max);
 
-const URLISH = /https?:|www\.|[\p{L}\p{N}-]+\.\p{L}{2,}|:\/\/|\/follow|\w@\w|\b[a-z][a-z0-9+.-]{1,30}:(?=\S)|\+?\d(?:[\s().-]*\d){6,}/iu;
+const URLISH = /https?:|www\.|[\p{L}\p{N}-]+\.\p{L}{2,}|:\/\/|\/follow|\w@\w|\b[a-z][a-z0-9+.-]{1,30}:(?=\S)|\+?\p{Nd}(?:[\s().\p{Pd}−]*\p{Nd}){6,}/iu;
+// Vanity numbers such as 1-800-FLOWERS. Capitals only, so 'Room 204 entrance' is not a link.
+const VANITY = /\p{Nd}{3}[\s.\p{Pd}\u2212]\p{Lu}{4,}/u;
 /** True when text could be read as a link: scheme, www, a bare domain such as evil.example/claim, x.com or bit.ly, an email, our own path, any scheme such as tel: or sms:, or a phone number (7+ digits).
  *  Messages auto-links schemes and phone numbers, so they count as links.
  *  Checked after Unicode folding, so full-width dots and zero-width characters do not hide a link. Errs toward true. */
-export const looksLikeLink = (text: string): boolean =>
-  URLISH.test(text.normalize('NFKC').replace(/[\u200b-\u200f\u2060\ufeff\u00ad]/gu, '').replace(/[\u3002\uff61]/gu, '.'));
+export const looksLikeLink = (text: string): boolean => {
+  const t = text.normalize('NFKC').replace(/[\u200b-\u200f\u2060\ufeff\u00ad]/gu, '').replace(/[\u3002\uff61]/gu, '.');
+  return URLISH.test(t) || VANITY.test(t);
+};
 
 /** Approved routes only, newest approved version, text bounded. A route that cannot be read is skipped. */
 export async function loadCatalog(core: Pick<CoreAdapter, 'listRoutes' | 'getRoute'>): Promise<Result<CatalogRoute[]>> {
