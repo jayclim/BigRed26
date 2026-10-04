@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Id, Result } from '@contracts/contracts.ts';
 import type { StoredMedia } from '@/server/media/media.ts';
 import { MEDIA_ACCEPT, MEDIA_LIMIT_TEXT, mediaInputError, mediaPickError } from '@/shared/mediaLimits.ts';
-import { COMPRESSION_UNSUPPORTED, compressVideo } from './compressVideo.ts';
+import { compressionErrorMessage, compressVideo } from './compressVideo.ts';
 
 type Message = { kind: 'error'; text: string } | { kind: 'ok'; media: StoredMedia };
 
@@ -94,8 +94,7 @@ export function VideoUpload({ onCreateDraft, onSelectionChange, extractionBusy, 
       }
     } catch (error) {
       if (generation !== generationRef.current || controller.signal.aborted) return;
-      setMessage({ kind: 'error', text: error instanceof Error && error.message.startsWith(COMPRESSION_UNSUPPORTED)
-        ? error.message : COMPRESSION_UNSUPPORTED });
+      setMessage({ kind: 'error', text: compressionErrorMessage(error) });
     } finally {
       if (generation === generationRef.current) {
         compressionRef.current = null;

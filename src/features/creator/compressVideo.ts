@@ -1,4 +1,38 @@
 export const COMPRESSION_UNSUPPORTED = 'This browser cannot compress this video. Try desktop Chrome or Edge, or trim the clip on your phone.';
+export const COMPRESSION_FAILED = 'Video compression could not finish. Trim or re-export the clip with standard video and audio settings. The original file is unchanged.';
+export const AUDIO_FORMAT_UNKNOWN = 'This clip has an audio format that cannot be identified for compression. Trim or re-export the clip with standard audio settings, such as AAC. The original file is unchanged.';
+export const AUDIO_DECODER_UNSUPPORTED = 'This browser cannot decode this clip\'s audio format for compression. Trim or re-export the clip with standard audio settings, such as AAC. The original file is unchanged.';
+
+export class VideoCompressionError extends Error {}
+
+export function compressionErrorMessage(error: unknown): string {
+  return error instanceof VideoCompressionError ? error.message : COMPRESSION_FAILED;
+}
+
+export type AudioTrackInfo<T> = {
+  track: T; id: number; codec: string | null; internalCodecId: string | number | Uint8Array | null;
+  isDefault: boolean; decodable: boolean;
+};
+
+export function audioTrackDiagnostics<T>(tracks: readonly AudioTrackInfo<T>[]): string {
+  return tracks.map(({ id, codec, internalCodecId, isDefault, decodable }) => {
+    const container = internalCodecId instanceof Uint8Array ? `binary ID (${internalCodecId.length} bytes)` : internalCodecId ?? 'unknown';
+    return `audio track ${id}: codec=${codec ?? 'unknown'}, container=${container}, default=${isDefault}, decodable=${decodable}`;
+  }).join('; ');
+}
+
+// A disabled secondary track is the only auxiliary audio we can identify from
+// MP4 metadata. Do not infer that an active unknown track contains no sound.
+export function auxiliaryAudioTracks<T>(tracks: readonly AudioTrackInfo<T>[], primaryAudio: T | null, isIsoBmff: boolean): T[] {
+  const primary = tracks.find(({ track }) => track === primaryAudio);
+  const unknown = tracks.filter(({ codec }) => codec === null);
+  if (unknown.length && (!isIsoBmff || !primary?.codec || !primary.decodable
+    || unknown.some(({ track, isDefault }) => track === primaryAudio || isDefault))) {
+    const message = primary?.codec && !primary.decodable ? AUDIO_DECODER_UNSUPPORTED : AUDIO_FORMAT_UNKNOWN;
+    throw new VideoCompressionError(`${message} Track details: ${audioTrackDiagnostics(tracks)}.`);
+  }
+  return unknown.map(({ track }) => track);
+}
 
 export function targetSize(width: number, height: number): { width: number; height: number } {
   if (!Number.isFinite(width) || !Number.isFinite(height) || width < 2 || height < 2) {
@@ -12,14 +46,18 @@ export function targetSize(width: number, height: number): { width: number; heig
 }
 
 export function requiredTrackLoss<T extends object>(
-  discardedTracks: readonly { track: T }[],
-  inputTracks: { primaryVideo: T | null; audioTracks: readonly T[] },
+  discardedTracks: readonly { track: T; reason: string }[],
+  inputTracks: { primaryVideo: T | null; audioTracks: readonly T[]; auxiliaryAudio?: readonly T[] },
 ): string | null {
   if (discardedTracks.some(({ track }) => track === inputTracks.primaryVideo)) {
     return 'The primary video track cannot be preserved.';
   }
-  if (discardedTracks.some(({ track }) => inputTracks.audioTracks.includes(track))) {
-    return 'An audio track cannot be preserved.';
+  const audioLoss = discardedTracks.find(({ track, reason }) => inputTracks.audioTracks.includes(track)
+    && !(reason === 'discarded_by_user' && inputTracks.auxiliaryAudio?.includes(track)));
+  if (audioLoss) {
+    if (audioLoss.reason === 'unknown_source_codec') return AUDIO_FORMAT_UNKNOWN;
+    if (audioLoss.reason === 'undecodable_source_codec') return AUDIO_DECODER_UNSUPPORTED;
+    return 'An audio track cannot be preserved during compression. Trim or re-export the clip with standard audio settings, such as AAC. The original file is unchanged.';
   }
   return null;
 }
@@ -29,7 +67,7 @@ export async function compressVideo(file: File, { onProgress, signal }: {
 } = {}): Promise<File> {
   const abortError = () => new DOMException('Video compression canceled.', 'AbortError');
   if (signal?.aborted) throw abortError();
-  if (typeof globalThis.VideoEncoder === 'undefined') throw new Error(COMPRESSION_UNSUPPORTED);
+  if (typeof globalThis.VideoEncoder === 'undefined') throw new VideoCompressionError(COMPRESSION_UNSUPPORTED);
   const mb = await import('mediabunny');
   if (signal?.aborted) throw abortError();
   const input = new mb.Input({ source: new mb.BlobSource(file), formats: mb.ALL_FORMATS });
@@ -44,6 +82,16 @@ export async function compressVideo(file: File, { onProgress, signal }: {
   try {
     const primaryVideo = await input.getPrimaryVideoTrack();
     const audioTracks = await input.getAudioTracks();
+    const primaryAudio = await input.getPrimaryAudioTrack();
+    const isIsoBmff = await input.getFormat() instanceof mb.IsobmffInputFormat;
+    const audioInfo = await Promise.all(audioTracks.map(async (track) => ({
+      track, id: track.id, codec: await track.getCodec(),
+      internalCodecId: await track.getInternalCodecId(),
+      isDefault: (await track.getDisposition()).default, decodable: await track.canDecode(),
+    })));
+    if (signal?.aborted) throw abortError();
+    const auxiliaryAudio = auxiliaryAudioTracks(audioInfo, primaryAudio, isIsoBmff);
+    if (auxiliaryAudio.length) console.info('Video compression: discarding disabled secondary audio.', audioTrackDiagnostics(audioInfo));
     if (!primaryVideo) throw new Error('No primary video track was found.');
     conversion = await mb.Conversion.init({
       input, output, showWarnings: false,
@@ -59,13 +107,14 @@ export async function compressVideo(file: File, { onProgress, signal }: {
           bitrate: mb.QUALITY_HIGH,
         };
       },
-      audio: { codec: 'aac', bitrate: mb.QUALITY_HIGH },
+      audio: (track) => auxiliaryAudio.includes(track)
+        ? { discard: true } : { codec: 'aac', bitrate: mb.QUALITY_HIGH },
     });
     if (signal?.aborted) { await conversion.cancel(); throw abortError(); }
-    const loss = requiredTrackLoss(conversion.discardedTracks, { primaryVideo, audioTracks });
+    const loss = requiredTrackLoss(conversion.discardedTracks, { primaryVideo, audioTracks, auxiliaryAudio });
     if (!conversion.isValid || loss) {
-      const reasons = conversion.discardedTracks.map(({ reason }) => reason).join(', ');
-      throw new Error(`${loss ?? 'The conversion is not supported.'}${reasons ? ` Unsupported tracks: ${reasons}.` : ''}`);
+      const reasons = conversion.discardedTracks.map(({ track, reason }) => `${track.type} track ${track.id}: ${reason}`).join('; ');
+      throw new VideoCompressionError(`${loss ?? COMPRESSION_FAILED}${reasons ? ` Track results: ${reasons}.` : ''}${audioInfo.length ? ` Track details: ${audioTrackDiagnostics(audioInfo)}.` : ''}`);
     }
     conversion.onProgress = (progress) => {
       if (!signal?.aborted) onProgress?.(progress);
@@ -78,7 +127,8 @@ export async function compressVideo(file: File, { onProgress, signal }: {
   } catch (error) {
     if (conversion && conversion.state !== 'done') await conversion.cancel().catch(() => {});
     if (signal?.aborted) throw abortError();
-    throw new Error(`${COMPRESSION_UNSUPPORTED}${error instanceof Error ? ` ${error.message}` : ''}`);
+    if (error instanceof VideoCompressionError) throw error;
+    throw new VideoCompressionError(COMPRESSION_FAILED);
   } finally {
     signal?.removeEventListener('abort', abort);
     input.dispose();
