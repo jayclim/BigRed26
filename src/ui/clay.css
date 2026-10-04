@@ -1,0 +1,78 @@
+/* Clay look: an optional skin over the same layout. Warm terracotta palette, soft puffy surfaces
+   (outer shadow plus inner highlight). Active only when <html data-look="clay">. */
+
+/* ---------- Creator (light clay) ---------- */
+html[data-look='clay'] .creator {
+  --ink: #2b211c; --muted: #6e5a4f; --muted-glow: #5e4b41;
+  --rule: #ead9cc; --rule-soft: #f0e3d8; --node-rule: #e2cdbf;
+  --paper: #fffaf6; --paper-2: #f7ece3;
+  --cyan-ink: #a84b28; --accent-soft: #fbe6da; --accent-ink: #7a3317;
+  --draft-bg: #fde9c8; --draft-ink: #7a4a00;
+  --primary: #a84b28; --primary-foreground: #ffffff; --ring: #a84b28;
+  --clay-out: 10px 12px 24px rgb(150 90 60 / .18), -8px -8px 18px rgb(255 255 255 / .9);
+  --clay-in: inset 3px 3px 6px rgb(255 255 255 / .75), inset -4px -4px 10px rgb(150 90 60 / .09);
+  --card-shadow: var(--clay-out), var(--clay-in);
+  background: #f4e9e0;
+}
+html[data-look='clay'] .creator .creator-glow::before {
+  background:
+    radial-gradient(40% 50% at 35% 55%, rgb(217 119 87 / .32), transparent 70%),
+    radial-gradient(35% 45% at 62% 50%, rgb(242 184 135 / .34), transparent 70%),
+    radial-gradient(30% 40% at 50% 70%, rgb(196 160 230 / .20), transparent 70%);
+}
+html[data-look='clay'] .creator :is(.media-upload, .route-preview, .creator-test-tools, .share) {
+  border: 0; border-radius: 32px; box-shadow: var(--card-shadow);
+}
+html[data-look='clay'] .creator .media-upload { background: var(--paper); }
+html[data-look='clay'] .creator .route-preview {
+  background: #3a2c25;
+  --night: #3a2c25; --night-2: #453429; --night-rule: #5e4a40; --todo: #5e4a40;
+  --on-night: #f8efe8; --on-night-muted: #d6c2b6; --todo-text: #c4ad9f; --cyan: #f0956b; --cyan-on: #3a1606;
+  box-shadow: 10px 12px 24px rgb(90 50 30 / .30), inset 3px 3px 6px rgb(255 230 210 / .08), inset -4px -4px 10px rgb(0 0 0 / .25);
+}
+html[data-look='clay'] .creator [data-slot='button'] {
+  border-color: transparent;
+  box-shadow: 4px 5px 10px rgb(150 90 60 / .20), -3px -3px 8px rgb(255 255 255 / .85), inset 1px 1px 2px rgb(255 255 255 / .45);
+}
+html[data-look='clay'] .creator [data-slot='button']:active { box-shadow: inset 3px 3px 6px rgb(150 90 60 / .22), inset -2px -2px 6px rgb(255 255 255 / .7); }
+html[data-look='clay'] .creator .step :is(textarea, select, input:not([type='checkbox']):not([type='file'])) {
+  background: var(--paper); border-color: var(--rule);
+  box-shadow: inset 3px 3px 6px rgb(150 90 60 / .10), inset -3px -3px 6px rgb(255 255 255 / .9);
+}
+html[data-look='clay'] .creator .trail .node {
+  border: 0; background: var(--paper);
+  box-shadow: 3px 4px 8px rgb(150 90 60 / .20), -2px -2px 6px rgb(255 255 255 / .9), inset 1px 1px 2px rgb(255 255 255 / .6);
+}
+html[data-look='clay'] .creator .trail .node.dest { background: var(--ink); color: #fffaf6; }
+html[data-look='clay'] .creator .route-summary > div { border: 0; background: var(--paper); box-shadow: 3px 4px 10px rgb(150 90 60 / .14), -3px -3px 8px rgb(255 255 255 / .9); }
+html[data-look='clay'] .creator .approve-bar { background: #f4e9e0; border-top-color: var(--rule); box-shadow: 0 -8px 20px rgb(150 90 60 / .10); }
+
+/* ---------- Guide (dark clay) ---------- */
+html[data-look='clay'] .guide-page {
+  --night: #2a1f1a; --night-2: #3a2c25; --surface-2: #453429; --night-rule: #55413a;
+  --todo: #5e4a40; --on-night: #f8efe8; --on-night-muted: #d6c2b6; --todo-text: #c4ad9f;
+  --cyan: #f0956b; --cyan-on: #3a1606; --cyan-soft: rgb(240 149 107 / .22);
+  --amber: #f5c46b; --green: #8fd68a; --green-on: #0f3310;
+  --clay-dark: 10px 12px 26px rgb(0 0 0 / .38), -6px -6px 16px rgb(255 220 200 / .05), inset 2px 2px 4px rgb(255 230 210 / .09), inset -4px -4px 10px rgb(0 0 0 / .28);
+  background: #2a1f1a;
+}
+html[data-look='clay'] .guide-page :is(.stage, .card, .route-map, .action-details) { border: 0; border-radius: 30px; box-shadow: var(--clay-dark); }
+html[data-look='clay'] .guide-page .card { background: #3a2c25; }
+html[data-look='clay'] .guide-page .stage { background: linear-gradient(160deg, #4a3a32 0%, #33261f 60%, #2a1f1a 100%); }
+html[data-look='clay'] .guide-page :is(.stage-label, .stage .cam-stop) { background: rgb(42 31 26 / .85); }
+html[data-look='clay'] .guide-page .route-map [data-s='current']:not([title]) { box-shadow: 0 0 0 6px rgb(240 149 107 / .25); }
+html[data-look='clay'] .guide-page .route-map [data-s='active'] { background: rgb(240 149 107 / .40); }
+html[data-look='clay'] .guide-page .state-glow[data-tone='go'] { background: radial-gradient(60% 70% at 30% 0%, rgb(240 149 107 / .34), transparent 70%), radial-gradient(50% 60% at 90% 20%, rgb(245 196 107 / .20), transparent 70%); }
+html[data-look='clay'] .guide-page .state-glow[data-tone='done'] { background: radial-gradient(60% 70% at 30% 0%, rgb(143 214 138 / .30), transparent 70%), radial-gradient(50% 60% at 90% 20%, rgb(240 149 107 / .16), transparent 70%); }
+html[data-look='clay'] .guide-page .ctl {
+  border-color: transparent; background: #3a2c25;
+  box-shadow: 4px 5px 10px rgb(0 0 0 / .35), -3px -3px 8px rgb(255 220 200 / .05), inset 1px 1px 2px rgb(255 230 210 / .10);
+}
+html[data-look='clay'] .guide-page .ctl:active { box-shadow: inset 3px 3px 6px rgb(0 0 0 / .35), inset -2px -2px 5px rgb(255 230 210 / .06); }
+html[data-look='clay'] .guide-page .mock-panel .scene { border-radius: 16px; }
+
+/* The creator's look toggle reads like the neighboring text link. */
+button.creator-nav { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+button.creator-nav[aria-pressed='true'] { font-weight: 700; }
+button.creator-nav, .creator-context .creator-nav { white-space: nowrap; }
+.creator-context { flex-wrap: wrap; }

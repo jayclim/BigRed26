@@ -47,7 +47,7 @@ export function RouteMap({ checkpoints, statuses, current, guiding, flow, reduce
   const active = flow && current >= 0 && current < n - 1 ? layout.edges[current] : null;
 
   return (
-    <section className={styles.mapCard} aria-labelledby="route-map-h">
+    <section className={`route-map ${styles.mapCard}`} aria-labelledby="route-map-h">
       <div className={styles.cardHead}>
         <h2 id="route-map-h">{heading}</h2>
         <span>{current < 0 ? note ?? t.notStarted : t.of(current + 1, n)}</span>

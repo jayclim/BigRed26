@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Checkpoint, CoreAdapter, Direction, Id, Result, Route } from '@contracts/contracts.ts';
 import { DIRECTION_TEXT } from '@/ui/Arrow.tsx';
 import { Brand } from '@/ui/Brand.tsx';
+import { LookToggle } from '@/ui/LookToggle.tsx';
 import actionFixture from '@contracts/fixture.actions.v1.json';
 import { RouteMap } from '@/features/guide/RouteMap.tsx';
 import { ActionEditor } from './ActionEditor.tsx';
@@ -180,13 +181,13 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
   return (
     <main className={`creator ${styles.page}`}>
       {/* Static decorative glow; no motion. */}
-      <div className={styles.glow} aria-hidden="true" />
+      <div className={`creator-glow ${styles.glow}`} aria-hidden="true" />
       <div className={styles.inner}>
       <header>
         <div className="creator-top">
           <Brand />
           <div className={styles.topRight}>
-            <div className="creator-context"><Link href="/routes" className="creator-nav">All routes</Link><span>Teach a route</span>{fixtureRoute && <Badge variant="outline" className="mock-badge">Mock route</Badge>}</div>
+            <div className="creator-context"><Link href="/routes" className="creator-nav">All routes</Link><LookToggle className="creator-nav" /><span>Teach a route</span>{fixtureRoute && <Badge variant="outline" className="mock-badge">Mock route</Badge>}</div>
             <AnimatePresence initial={false} mode="wait">
               <motion.span key={`${route.status}-${saved}`} {...noticeMotion}>
                 <Badge variant={approved ? 'success' : 'secondary'} className="status" data-status={route.status}>
@@ -312,7 +313,7 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
 
         </section>
         <aside className="creator-sidebar" aria-label="Route preview and testing tools">
-          <div className={styles.preview}>
+          <div className={`route-preview ${styles.preview}`}>
             <RouteMap checkpoints={route.checkpoints} current={-1} guiding={false} flow={false} reduced={!!reduceMotion}
               statuses={route.checkpoints.map(() => (approved ? 'approved' : 'draft'))}
               locale="en" name={route.name} title="Route preview" note="Not to scale" />

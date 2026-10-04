@@ -5,6 +5,7 @@ import type { CoreAdapter, Guidance, Id, Locale, Mode, Route, Session, VoiceAdap
 import { mockScenes } from '@/shared/mockScenes.ts';
 import actionFixture from '@contracts/fixture.actions.v1.json';
 import { Brand } from '@/ui/Brand.tsx';
+import { LookToggle } from '@/ui/LookToggle.tsx';
 import { Camera } from './Camera.tsx';
 import { uploadFrame as realUploadFrame } from '@/client/frameUpload.ts';
 import { liveGuideEnabled } from '@/client/liveProbe.ts';
@@ -274,6 +275,7 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
               </button>
               <button className="ctl" disabled={pending} onClick={switchLocale} lang={locale === 'en' ? 'es' : 'en'}>{t.other}</button>
               {liveAvailable && <a className="ctl" href={`/follow/${encodeURIComponent(routeId)}?mode=stream`}>{t.liveVoice}</a>}
+              <LookToggle className="ctl" />
               <a className="ctl" href={exitHref}>{t.exit}</a>
             </div>
           </div>
@@ -286,7 +288,7 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
                 <p className="stage-label"><span className={`${styles.badge} ${styles[mode]}`}>{t[mode]}</span> {t.notes[mode]}</p>
               </Camera>
 
-              <div className={g.glow} data-tone={tone}>
+              <div className={`state-glow ${g.glow}`} data-tone={tone}>
                 <div className="card" data-state={state} data-sequence={guidance?.sequence ?? 0} data-arrow={hasArrow ? 'shown' : 'none'} aria-live="polite" aria-busy={pending}>
                   {arrived ? (
                     <div className={g.done} aria-hidden="true">
