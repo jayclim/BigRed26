@@ -104,12 +104,17 @@ Test scripts use their own temporary data and the `BREADCRUMB_TEST_FIXTURES=1` f
 | `src/features/` | Landing, creator and guide UI |
 | `src/server/` | Core navigation rules, Gemini, live tokens, agent, Nessie, bounties |
 | `contracts/` | Shared types and zod schemas |
-| `knowledge/`, `stages/` | Design, architecture and verified build notes |
+| `knowledge/` | [Architecture](knowledge/architecture.md), [design system](knowledge/design-system.md), [product brief](knowledge/product.md) and [reuse and licenses](knowledge/reuse.md) |
+| `archive/` | Build-process notes from the hackathon (multi-agent workflow, stage receipts, verification evidence); [not needed to run the app](archive/README.md) |
 
-Contributors and agents: start with [AGENTS.md](AGENTS.md), then [PROGRESS.md](PROGRESS.md).
+Contributors and coding agents: see [AGENTS.md](AGENTS.md).
 
 ## ⚠️ Limits
 
 - 🧪 Hackathon build: one Node process with a local JSON store and local media. There are no accounts; anyone with the URL can edit routes.
 - 💵 Bounty payouts use **Nessie sandbox** money, and the sandbox does not update balances.
 - 📱 Real-phone navigation accuracy is still being tested on real routes.
+
+## 📄 License
+
+[MIT](LICENSE) © 2026 The Breadcrumb team (BigRed 2026).

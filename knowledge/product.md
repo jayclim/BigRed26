@@ -26,7 +26,7 @@ The first real demonstration must include a named-door step and a floor transiti
 
 **Decision:** one mobile-first TypeScript web app. A phone opens a URL; desktop supports creation and demonstration. Claude selected Next.js/React for the baseline. Native iOS/Android packaging and spatially anchored AR are outside this MVP.
 
-**Decision:** Claude Code leads engineering and integration. Human roles live in the team handoff. Beautiful, usable mobile design is a requirement, including errors and uncertainty.
+**Decision:** Claude Code leads engineering and integration. Human roles are recorded in the [team handoff](../archive/docs/TEAM-HANDOFF.md). Beautiful, usable mobile design is a requirement, including errors and uncertainty.
 
 ## MVP boundaries
 

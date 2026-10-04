@@ -1,36 +1,47 @@
 # Breadcrumb
 
-Breadcrumb is a mobile-first web app for teaching and following a short indoor route. Claude Code is the lead developer and integration owner. Human teammate ownership is in [docs/TEAM-HANDOFF.md](docs/TEAM-HANDOFF.md).
+Breadcrumb is a mobile-first web app for teaching and following a short indoor route. See [README.md](README.md) for the product, setup and checks. This file is the short guide for contributors and coding agents.
 
-## Start here
+## Stack
 
-Use the local [operator skill](skills/operator/SKILL.md) and [orchestrator skill](skills/orchestrator/SKILL.md) for all work in this multi-agent build. Read [CONTEXT.md](CONTEXT.md), then the selected stage's `CONTEXT.md`. Read only its listed inputs. Use [PROGRESS.md](PROGRESS.md) for current work state; planning documents and file existence do not establish completed features.
+Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, zod. Node 22.18 or newer (tested on 24). One Node process with a local JSON store (`.data/`) and local media. There are no accounts.
 
-## The project brain
+## Commands
 
-| Location | Purpose |
+| Command | Purpose |
 |---|---|
-| `knowledge/` | Maintained product, architecture, design and source references |
-| `stages/01-scope/` | Turn evidence and requests into bounded scope |
-| `stages/02-design/` | Design the experience against that scope |
-| `stages/03-build/` | Implement the chosen slice |
-| `stages/04-verify/` | Record observed checks and remaining gaps |
-| `stages/*/output/` | Editable working artifacts; evidence, not standing instructions |
-| `skills/` | Canonical local skills, exposed through `.agents/skills/` and `.claude/skills/` |
-| `breadcrumb-kit/` | Original unpacked handoff; preserve unchanged |
-| `src/`, `contracts/` | Application and executable API contracts |
+| `npm run dev` | Dev server on http://localhost:3000 |
+| `npm run check` | Unit checks, no network |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run build` | Production build. Run it before any script that starts a server |
+| `node scripts/smoke-api.mjs` | HTTP walk-through on an isolated server |
+| `npm run photon-agent` | iMessage agent process (needs provider keys) |
 
-Follow [knowledge/working-method.md](knowledge/working-method.md) when reconciling knowledge. Fix recurring mistakes in their maintained source, then recheck affected outputs. Keep evidence status, dates and provenance with claims. Never turn a proposed integration into an implemented fact.
+Every provider (Gemini, xAI Grok, Photon, Nessie, ElevenLabs) is off until its flag and key are set. See the table in the README. Keep keys in an ignored `.env.local`. Never commit secrets. Test scripts use temporary data and never touch `.data/`.
 
-## Boundaries
+## Where things live
 
-Follow [knowledge/work-protocol.md](knowledge/work-protocol.md) for roles, model routing, PRs, knowledge updates and usage limits. Use the operator and orchestrator skills. Claude Code is the lead and sole merger; implementation uses the official Codex plugin under the protocol's routing rules. Respect file ownership and concurrent edits. Shared contracts and root configuration belong to the integration owner. The user authorized local agent work and commits, pushes and PR integration in `jayclim/BigRed26`. Deployment, paid overages and messages to other people remain outside the current authorization.
+| Path | Contents |
+|---|---|
+| `src/app/` | Pages and API routes |
+| `src/features/` | Landing, creator and guide UI |
+| `src/server/` | Navigation rules, Gemini, live tokens, agent, Nessie, bounties |
+| `src/client/`, `src/shared/`, `src/ui/` | Browser helpers, shared limits, design primitives |
+| `contracts/` | Shared types and zod schemas. Changes need care: the server and client both depend on them |
+| `scripts/` | Smoke tests, browser checks and the iMessage agent |
+| `knowledge/` | [architecture](knowledge/architecture.md), [design system](knowledge/design-system.md), [product](knowledge/product.md), [reuse and licenses](knowledge/reuse.md) |
+| `archive/` | Build-process history from the hackathon. Not needed to run the app |
 
-Reuse existing code, libraries, design assets and prebuilt tools before implementing new machinery. Use [knowledge/reuse.md](knowledge/reuse.md) for the concrete inventory and adoption rule.
+## Rules to keep
 
-Navigation invariants live in [knowledge/architecture.md](knowledge/architecture.md); design requirements live in [knowledge/design-system.md](knowledge/design-system.md). Read them for their respective tasks. Never store secrets in the knowledge base.
+- Guidance comes only from an approved, immutable route version. Read the navigation invariants in [knowledge/architecture.md](knowledge/architecture.md#navigation-invariants) before you change guidance logic. Never show a direction before the approach is confirmed. Never fall back silently to fake data.
+- Follow the visual language and interaction rules in [knowledge/design-system.md](knowledge/design-system.md).
+- Before you add a package or asset, check [knowledge/reuse.md](knowledge/reuse.md). Record the license of anything new.
+- Add checks next to the code (`*.check.ts`) and add them to `npm run check`.
+- Update the matching `knowledge/` file when a decision or invariant changes.
 
-Every change includes a knowledge update with actual checks, limitations and the next action. Workers update their named stage output and affected references. The merger reconciles `PROGRESS.md` before merge. Use Simplified Technical English. Change enduring references only when the underlying decision or evidence changes.
+For the history of how the app was built (stage notes, verification receipts, agent workflow), see [archive/README.md](archive/README.md).
+
 
 <!-- BEGIN:nextjs-agent-rules -->
 
