@@ -134,7 +134,7 @@ export function VideoUpload({ onCreateDraft, onSelectionChange, extractionBusy, 
   return (
     <section className="step media-upload" aria-labelledby="media-heading">
       <h2 id="media-heading">Teach from a video</h2>
-      <p className="meta">Pick a route video to preview and store on this computer. Create a draft after storing the video, then check every step.</p>
+      <p className="meta">Pick a route video to preview and store on this computer. Create a draft after storing the video, then review the steps.</p>
       <label htmlFor="route-video">
         Route video
         <Input ref={inputRef} id="route-video" type="file" accept={MEDIA_ACCEPT}
