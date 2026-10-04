@@ -2,7 +2,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import type { CoreAdapter, Guidance, Id, Locale, Mode, Route, Session, VoiceAdapter } from '@contracts/contracts.ts';
-import { Arrow, DIRECTION_TEXT } from '@/ui/Arrow.tsx';
 import { mockScenes } from '@/shared/mockScenes.ts';
 import actionFixture from '@contracts/fixture.actions.v1.json';
 import { Brand } from '@/ui/Brand.tsx';
@@ -11,6 +10,10 @@ import { uploadFrame as realUploadFrame } from '@/client/frameUpload.ts';
 import { liveGuideEnabled } from '@/client/liveProbe.ts';
 import { checkView } from './checkView.ts';
 import styles from './mode.module.css';
+import g from './guide.module.css';
+import { MotionCue } from './MotionCue.tsx';
+import { RouteMap } from './RouteMap.tsx';
+import { floorLabel, floorOf } from './routeMap.ts';
 import { reconcileGuide } from './reconcileGuide.ts';
 import { createVoicePlayer, type VoiceStatus } from './voicePlayback.ts';
 
@@ -38,7 +41,7 @@ const T = {
     speech: 'Browser speech', generatedVoice: 'Generated voice',
     voiceUnavailable: 'Voice unavailable. Captions still shown.',
     target: 'Target', side: 'Side', left: 'left', right: 'right', floor: 'Floor', completion: 'Completion',
-    manual: "I've done this (manual)", active: 'Active action — check your view before continuing',
+    manual: "I've done this (manual)", active: 'Active action — check your view before continuing', thisStep: 'This step',
   },
   es: {
     mock: 'Simulado', replay: 'Repetición', live: 'En vivo',
@@ -52,7 +55,7 @@ const T = {
     speech: 'Voz del navegador', generatedVoice: 'Voz generada',
     voiceUnavailable: 'Voz no disponible. Los subtítulos siguen visibles.',
     target: 'Referencia', side: 'Lado', left: 'izquierdo', right: 'derecho', floor: 'Piso', completion: 'Finalización',
-    manual: 'Ya lo hice (manual)', active: 'Acción activa — comprueba la vista antes de continuar',
+    manual: 'Ya lo hice (manual)', active: 'Acción activa — comprueba la vista antes de continuar', thisStep: 'Este paso',
   },
 } as const;
 
@@ -245,6 +248,11 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
   const active = cps.find((c) => c.id === confirmedId);
   const action = !arrived ? active?.action : undefined;
   const hasArrow = guidance?.state === 'guiding' && guidance.direction !== null;
+  const cueDirection = guidance?.state === 'guiding' ? guidance.direction : null; // non-null exactly when hasArrow
+  const tone = !guidance ? 'idle' : guidance.state === 'guiding' ? 'go' : guidance.state === 'arrived' ? 'done' : 'wait';
+  const floor = guidance?.state === 'guiding' && active && !active.isDestination ? floorOf(active) : null;
+  const floorText = floor && floorLabel(floor, locale);
+  const statuses = cps.map((c, i) => i === doneIdx && action ? 'next' : i <= doneIdx ? (arrived && c.isDestination ? 'arrived' : 'done') : i === doneIdx + 1 ? 'next' : 'todo');
   const stateText = !guidance ? t.startLabel : guidance.state === 'guiding' ? t.guiding(cpLabel(guidance.checkpointId)) : t[guidance.state];
   const instructionText = guidance?.state === 'guiding' && action ? active!.instruction[locale] : guidance ? guidance.text : t.start(route.startDescription);
   const textMotion = {
@@ -255,11 +263,11 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
   };
 
   return (
-    <main className="guide-page" lang={locale}>
+    <main className={`guide-page ${g.page}`} lang={locale}>
       <div className="guide-layout">
         <section className="guide" aria-label={route.name}>
           <div className="guide-top">
-            <Brand compact />
+            <div className={g.brandRow}><Brand compact /><span className={g.routeName}>{route.name}</span></div>
             <div className="controls">
               <button className="ctl" aria-pressed={sound} aria-describedby="speech-source" onClick={() => setSound((s) => !s)}>
                 {sound ? t.soundOn : t.soundOff}
@@ -271,46 +279,47 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
           </div>
           <p id="speech-source" className={styles.speechSource}>{voice ? t.generatedVoice : t.speech}</p>
           {voiceStatus && <p className={styles.voiceStatus} role="status">{t.voiceUnavailable}</p>}
-          <Camera locale={locale} busy={pending} onCheck={mode === 'live' ? checkCamera : undefined}>
-            <p className="stage-label"><span className={`${styles.badge} ${styles[mode]}`}>{t[mode]}</span> {t.notes[mode]}</p>
-          </Camera>
 
-          <div>
-            <ol className="crumbs" aria-label={route.name}>
-              {cps.map((c, i) => {
-                const s = i === doneIdx && action ? 'next' : i <= doneIdx ? (arrived && c.isDestination ? 'arrived' : 'done') : i === doneIdx + 1 ? 'next' : 'todo';
-                return (
-                  <li key={c.id}>
-                    <span className="dot" data-s={s} title={c.label} />
-                    <span className="sr-only">{c.label}: {s}</span>
-                    {i < cps.length - 1 && <span className="link" data-s={i < doneIdx ? 'done' : 'todo'} aria-hidden="true" />}
-                  </li>
-                );
-              })}
-            </ol>
-            <div className="crumb-labels" aria-hidden="true">
-              <span>{cps[0].label}</span><span>{route.destinationLabel}</span>
+          <div className={g.cols}>
+            <div className={g.col}>
+              <Camera locale={locale} busy={pending} onCheck={mode === 'live' ? checkCamera : undefined}>
+                <p className="stage-label"><span className={`${styles.badge} ${styles[mode]}`}>{t[mode]}</span> {t.notes[mode]}</p>
+              </Camera>
+
+              <div className={g.glow} data-tone={tone}>
+                <div className="card" data-state={state} data-sequence={guidance?.sequence ?? 0} data-arrow={hasArrow ? 'shown' : 'none'} aria-live="polite" aria-busy={pending}>
+                  {arrived ? (
+                    <div className={g.done} aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                    </div>
+                  ) : (
+                    <MotionCue direction={cueDirection} tone={tone === 'done' ? 'go' : tone} locale={locale} reduced={!!reduceMotion} />
+                  )}
+                  <div className={g.body}>
+                    <div className={g.stateRow}>
+                      <AnimatePresence initial={false} mode="wait">
+                        <motion.p key={stateText} className="state" {...textMotion}>{stateText}</motion.p>
+                      </AnimatePresence>
+                      {floorText && <span className={g.floorTag}><span aria-hidden="true">{floorText.glyph}</span> {floorText.text}</span>}
+                    </div>
+                    <AnimatePresence initial={false} mode="wait">
+                      <motion.p key={`${state}:${instructionText}`} className="say" {...textMotion}>{instructionText}</motion.p>
+                    </AnimatePresence>
+                    {guidance && guidance.evidence.length > 0 && (
+                      <p className="evidence">{t.evidence}: {guidance.evidence.join('; ')}</p>
+                    )}
+                    {arrived && (
+                      <button className="ctl" style={{ marginTop: '.6rem' }} onClick={() => window.location.reload()}>{t.again}</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {problem && <p className="banner" role="alert">{problem}</p>}
             </div>
-          </div>
 
-          <div className="card" data-state={state} data-sequence={guidance?.sequence ?? 0} data-arrow={hasArrow ? 'shown' : 'none'} aria-live="polite" aria-busy={pending}>
-            {guidance?.state === 'guiding' && guidance.direction ? (
-              <Arrow direction={guidance.direction} label={DIRECTION_TEXT[locale][guidance.direction]} />
-            ) : arrived ? (
-              <div className="sign-empty" style={{ borderStyle: 'solid', borderColor: 'var(--green)', color: 'var(--green)' }} aria-hidden="true">✓</div>
-            ) : guidance && guidance.state !== 'guiding' ? (
-              <div className="sign-empty" aria-hidden="true">?</div>
-            ) : !guidance ? (
-              <div className="sign-empty" style={{ borderColor: 'var(--night-rule)', color: 'var(--on-night-muted)' }} aria-hidden="true">·</div>
-            ) : null}
-            <div>
-              <AnimatePresence initial={false} mode="wait">
-                <motion.p key={stateText} className="state" {...textMotion}>{stateText}</motion.p>
-              </AnimatePresence>
-              <AnimatePresence initial={false} mode="wait">
-                <motion.p key={`${state}:${instructionText}`} className="say" {...textMotion}>{instructionText}</motion.p>
-              </AnimatePresence>
-              {action && <div className="action-details">
+            <div className={g.col}>
+              {action && <section className={`action-details ${g.stepCard}`} aria-labelledby="this-step-h" aria-live="polite">
+                <h2 id="this-step-h">{t.thisStep}</h2>
                 {guidance?.state !== 'guiding' && <p><strong>{t.active}: {active!.label}</strong></p>}
                 <p><strong>{t.target}:</strong> {action.target}</p>
                 {action.side && <p><strong>{t.side}:</strong> {t[action.side]}</p>}
@@ -318,16 +327,11 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
                 {action.steps.length > 0 && <ol>{action.steps.map((step, i) => <li key={i}>{step[locale]}</li>)}</ol>}
                 <p><strong>{t.completion}:</strong> {action.completion[locale]}</p>
                 <button className="ctl" disabled={pending} onClick={completeAction}>{t.manual}</button>
-              </div>}
-              {guidance && guidance.evidence.length > 0 && (
-                <p className="evidence">{t.evidence}: {guidance.evidence.join('; ')}</p>
-              )}
-              {arrived && (
-                <button className="ctl" style={{ marginTop: '.6rem' }} onClick={() => window.location.reload()}>{t.again}</button>
-              )}
+              </section>}
+              <RouteMap checkpoints={cps} statuses={statuses} current={doneIdx} guiding={guidance?.state === 'guiding'}
+                flow={hasArrow} reduced={!!reduceMotion} locale={locale} name={route.name} />
             </div>
           </div>
-          {problem && <p className="banner" role="alert">{problem}</p>}
         </section>
 
         {mode === 'mock' && <MockPanel route={route} disabled={pending} lastSeq={lastSeq.current} onPick={observe} />}
