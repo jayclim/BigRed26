@@ -21,6 +21,7 @@ Prefer adapting useful assets over redrawing them. Record the source/license of 
 | Typography | System sans stack in `src/ui/theme.css`; no font download or redistributed font asset |
 | Browser review | Available host browser tools first; existing screenshot script for repeatable local captures |
 | Knowledge/skills | Plain Markdown and shared local skills; no memory service dependency |
+| Browser video compression | Mediabunny 1.61.1, MPL-2.0; lazy-loaded with `await import('mediabunny')` when compression starts; installed types reviewed 2026-10-03. [Official source](https://github.com/Vanilagy/mediabunny). Teach uses its conversion API and browser codecs. |
 
 No icon pack, dashboard template or illustration library is adopted. Four shadcn source primitives are adapted for the creator interface. Add only primitives that the current screen uses. The original handoff fixture is already reused for deterministic mock observations.
 

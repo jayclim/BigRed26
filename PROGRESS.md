@@ -49,3 +49,7 @@ Follow camera, Part B PR 1, 2026-10-03: [PR #11](https://github.com/jayclim/BigR
 Host checks ran on `2993ab9` merged with main `5c4f790`. The Webpack build, core check and typecheck passed. The frame-upload check passed 2 groups. The follow-camera check passed at 390x844 and 1280x800. It covered keyboard use, denial recovery, stop, and six synthetic uploads and recognitions. Tests use isolated fixture data. There is no live provider or physical navigation evidence.
 
 Follow-ups for the integration owner: add an own-property check and a regression to core `sessionOf` (`src/server/core/core.ts:170`). Add the PR11 checks to `npm run check` and CI. Next: rebase PR12 on integrated main and review its exact head.
+
+## Video compression (draft PR, 2026-10-04)
+
+Branch `feat/video-compression`: lazy-loaded mediabunny 1.61.1 compresses a selected video in Teach before upload. typecheck, check and build passed on the host. Not done: independent review, browser 390/1280 states, real codec conversion. See [stage output](stages/03-build/output/video-compression.md).
