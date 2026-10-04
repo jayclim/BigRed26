@@ -13,3 +13,12 @@ export const httpVoice: VoiceAdapter = {
       message: `Unexpected ${res.status} response from /api/speech.`, retryable: res.status >= 500 } }; }
   },
 };
+
+/** True only when the server reports generated voice enabled. Any failure means false, so the guide keeps browser speech. */
+export async function serverVoiceEnabled(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/speech', { cache: 'no-store' });
+    const json = await res.json() as Result<{ enabled: boolean }>;
+    return res.ok && json.ok && json.value.enabled === true;
+  } catch { return false; }
+}

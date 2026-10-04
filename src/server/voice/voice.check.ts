@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { cacheKey, DEFAULT_VOICE, elevenLabsProvider, loadAudio, MAX_AUDIO_BYTES, MAX_BODY_BYTES, MODEL, speechBody, synthesize } from './voice.ts';
+import { cacheKey, DEFAULT_VOICE, elevenLabsProvider, loadAudio, MAX_AUDIO_BYTES, MAX_BODY_BYTES, MODEL, speechBody, synthesize, voiceEnabled } from './voice.ts';
 import type { Provider } from './voice.ts';
 import type { Result } from '../../../contracts/contracts.ts';
-import { httpVoice } from '../../client/voice.ts';
-import { POST } from '../../app/api/speech/route.ts';
+import { httpVoice, serverVoiceEnabled } from '../../client/voice.ts';
+import { GET as PROBE, POST } from '../../app/api/speech/route.ts';
 import { GET } from '../../app/api/speech/[id]/route.ts';
 
 const directory = await mkdtemp(join(tmpdir(), 'voice-check-'));
@@ -106,6 +106,17 @@ try {
       if (status === 200) { assert.equal(response.headers.get('content-type'), audio.contentType); assert.deepEqual(Buffer.from(await response.arrayBuffer()), audio.bytes); }
       else assert.equal((await response.json()).ok, false); cases++;
     }
+    // Capability probe: boolean only, follows the env flags, never throws on the client.
+    for (const [flag, key, enabled] of [['0', 'k', false], ['1', undefined, false], ['1', 'k', true]] as const) {
+      process.env.BREADCRUMB_ELEVENLABS_VOICE = flag;
+      if (key) process.env.ELEVENLABS_API_KEY = key; else delete process.env.ELEVENLABS_API_KEY;
+      const response = await PROBE(); const probe = await response.json();
+      assert.deepEqual([response.status, probe, voiceEnabled()], [200, { ok: true, value: { enabled } }, enabled]); cases++;
+    }
+    globalThis.fetch = async () => Response.json({ ok: true, value: { enabled: true } }); assert.equal(await serverVoiceEnabled(), true);
+    globalThis.fetch = async () => Response.json({ ok: true, value: { enabled: false } }); assert.equal(await serverVoiceEnabled(), false);
+    globalThis.fetch = async () => new Response('<html>', { status: 404 }); assert.equal(await serverVoiceEnabled(), false);
+    globalThis.fetch = async () => { throw new Error('offline'); }; assert.equal(await serverVoiceEnabled(), false); cases++;
     let cancelled = false;
     const streamed = new Request('http://local/api/speech', { method: 'POST', duplex: 'half',
       body: new ReadableStream({ pull(controller) { controller.enqueue(new Uint8Array(MAX_BODY_BYTES + 1)); }, cancel() { cancelled = true; } }),

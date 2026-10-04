@@ -94,9 +94,11 @@ export function createCore(opts: {
   const now = opts.now ?? Date.now;
   const save = () => opts.persist?.(state);
 
-  const latest = (routeId: Id) => state.routes[routeId]?.at(-1);
+  // Own-property lookup: inherited names such as __proto__ or constructor are not routes.
+  const versionsOf = (routeId: Id) => (Object.hasOwn(state.routes, routeId) ? state.routes[routeId] : undefined);
+  const latest = (routeId: Id) => versionsOf(routeId)?.at(-1);
   const getVersion = (routeId: Id, version?: number) =>
-    version === undefined ? latest(routeId) : state.routes[routeId]?.[version - 1];
+    version === undefined ? latest(routeId) : versionsOf(routeId)?.[version - 1];
 
   function record(s: Session, kind: EventKind, checkpointId: Id | null, sequence: number | null, latencyMs: number | null) {
     state.events.push({
@@ -167,7 +169,8 @@ export function createCore(opts: {
   }
 
   function sessionOf(sessionId: Id): Result<SessionRecord> {
-    const r = state.sessions[sessionId];
+    // Own-property lookup: inherited names such as __proto__ or constructor are not sessions.
+    const r = Object.hasOwn(state.sessions, sessionId) ? state.sessions[sessionId] : undefined;
     return r ? ok(r) : fail('NOT_FOUND', 'Session not found.');
   }
 
@@ -190,6 +193,7 @@ export function createCore(opts: {
       const parsed = RouteSchema.safeParse(input);
       if (!parsed.success) return fail('INVALID_INPUT', parsed.error.issues[0]?.message ?? 'Invalid route.');
       const route = { ...parsed.data, status: 'draft' as const };
+      if (route.id in Object.prototype) return fail('INVALID_INPUT', 'This route id is reserved.');
       const versions = (state.routes[route.id] ??= []);
       const head = versions.at(-1);
       if (!head) {
@@ -225,8 +229,8 @@ export function createCore(opts: {
     async startSession(routeId, locale, mode) {
       if (!opts.recognizers[mode])
         return fail('PROVIDER_UNAVAILABLE', `${mode} input is not available in this build. Choose mock explicitly; there is no automatic fallback.`);
-      const route = state.routes[routeId]?.findLast((r) => r.status === 'approved');
-      if (!route) return fail(state.routes[routeId] ? 'NOT_APPROVED' : 'NOT_FOUND', 'Approve the route before starting a guide session.');
+      const route = versionsOf(routeId)?.findLast((r) => r.status === 'approved');
+      if (!route) return fail(versionsOf(routeId) ? 'NOT_APPROVED' : 'NOT_FOUND', 'Approve the route before starting a guide session.');
       const session: Session = {
         id: randomUUID(), routeId, routeVersion: route.version, locale, mode,
         lastConfirmedCheckpointId: null, lastAcceptedSequence: 0,

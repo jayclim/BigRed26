@@ -19,6 +19,7 @@ export const fail = (code: ErrorCode, message: string, retryable = false): Resul
 export interface VoiceConfig { enabled?: string; apiKey?: string; voiceId?: string }
 export const voiceConfig = (): VoiceConfig => ({ enabled: process.env.BREADCRUMB_ELEVENLABS_VOICE,
   apiKey: process.env.ELEVENLABS_API_KEY, voiceId: process.env.ELEVENLABS_VOICE_ID });
+export const voiceEnabled = (config = voiceConfig()): boolean => config.enabled === '1' && !!config.apiKey;
 export const voiceDirectory = () => resolve(/* turbopackIgnore: true */ process.env.BREADCRUMB_VOICE_DIR ??
   join(dirname(resolve(/* turbopackIgnore: true */ process.env.BREADCRUMB_DATA_FILE ?? '.data/store.json')), 'voice'));
 export const cacheKey = (text: string, locale: Locale, providerVoiceId: string) =>
