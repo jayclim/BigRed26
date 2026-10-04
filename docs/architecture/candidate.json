@@ -1,0 +1,605 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Breadcrumb App Architecture",
+    "output": "docs/architecture/breadcrumb.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/jayclim/BigRed26.git",
+      "provider": "github",
+      "revision": "9b65316e3c51d95fa7d5e8b2fd182ac032a2e619"
+    }
+  },
+  "components": [
+    {
+      "id": "creator",
+      "type": "external",
+      "label": "Route creator",
+      "sublabel": "teaches a route",
+      "pos": [
+        40,
+        200
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sources": [
+        {
+          "path": "src/app/page.tsx",
+          "line": 1,
+          "end_line": 10,
+          "label": "creator entry page"
+        }
+      ]
+    },
+    {
+      "id": "creatorUi",
+      "type": "frontend",
+      "label": "Creator screen",
+      "sublabel": "upload, review, approve",
+      "pos": [
+        260,
+        200
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sources": [
+        {
+          "path": "src/features/creator/VideoUpload.tsx",
+          "line": 62,
+          "label": "uploads video"
+        },
+        {
+          "path": "src/features/creator/CreatorScreen.tsx",
+          "line": 59,
+          "end_line": 70,
+          "label": "calls extract"
+        }
+      ]
+    },
+    {
+      "id": "mediaApi",
+      "type": "backend",
+      "label": "Media routes",
+      "sublabel": "/api/media + /extract",
+      "pos": [
+        540,
+        200
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sources": [
+        {
+          "path": "src/app/api/media/route.ts",
+          "line": 1,
+          "end_line": 14,
+          "label": "upload route"
+        },
+        {
+          "path": "src/app/api/media/[id]/extract/route.ts",
+          "line": 1,
+          "end_line": 11,
+          "label": "extract route"
+        }
+      ]
+    },
+    {
+      "id": "mediaStore",
+      "type": "database",
+      "label": "Local media files",
+      "sublabel": ".data/media video+JSON",
+      "pos": [
+        650,
+        20
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sources": [
+        {
+          "path": "src/server/media/media.ts",
+          "line": 63,
+          "end_line": 65,
+          "label": "media directory"
+        },
+        {
+          "path": "src/server/media/media.ts",
+          "line": 84,
+          "end_line": 89,
+          "label": "temp write, rename"
+        }
+      ]
+    },
+    {
+      "id": "extraction",
+      "type": "backend",
+      "label": "Draft extraction",
+      "sublabel": "extractDraft, validated",
+      "pos": [
+        760,
+        200
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "tag": "needs flag + key",
+      "sources": [
+        {
+          "path": "src/server/extraction/extraction.ts",
+          "line": 125,
+          "end_line": 145,
+          "label": "reads stored media"
+        },
+        {
+          "path": "src/server/extraction/extraction.ts",
+          "line": 176,
+          "end_line": 206,
+          "label": "validate, saveDraft"
+        }
+      ]
+    },
+    {
+      "id": "gemini",
+      "type": "cloud",
+      "label": "Gemini API",
+      "sublabel": "no live call verified",
+      "pos": [
+        1000,
+        200
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "tag": "UNVERIFIED",
+      "sources": [
+        {
+          "path": "src/server/extraction/extraction.ts",
+          "line": 46,
+          "end_line": 51,
+          "label": "enable flag, key"
+        },
+        {
+          "path": "src/server/extraction/extraction.ts",
+          "line": 104,
+          "end_line": 108,
+          "label": "REST fetch"
+        }
+      ]
+    },
+    {
+      "id": "routesApi",
+      "type": "backend",
+      "label": "Route + session APIs",
+      "sublabel": "validate, Result<T>",
+      "pos": [
+        540,
+        384
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sources": [
+        {
+          "path": "src/app/api/routes/[id]/route.ts",
+          "line": 4,
+          "end_line": 8,
+          "label": "route read"
+        },
+        {
+          "path": "src/app/api/sessions/[id]/frame/route.ts",
+          "line": 5,
+          "end_line": 10,
+          "label": "frame match"
+        },
+        {
+          "path": "src/server/core/http.ts",
+          "line": 9,
+          "end_line": 19,
+          "label": "respond, body"
+        }
+      ]
+    },
+    {
+      "id": "core",
+      "type": "backend",
+      "label": "Core logic",
+      "sublabel": "versions, guidance rules",
+      "pos": [
+        760,
+        370
+      ],
+      "size": [
+        150,
+        90
+      ],
+      "tag": "approval gate",
+      "sources": [
+        {
+          "path": "src/server/core/core.ts",
+          "line": 211,
+          "end_line": 224,
+          "label": "approve gate"
+        },
+        {
+          "path": "src/server/core/core.ts",
+          "line": 260,
+          "end_line": 303,
+          "label": "matchFrame commit"
+        }
+      ]
+    },
+    {
+      "id": "store",
+      "type": "database",
+      "label": "Local JSON store",
+      "sublabel": ".data/store.json",
+      "pos": [
+        760,
+        560
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "tag": "1 process",
+      "sources": [
+        {
+          "path": "src/server/core/store.ts",
+          "line": 38,
+          "end_line": 43,
+          "label": "atomic persist"
+        },
+        {
+          "path": "src/server/core/instance.ts",
+          "line": 11,
+          "label": "data file path"
+        }
+      ]
+    },
+    {
+      "id": "mockRec",
+      "type": "backend",
+      "label": "Mock recognizer",
+      "sublabel": "synthetic scenes only",
+      "pos": [
+        1000,
+        350
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "tag": "MOCK",
+      "sources": [
+        {
+          "path": "src/shared/mockScenes.ts",
+          "line": 19,
+          "end_line": 33,
+          "label": "mock observations"
+        },
+        {
+          "path": "src/server/core/actionFixture.ts",
+          "line": 6,
+          "end_line": 11,
+          "label": "fixture recognizer"
+        }
+      ]
+    },
+    {
+      "id": "liveRec",
+      "type": "cloud",
+      "label": "Live recognizer",
+      "sublabel": "PLANNED, not built",
+      "pos": [
+        1000,
+        450
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "tag": "PLANNED",
+      "sources": [
+        {
+          "path": "src/server/core/instance.ts",
+          "line": 32,
+          "end_line": 34,
+          "label": "only mock registered"
+        },
+        {
+          "path": "src/server/core/core.ts",
+          "line": 225,
+          "end_line": 228,
+          "label": "live start fails"
+        }
+      ]
+    },
+    {
+      "id": "visitor",
+      "type": "external",
+      "label": "Visitor",
+      "sublabel": "follows a route",
+      "pos": [
+        40,
+        560
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sources": [
+        {
+          "path": "src/app/follow/[routeId]/page.tsx",
+          "line": 1,
+          "end_line": 9,
+          "label": "follow page"
+        }
+      ]
+    },
+    {
+      "id": "guideUi",
+      "type": "frontend",
+      "label": "Guide screen",
+      "sublabel": "camera, browser speech",
+      "pos": [
+        260,
+        560
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sources": [
+        {
+          "path": "src/features/guide/Camera.tsx",
+          "line": 47,
+          "end_line": 53,
+          "label": "getUserMedia"
+        },
+        {
+          "path": "src/features/guide/GuideScreen.tsx",
+          "line": 106,
+          "end_line": 117,
+          "label": "speechSynthesis"
+        },
+        {
+          "path": "src/features/guide/checkView.ts",
+          "line": 6,
+          "end_line": 22,
+          "label": "upload, then match"
+        }
+      ]
+    },
+    {
+      "id": "framesApi",
+      "type": "backend",
+      "label": "Frames route",
+      "sublabel": "POST /api/frames",
+      "pos": [
+        260,
+        720
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "sources": [
+        {
+          "path": "src/app/api/frames/route.ts",
+          "line": 1,
+          "end_line": 7,
+          "label": "frames route"
+        },
+        {
+          "path": "src/server/frames/http.ts",
+          "line": 6,
+          "end_line": 12,
+          "label": "checks session, JPEG"
+        }
+      ]
+    },
+    {
+      "id": "frameStore",
+      "type": "database",
+      "label": "Local frame files",
+      "sublabel": ".data/frames JPEG",
+      "pos": [
+        540,
+        720
+      ],
+      "size": [
+        150,
+        62
+      ],
+      "tag": "no reader yet",
+      "sources": [
+        {
+          "path": "src/server/frames/frames.ts",
+          "line": 8,
+          "end_line": 8,
+          "label": "frames directory"
+        },
+        {
+          "path": "src/server/frames/frames.ts",
+          "line": 13,
+          "end_line": 31,
+          "label": "retain, write"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Browser (mobile web)",
+      "wraps": [
+        "creatorUi",
+        "guideUi"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "creator-to-ui",
+      "from": "creator",
+      "to": "creatorUi",
+      "label": "uploads",
+      "variant": "emphasis"
+    },
+    {
+      "id": "ui-to-media",
+      "from": "creatorUi",
+      "to": "mediaApi",
+      "label": "upload, extract",
+      "variant": "emphasis"
+    },
+    {
+      "id": "media-write",
+      "from": "mediaApi",
+      "to": "mediaStore",
+      "label": "write",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "media-to-extraction",
+      "from": "mediaApi",
+      "to": "extraction",
+      "label": "extract"
+    },
+    {
+      "id": "extraction-read",
+      "from": "extraction",
+      "to": "mediaStore",
+      "label": "read",
+      "fromSide": "top",
+      "toSide": "right"
+    },
+    {
+      "id": "extraction-to-gemini",
+      "from": "extraction",
+      "to": "gemini",
+      "label": "gated REST",
+      "variant": "dashed"
+    },
+    {
+      "id": "extraction-to-core",
+      "from": "extraction",
+      "to": "core",
+      "label": "saveDraft",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "creator-ui-to-routes",
+      "from": "creatorUi",
+      "to": "routesApi",
+      "label": "draft, approve",
+      "fromSide": "bottom",
+      "toSide": "left"
+    },
+    {
+      "id": "routes-to-core",
+      "from": "routesApi",
+      "to": "core",
+      "label": "core calls"
+    },
+    {
+      "id": "core-to-store",
+      "from": "core",
+      "to": "store",
+      "label": "persist",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "core-to-mock",
+      "from": "core",
+      "to": "mockRec",
+      "label": "observe",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "core-to-live",
+      "from": "core",
+      "to": "liveRec",
+      "label": "planned",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "visitor-to-ui",
+      "from": "visitor",
+      "to": "guideUi",
+      "label": "camera",
+      "variant": "emphasis"
+    },
+    {
+      "id": "guide-to-routes",
+      "from": "guideUi",
+      "to": "routesApi",
+      "label": "session, match",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "bottom"
+    },
+    {
+      "id": "guide-to-frames",
+      "from": "guideUi",
+      "to": "framesApi",
+      "label": "JPEG frame",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "frames-write",
+      "from": "framesApi",
+      "to": "frameStore",
+      "label": "write JPEG"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Implemented, mock-verified",
+      "items": [
+        "Teach: upload, draft edit, review, approve",
+        "Approved route versions are immutable",
+        "Follow: mock scenes drive guidance, browser speech",
+        "Camera frames upload as JPEG in live mode"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Planned or unverified",
+      "items": [
+        "Gemini extraction: coded, no live call made",
+        "Live and replay recognizers: not built",
+        "ElevenLabs voice: planned, no code",
+        "Physical phone and real route footage"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Known limits",
+      "items": [
+        "Live mode start fails: no live recognizer",
+        "Saved frames have no reader yet",
+        "Local files suit one Node process only",
+        "startBuild reports extraction not built"
+      ]
+    }
+  ]
+}

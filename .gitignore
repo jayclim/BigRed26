@@ -11,3 +11,4 @@ next-env.d.ts
 .cursor/cli.json
 .DS_Store
 /media/
+/.archify/
