@@ -41,7 +41,7 @@ Observed installed versions and package licenses, 2026-10-03. npm installed thes
 
 CVA is Apache-2.0, not MIT. Its installed package states this license. All other named additions are MIT.
 
-Copied source: [shadcn new-york Button](https://ui.shadcn.com/r/styles/new-york/button.json), and [new-york-v4 Input, Textarea and Badge](https://github.com/shadcn-ui/ui/tree/main/apps/v4/registry/new-york-v4/ui), inspected 2026-10-03. These sources are MIT. The notice is retained in `src/ui/shadcn-LICENSE.txt`. Local changes map tokens, trim unused variants, use the scoped Radix Slot, use small radii and retain 44px controls. Native select and checkbox behavior is reused. Tailwind preflight is omitted to preserve the guide interface.
+Copied source: [shadcn new-york Button](https://ui.shadcn.com/r/styles/new-york/button.json), and [new-york-v4 Input, Textarea and Badge](https://github.com/shadcn-ui/ui/tree/main/apps/v4/registry/new-york-v4/ui), inspected 2026-10-03. These sources are MIT. The notice is retained in `src/ui/shadcn-LICENSE.txt`. Local changes map tokens, trim unused variants, use the scoped Radix Slot, use small radii and retain 44px controls. Native select behavior is reused. Tailwind preflight is omitted to preserve the guide interface.
 
 ## Archify skill (vendored, not run automatically)
 
