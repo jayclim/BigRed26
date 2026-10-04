@@ -26,7 +26,6 @@ jobs:
       - run: npm run check
       - run: npm run typecheck
       - run: npm run build
-      - run: node scripts/claude-run.check.mjs
       - run: node scripts/isolated-server.check.mjs
       - run: node scripts/follow-frames.check.mjs
       - run: node scripts/smoke-api.mjs

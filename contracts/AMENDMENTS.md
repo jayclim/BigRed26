@@ -1,6 +1,6 @@
 # Contract amendments (v1 → v1.1)
 
-`contracts/contracts.ts` is a copy of `breadcrumb-kit/contracts.ts` (kit left unchanged). Amendments:
+`contracts/contracts.ts` is a copy of `archive/breadcrumb-kit/contracts.ts` (the original hackathon kit, left unchanged). Amendments:
 
 1. **`approveRoute(routeId, version, reviewedCheckpointIds)`**. HTTP: `POST /api/routes/:id/approve` with body `{version, reviewedCheckpointIds}`.
    Why: integration.txt requires that "all instructions [are] reviewed", but v1 had no way to express review. The server rejects approval (`409 NOT_APPROVED`) unless every checkpoint id is listed. Since 2026-10-04 (user decision) the creator sends all ids from one explicit Approve click on the saved version; the server check now only guards against a request that omits a checkpoint. Each step needs both instructions and a direction or a valid action (amendment 3). The single destination must be last and has no direction or action.

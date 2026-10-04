@@ -6,11 +6,5 @@ Describe the problem and the resulting behavior.
 
 - Commands and observed results:
 - UI evidence, if changed:
-- Knowledge update:
+- Knowledge update (`knowledge/`), if a decision changed:
 - Remaining limits:
-
-## Ownership
-
-- Implementer:
-- Reviewer:
-- Merger:

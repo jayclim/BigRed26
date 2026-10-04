@@ -8,7 +8,7 @@ import { createBusyState, forward, loadBridgeConfig } from '../src/server/agent/
 const loaded = loadBridgeConfig();
 if (!loaded.ok) {
   console.error(`[photon-agent] Missing environment variables: ${loaded.missing.join(', ')}.`);
-  console.error('[photon-agent] See stages/03-build/output/photon-grok-agent.md, section "Setup steps".');
+  console.error('[photon-agent] See archive/stages/03-build/output/photon-grok-agent.md, section "Setup steps".');
   process.exit(1);
 }
 const { config } = loaded;

@@ -1,6 +1,6 @@
 # Breadcrumb design system
 
-Status: user decision and implemented foundation, 2026-10-03. This supersedes the Atkinson and large-card direction. Guide redesign, user and integration-owner decision, 2026-10-03: the guide uses a dark immersive screen, pill controls, 16–26px cards, a static state glow, motion-cue dots instead of the arrow and a schematic route map (`stages/02-design/output/guide-redesign.md`). Creator redesign, integration-owner decision, 2026-10-03: the creator uses a light page with a static multi-color glow, pill controls, 12px fields, 20–24px cards, a numbered checkpoint rail and a dark route preview (`stages/02-design/output/creator-redesign.md`).
+Status: user decision and implemented foundation, 2026-10-03. This supersedes the Atkinson and large-card direction. Guide redesign, user and integration-owner decision, 2026-10-03: the guide uses a dark immersive screen, pill controls, 16–26px cards, a static state glow, motion-cue dots instead of the arrow and a schematic route map (`archive/stages/02-design/output/guide-redesign.md`). Creator redesign, integration-owner decision, 2026-10-03: the creator uses a light page with a static multi-color glow, pill controls, 12px fields, 20–24px cards, a numbered checkpoint rail and a dark route preview (`archive/stages/02-design/output/creator-redesign.md`).
 
 ## Visual language
 
@@ -25,7 +25,7 @@ Computed contrast checks: primary on white 6.15:1; secondary text on white 5.52:
 
 ## Landing and site navigation
 
-Status: implemented 2026-10-04 (`stages/03-build/output/landing.md`). Every page except the live guides uses `PageShell` (the creator's light page, static glow and column) and `SiteHeader`: the Breadcrumb mark links to `/`, then Routes (`/#routes`), Bounties (`/#bounties`), Teach (`/teach`) and the Clay toggle, all 44px pills. The two live guides keep their dark top bar; its mark links to `/` as a plain anchor so the camera and microphone are released.
+Status: implemented 2026-10-04 (`archive/stages/03-build/output/landing.md`). Every page except the live guides uses `PageShell` (the creator's light page, static glow and column) and `SiteHeader`: the Breadcrumb mark links to `/`, then Routes (`/#routes`), Bounties (`/#bounties`), Teach (`/teach`) and the Clay toggle, all 44px pills. The two live guides keep their dark top bar; its mark links to `/` as a plain anchor so the camera and microphone are released.
 
 `/` is one scroll: hero (centered on desktop, left-aligned on phones; value line, "Find a route" dark primary, "Teach a route" outline, a text link to post a bounty, one static dark picture of the guide look that carries no data), "How it works" as the creator's numbered rail (horizontal on desktop, vertical on phones), the iMessage line, "Routes" (approved cards, drafts as compact rows), "Open bounties" with a dark "Post a bounty" button that opens the post form in a native modal dialog. The dialog cannot be closed while the one-time poster secret is on screen. Route and bounty cards use the creator's 20px white cards and soft shadow; the Clay look restyles them through the same tokens. Reduced motion removes the hero entrance.
 

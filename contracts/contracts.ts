@@ -1,4 +1,4 @@
-/* Breadcrumb contract v1 (copied from breadcrumb-kit/contracts.ts).
+/* Breadcrumb contract v1 (copied from archive/breadcrumb-kit/contracts.ts).
  * Integration owner approves every change. All IDs are opaque strings.
  * Runtime schemas (contracts/schemas.ts) validate this contract at API boundaries.
  * Amendments v1.1 are marked "AMENDMENT" and listed in contracts/AMENDMENTS.md.

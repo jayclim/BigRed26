@@ -1,5 +1,5 @@
 // Gemini Live "live guide": builds the system instruction from an approved route and mints a short-lived
-// ephemeral token. The long-lived GEMINI_API_KEY stays on the server. Sources: see stages/03-build/output/gemini-live.md.
+// ephemeral token. The long-lived GEMINI_API_KEY stays on the server. Sources: see archive/stages/03-build/output/gemini-live.md.
 import { z } from 'zod';
 import type { CoreAdapter, ErrorCode, Result, Route } from '../../../contracts/contracts.ts';
 import { LocaleSchema } from '../../../contracts/schemas.ts';
