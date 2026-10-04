@@ -18,7 +18,7 @@ Teach a short indoor route once with a walk-through video. Anyone can then follo
 ![Gemini](https://img.shields.io/badge/Gemini_Live-8e75b2?style=flat-square&logo=googlegemini&logoColor=white)
 ![Grok](https://img.shields.io/badge/xAI_Grok-111111?style=flat-square&logo=x&logoColor=white)
 ![iMessage](https://img.shields.io/badge/Photon_iMessage-34c759?style=flat-square&logo=imessage&logoColor=white)
-![Capital One](https://img.shields.io/badge/Capital_One_Nessie-d03027?style=flat-square&logo=capitalone&logoColor=white)
+![Capital One](https://img.shields.io/badge/Capital_One_Nessie-d03027?style=flat-square)
 ![ElevenLabs](https://img.shields.io/badge/ElevenLabs-000000?style=flat-square&logo=elevenlabs&logoColor=white)
 ![Cloudflare](https://img.shields.io/badge/Cloudflare_Tunnel-f38020?style=flat-square&logo=cloudflare&logoColor=white)
 ![Cursor](https://img.shields.io/badge/Built_with_Cursor_%26_Claude-000000?style=flat-square&logo=cursor&logoColor=white)
@@ -38,8 +38,6 @@ Teach a short indoor route once with a walk-through video. Anyone can then follo
 
 <p align="center">
   <img src="docs/screenshots/08-landing-mobile.png" alt="Landing on a phone" width="220">
-  &nbsp;
-  <img src="docs/screenshots/03-voice-guide-mobile.png" alt="Live voice guide on a phone" width="220">
   &nbsp;
   <img src="docs/screenshots/09-teach-new-mobile.png" alt="Teach a new route" width="220">
 </p>
@@ -76,21 +74,23 @@ Each provider is off until its flag and key are set. Without them, the matching 
 |---|---|
 | 🎥 Video → draft | `BREADCRUMB_GEMINI_EXTRACTION=1`, `GEMINI_API_KEY` |
 | 🗣️ Live voice guide | `BREADCRUMB_GEMINI_LIVE=1`, `GEMINI_API_KEY` |
-| 📷 Camera check view | `BREADCRUMB_GEMINI_RECOGNITION=1`, `GEMINI_API_KEY` |
+| 📷 Camera check view (`/follow/<id>?mode=live`) | `BREADCRUMB_GEMINI_RECOGNITION=1`, `GEMINI_API_KEY` |
 | 💬 iMessage agent | `BREADCRUMB_AGENT=1`, `XAI_API_KEY`, `BREADCRUMB_AGENT_SECRET`, `BREADCRUMB_PUBLIC_URL`, `SPECTRUM_PROJECT_ID`, `SPECTRUM_PROJECT_SECRET` → run `npm run photon-agent` |
-| 💸 Bounties | `BREADCRUMB_BOUNTIES=1`, `NESSIE_API_KEY`, `NESSIE_FUNDING_ACCOUNT_ID`, `NESSIE_PAYOUT_MODE=ledger` |
-| 🔊 ElevenLabs voice (camera view) | `BREADCRUMB_ELEVENLABS_VOICE=1`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID` |
+| 💸 Bounties | `BREADCRUMB_BOUNTIES=1`, `NESSIE_API_KEY`, `NESSIE_FUNDING_ACCOUNT_ID`; optional `NESSIE_PAYOUT_MODE` (`auto` default, `transfer`, `ledger`) |
+| 🔊 ElevenLabs voice (camera view) | `BREADCRUMB_ELEVENLABS_VOICE=1`, `ELEVENLABS_API_KEY`; optional `ELEVENLABS_VOICE_ID` |
 
 Keep keys in an ignored `.env.local`; never commit them. Phones need **HTTPS** for the camera and microphone; use a tunnel such as Cloudflare Tunnel or ngrok.
 
 ## 🧪 Checks
 
+Scripts that start a server need `npm run build` first.
+
 | Command | Purpose |
 |---|---|
 | `npm run check` | Unit checks for core rules, media, extraction, live guide, agent, Nessie and bounties (no network) |
 | `npm run typecheck` | `tsc --noEmit` |
-| `node scripts/smoke-api.mjs` | HTTP walk-through on an isolated server (build first) |
-| `node scripts/follow-camera.check.mjs` | Headless Chrome guide checks at 390 and 1280 px |
+| `node scripts/smoke-api.mjs` | HTTP walk-through on an isolated server |
+| `node scripts/follow-camera.check.mjs` | Headless Chrome guide checks at 390 and 1280 px (macOS Chrome path) |
 | `node scripts/screenshots.mjs` | Regenerates `docs/screenshots/` |
 
 Test scripts use their own temporary data and the `BREADCRUMB_TEST_FIXTURES=1` flag. They never touch your `.data/`.
@@ -99,7 +99,7 @@ Test scripts use their own temporary data and the `BREADCRUMB_TEST_FIXTURES=1` f
 
 | Path | What lives there |
 |---|---|
-| `src/app/` | Pages (`/`, `/teach`, `/follow/[id]`, `/bounties`) and API routes |
+| `src/app/` | Pages (`/`, `/teach`, `/follow/[routeId]`, `/bounties`, `/routes` → `/#routes`) and API routes |
 | `src/features/` | Landing, creator and guide UI |
 | `src/server/` | Core navigation rules, Gemini, live tokens, agent, Nessie, bounties |
 | `contracts/` | Shared types and zod schemas |
