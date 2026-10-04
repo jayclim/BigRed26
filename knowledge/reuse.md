@@ -22,6 +22,8 @@ Prefer adapting useful assets over redrawing them. Record the source/license of 
 | Browser review | Available host browser tools first; existing screenshot script for repeatable local captures |
 | Knowledge/skills | Plain Markdown and shared local skills; no memory service dependency |
 | Browser video compression | Mediabunny 1.61.1, MPL-2.0; lazy-loaded with `await import('mediabunny')` when compression starts; installed types reviewed 2026-10-03. [Official source](https://github.com/Vanilagy/mediabunny). Teach uses its conversion API and browser codecs. |
+| iMessage agent (Photon Spectrum) | `@spectrum-ts/core` and `@spectrum-ts/imessage` 12.10.1, both MIT (npm registry, 2026-10-04); lean pair chosen over the `spectrum-ts` bundle to skip the Slack, Telegram and WhatsApp providers. [Official source](https://github.com/photon-hq/spectrum-ts), [docs](https://photon.codes/docs/spectrum-ts/getting-started). Used only by `scripts/photon-agent.mjs`, a separate long-lived Node process; the Next.js app never imports it. Transitive: `@photon-ai/advanced-imessage` 2.2.0 (MIT), gRPC and OpenTelemetry. `npm audit` reports 13 moderate findings in the OpenTelemetry chain pulled by Spectrum; not fixed, process is local and not user-facing. |
+| Route choice from text (xAI Grok) | Plain `fetch` to `https://api.x.ai/v1/responses` with a strict JSON schema; no SDK added. [Docs](https://docs.x.ai/docs/guides/structured-outputs). |
 
 No icon pack, dashboard template or illustration library is adopted. Four shadcn source primitives are adapted for the creator interface. Add only primitives that the current screen uses. The original handoff fixture is already reused for deterministic mock observations.
 
