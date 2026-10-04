@@ -25,6 +25,7 @@ export const httpCore: CoreAdapter = {
   startBuild: (videoId, name) => call('POST', '/api/routes/build', { videoId, name }),
   getBuild: (jobId) => call('GET', `/api/builds/${e(jobId)}`),
   getRoute: (id, version) => call('GET', `/api/routes/${e(id)}${version ? `?version=${version}` : ''}`),
+  listRoutes: () => call('GET', '/api/routes'),
   saveDraft: (route) => call('PUT', `/api/routes/${e(route.id)}/draft`, route),
   approveRoute: (id, version, reviewedCheckpointIds) => call('POST', `/api/routes/${e(id)}/approve`, { version, reviewedCheckpointIds }),
   startSession: (routeId, locale, mode) => call('POST', '/api/sessions', { routeId, locale, mode }),

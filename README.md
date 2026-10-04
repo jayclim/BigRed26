@@ -29,7 +29,7 @@ Both scripts give their server its own `BREADCRUMB_DATA_FILE` inside a fresh `mk
 
 ## What works
 
-1. **Creator** (`/`): the route opens as **draft v1**. Edit the English and Spanish instruction and the direction for each step, tick "I checked this step" for every checkpoint, then **Approve**. Editing a step unticks it. The server rejects approval unless every checkpoint is listed as reviewed.
+1. **Creator** (`/`): the route opens as **draft v1**. Edit the English and Spanish instruction and the direction for each step, then click **Approve version N**. The click sends every checkpoint id as reviewed; the server still rejects approval unless every checkpoint is listed. **All routes** (`/routes`) lists every route with Edit (`/?route=<id>`) and, once approved, copyable Follow and Live voice guide links.
 2. **Share:** after approval the page shows `http://localhost:3000/follow/demo-route`. "Edit as version 2" creates a new draft. Version 1 stays immutable, and running sessions keep their version.
 3. **Guide** (`/follow/demo-route`): a dark camera view. A **Mock** label and "Camera not analyzed" sit on the camera area. The mock panel says the building is fictional.
    - **Camera:** start/stop preview using `getUserMedia` with the rear camera preferred. Handles permission denied (with recovery steps and a retry), no camera or insecure context, and other errors. The camera area always shows "Mock" and "Camera not analyzed".

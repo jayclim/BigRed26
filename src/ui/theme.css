@@ -176,8 +176,6 @@
   .action-editor > [data-slot='button'] { justify-self: start; }
   .action-edit-steps [data-slot='button'] { font-size: var(--type-xs); }
 }
-.step .review { display: flex; gap: var(--space-2); align-items: center; font-weight: 500; min-height: 44px; cursor: pointer; }
-.step .review input { width: 18px; height: 18px; margin: 0; accent-color: var(--cyan-ink); flex: none; }
 .dir-tag { color: var(--muted); font-size: var(--type-xs); font-weight: 400; background: var(--paper-2); padding: .25rem .5rem; border-radius: var(--radius-sm); }
 .approve-bar { position: sticky; bottom: 0; z-index: 2; background: var(--paper); border-top: 1px solid var(--rule); padding: var(--space-4) 0 max(var(--space-4), env(safe-area-inset-bottom)); display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; box-shadow: var(--shadow-bar); font-size: var(--type-sm); }
 .approve-bar > .notice { flex-basis: 100%; }
@@ -308,10 +306,6 @@
   from { opacity: 0; }
   to { opacity: 1; }
 }
-@keyframes breadcrumb-review-pop {
-  0%, 100% { transform: scale(1); }
-  45% { transform: scale(1.08); }
-}
 
 /* CSS runs once per mount. Trail delays are 32ms apart and capped at 160ms. */
 .creator header { animation: breadcrumb-rise var(--motion-entrance) var(--motion-ease-out) backwards; }
@@ -325,20 +319,15 @@
 .guide > .card { animation: breadcrumb-fade calc(var(--motion-entrance) - 80ms) var(--motion-ease-out) 80ms backwards; }
 .card { transition: border-top-color var(--motion-slow) var(--motion-ease-out); }
 
-:is([data-slot='button'], .ctl, .scene, .step .review) {
+:is([data-slot='button'], .ctl, .scene) {
   transition: transform var(--motion-fast) var(--motion-ease-out),
     background-color var(--ease), border-color var(--ease), color var(--ease), box-shadow var(--ease);
 }
-.step .review { border-radius: var(--radius-sm); }
 @media (hover: hover) {
-  :is([data-slot='button'], .ctl, .scene):not(:disabled):not([aria-disabled='true']):hover,
-  .step .review:not(:has(input:disabled)):hover { transform: translateY(-1px); }
-  .step .review:not(:has(input:disabled)):hover { background-color: var(--accent-soft); }
+  :is([data-slot='button'], .ctl, .scene):not(:disabled):not([aria-disabled='true']):hover { transform: translateY(-1px); }
 }
-:is([data-slot='button'], .ctl, .scene):not(:disabled):not([aria-disabled='true']):active,
-.step .review:not(:has(input:disabled)):active { transform: scale(.97); }
+:is([data-slot='button'], .ctl, .scene):not(:disabled):not([aria-disabled='true']):active { transform: scale(.97); }
 :is([data-slot='button'], .ctl, .scene):focus-visible,
-.step .review:has(input:focus-visible) { box-shadow: 0 0 0 3px var(--ring-soft); }
 
 .creator :is(input:not([type='checkbox']), textarea, select) {
   transition: border-color var(--ease), box-shadow var(--ease), background-color var(--ease);
@@ -352,8 +341,6 @@
 }
 
 .trail .node { transition: background-color var(--motion-slow) var(--motion-ease-out), border-color var(--ease), color var(--ease); }
-/* A review action pops once. Loading an already approved route does not pop. */
-.trail > li[data-reviewed='true']:has(.review) .node { animation: breadcrumb-review-pop var(--motion-slow) var(--motion-ease-out); }
 .approve-bar { transition: box-shadow var(--motion-slow) var(--motion-ease-out); }
 .approve-bar:focus-within { box-shadow: 0 -4px 16px rgb(16 27 34 / .08); }
 @media (hover: hover) {
@@ -362,5 +349,19 @@
 
 @media (prefers-reduced-motion: reduce) {
   /* The earlier global rule disables CSS animation/transition; also skip press/lift. */
-  :is([data-slot='button'], .ctl, .scene, .step .review) { transform: none !important; }
+  :is([data-slot='button'], .ctl, .scene) { transform: none !important; }
 }
+
+/* Route dashboard and creator navigation */
+.creator-nav { display: inline-flex; align-items: center; min-height: 44px; font-weight: 500; color: var(--cyan-ink); text-decoration: underline; text-underline-offset: 3px; }
+.route-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); }
+.route-card { min-width: 0; display: grid; gap: var(--space-3); align-content: start; background: var(--paper-2); border: 1px solid var(--rule); border-radius: var(--radius-md); padding: var(--space-6); }
+.route-card h2 { margin: 0; font-size: var(--type-lg); font-weight: 600; overflow-wrap: anywhere; }
+.route-card .meta { overflow-wrap: anywhere; }
+.route-card .row { gap: var(--space-2); }
+.route-card .route-status { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.route-links { margin: 0; display: grid; gap: var(--space-2); }
+.route-links dt { font-size: var(--type-xs); color: var(--muted); }
+.route-links dd { margin: 0; }
+.route-links code { display: block; font-family: var(--font-code); font-size: var(--type-xs); overflow-wrap: anywhere; background: var(--paper); padding: var(--space-2); border: 1px solid var(--rule); border-radius: var(--radius-sm); margin-bottom: var(--space-2); }
+@media (max-width: 480px) { .route-card { padding: var(--space-4); } }

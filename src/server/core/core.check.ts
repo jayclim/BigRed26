@@ -37,6 +37,22 @@ assert.equal(must(await core.approveRoute(draft.id, 1, ids)).status, 'approved')
 assert.equal(errCode(await core.saveDraft({ ...draft, name: 'edited' })), 'STALE_VERSION');
 assert.equal(errCode(await core.startSession(draft.id, 'en', 'live')), 'PROVIDER_UNAVAILABLE'); // no silent fallback
 
+// Route list: one summary per route, built from the latest version; approved version only once approved.
+{
+  const listCore = createCore({ recognizers: {} });
+  assert.deepEqual(must(await listCore.listRoutes()), []);
+  must(await listCore.saveDraft(draft));
+  const summary = (v: number, status: 'draft' | 'approved', approvedVersion: number | null) => ({
+    id: draft.id, name: draft.name, latestVersion: v, latestStatus: status, approvedVersion,
+    checkpointCount: draft.checkpoints.length, destinationLabel: draft.destinationLabel,
+  });
+  assert.deepEqual(must(await listCore.listRoutes()), [summary(1, 'draft', null)]);
+  must(await listCore.approveRoute(draft.id, 1, ids));
+  assert.deepEqual(must(await listCore.listRoutes()), [summary(1, 'approved', 1)]);
+  must(await listCore.saveDraft({ ...draft, version: 2 }));
+  assert.deepEqual(must(await listCore.listRoutes()), [summary(2, 'draft', 1)]);
+}
+
 const session = must(await core.startSession(draft.id, 'en', 'mock'));
 const frame = async (mediaId: string, sequence?: number) => {
   const seq = sequence ?? must(await core.reserveFrameSequence(session.id)).sequence;
