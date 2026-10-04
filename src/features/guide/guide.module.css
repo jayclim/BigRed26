@@ -25,7 +25,9 @@
 .cols, .col { display: grid; gap: 14px; min-width: 0; align-content: start; }
 
 /* Pill controls */
-.page :global(.guide-top .controls) { gap: 6px; }
+.page :global(.guide-top) { flex-wrap: wrap; }
+.page :global(.guide-top .controls) { gap: 6px; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
+.page :global(.guide-top .ctl) { white-space: nowrap; }
 .page :global(.ctl) { border-radius: 999px; background: var(--night-2); border-color: var(--night-rule); padding: .55rem 1rem; font-weight: 600; font-size: 14px; }
 .page :global(.ctl:not(:disabled):hover) { background: var(--surface-2); }
 .page :global(.ctl[aria-pressed='true']) { border-color: var(--cyan); color: var(--cyan); }

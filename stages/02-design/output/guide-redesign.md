@@ -28,7 +28,7 @@ Layout:
 - Desktop (>=900px): route name beside the brand. Left column: camera (16:9) and instruction card. Right column (380px): map card, then "This step". The mock panel spans the full width below and stays secondary.
 - Action details (target, side, floor, steps, completion, active-action note and the manual button) moved from inside `.card` to a "This step" section. The `action-details` class is kept on it.
 
-## Proposed amendments to knowledge/design-system.md (integration owner)
+## Amendments to knowledge/design-system.md (approved by the integration owner, 2026-10-03)
 
 The current text forbids some of this. Proposed replacements:
 
@@ -93,7 +93,8 @@ The browser check saved screenshots as a side effect. They are not a visual revi
 - Observed: cue flows only in guiding states with a direction; reorient and uncertain show still amber dots; door action (direction null) shows still dim dots; arrival shows the green check and a green destination node. Map bends left on the legacy fixture and stays straight on the action fixture, with a `Floor 3` chip on the lift edge. Spanish strings fit at both widths. Reduced motion shows static dots graded toward the head.
 - Still not seen: a real phone, real camera frames, motion feel over time (screenshots are single frames), and screen-reader output.
 - Review of `c969735` (independent, approve, no P1): repaired its P3 notes. The This step section is now `aria-live="polite"`; screen-reader statuses on the map are localized (EN/ES); the halo inset is reduced so it no longer reaches the camera stage on phones; this document's status and checks table are corrected. Not changed: the global entrance fade selectors in `theme.css` (`.guide > .stage`, `.guide > .card`) no longer match the new column layout, so the stage and card skip the mount fade; `theme.css` is integration-owned.
-- Open, decision for the integration owner before merge: `knowledge/design-system.md` still forbids infinite motion and animated direction cues and says the card border transitions with state. Apply the amendments above (plus: the guide card border is static; the glow carries state) or reject the cue.
+- After merging main (PR 23, live voice guide link): with the live link shown, four pills squeezed into tall blocks at 390px. The header now wraps controls onto a second row and keeps pill text on one line. Renders with the live check faked (`/api/live/token` enabled) and without it: 20 + 20 screenshots at 390 and 1280, no horizontal overflow; follow-camera check 8 PASS; `npm run check`, typecheck and build pass.
+- Resolved 2026-10-03: the integration owner approved the amendments; `knowledge/design-system.md` now records them. Earlier note: `knowledge/design-system.md` still forbids infinite motion and animated direction cues and says the card border transitions with state. Apply the amendments above (plus: the guide card border is static; the glow carries state) or reject the cue.
 - Open, non-blocking: on phones the brand shows only the trail mark (pre-existing compact brand); reorient does not highlight the candidate node; the desktop map sits right of center in its card.
 
 ## Limitations
