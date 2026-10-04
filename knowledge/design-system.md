@@ -1,10 +1,10 @@
 # Breadcrumb design system
 
-Status: user decision and implemented foundation, 2026-10-03. This supersedes the Atkinson and large-card direction. Guide redesign, user and integration-owner decision, 2026-10-03: the guide uses a dark immersive screen, pill controls, 16–26px cards, a static state glow, motion-cue dots instead of the arrow and a schematic route map (`stages/02-design/output/guide-redesign.md`). The creator redesign follows in its own change.
+Status: user decision and implemented foundation, 2026-10-03. This supersedes the Atkinson and large-card direction. Guide redesign, user and integration-owner decision, 2026-10-03: the guide uses a dark immersive screen, pill controls, 16–26px cards, a static state glow, motion-cue dots instead of the arrow and a schematic route map (`stages/02-design/output/guide-redesign.md`). Creator redesign, integration-owner decision, 2026-10-03: the creator uses a light page with a static multi-color glow, pill controls, 12px fields, 20–24px cards, a numbered checkpoint rail and a dark route preview (`stages/02-design/output/creator-redesign.md`).
 
 ## Visual language
 
-Use a clear product interface for teaching and following one indoor route. Keep the Breadcrumb name and trail mark. Show the checkpoint sequence through small numbered nodes and thin connecting rules. Use whitespace and hairline dividers to group fields. Use one cyan action accent. Reserve amber, green and red for explained states. Do not build a marketing hero, dashboard or nested card layout.
+Use a clear product interface for teaching and following one indoor route. Keep the Breadcrumb name and trail mark. Show the checkpoint sequence through small numbered nodes and thin connecting rules. Use whitespace and hairline dividers to group fields. Use one cyan action accent; creator primary buttons are dark ink. Reserve amber, green and red for explained states. Do not build a marketing hero, dashboard or nested card layout.
 
 The executable source is `src/ui/theme.css`. Keep these tokens there:
 
@@ -17,11 +17,11 @@ The executable source is `src/ui/theme.css`. Keep these tokens there:
 | Guide text / secondary text | `--on-night` #f3f7f9 / `--on-night-muted` #b1c0c8 |
 | Type | System sans; 12, 13, 15, 18, 32px. Guide instruction: 24–30px |
 | Space | 4, 8, 12, 16, 24, 32, 48px |
-| Radius | 6, 8, 10px for fields; guide cards and stage 16–26px; pill (999px) controls in the guide; circles for route nodes |
+| Radius | Pill (999px) controls in the guide and the creator; creator fields 12px; creator cards 20–24px; guide cards and stage 16–26px; circles for route nodes |
 | Shadow | Small control shadow and restrained sticky-bar shadow |
 | Motion | 120, 160, 240ms; entrances finish within 400ms; creator status uses 160ms |
 
-Computed contrast checks: primary on white 6.15:1; secondary text on white 5.52:1; guide text on its surface 14.20:1; guide secondary text 8.20:1. These pairs do not establish whole-screen accessibility. Always name the state in text.
+Computed contrast checks: primary on white 6.15:1; secondary text on white 5.52:1; guide text on its surface 14.20:1; guide secondary text 8.20:1. Creator (computed 2026-10-03): white on action #0a6f82 5.82:1; muted on page 5.54:1; disabled field text 5.29:1; draft badge 6.65:1; #424e55 over an upper-bound stack of all three glow peaks 4.97:1; preview note 8.40:1. These pairs do not establish whole-screen accessibility. Always name the state in text.
 
 ## Primitives and composition
 
@@ -29,7 +29,11 @@ Use the adapted shadcn Button, Input, Textarea and Badge in `src/ui/`, with `cn`
 
 Use the system font stack without a build-time font download. Keep labels at medium weight and route names compact. Use 16px input text on phones. Keep English and Spanish fields side by side on desktop and stacked on phones.
 
-Creator: show route name, draft/approved status and endpoints first. Put video upload and testing tools beside the checkpoint editor on desktop; stack them on phones. Keep testing tools secondary. Use a sticky save/approve bar and a clear visitor-link panel. Preserve all extraction warnings, input focus, ordered action controls and review requirements.
+Creator: show route name, draft/approved status and endpoints first. Light page #fbfbfa with a static glow at the top (cyan, violet and peach radial gradients; no animation). Center the title on desktop; left-align it on phones. The video upload is one large rounded card under the title. Checkpoints sit on a numbered rail with 2px connecting rules; a checked step fills its node and rule with the action color. All steps stay open: the mockup's collapsed rows would change review behavior. The review checkbox is styled as a pill that fills when checked. On desktop a sticky right column shows the dark route preview and the testing tools; on narrower screens both follow the checkpoints. Keep testing tools secondary. Use a full-width sticky save/approve bar and a clear visitor-link panel. Preserve all extraction warnings, input focus, ordered action controls and review requirements.
+
+Creator palette, scoped by `src/features/creator/creator.module.css` on the creator page only: ink #14191c, muted #5b6870 (#424e55 over the glow), rule #e3e6e8 / #e9ecee, action #0a6f82, primary button #14191c, accent tint #e9f7f9 / #064b58, draft badge #fff4dc / #7a4d00, card shadow `0 18px 50px -24px rgb(20 25 28 / .25)`. The module re-points the global and shadcn tokens on `.creator`; `theme.css` and the shared primitives do not change.
+
+Route preview: the guide `RouteMap` on a dark card, labeled "Route preview" and "Not to scale". It has no flow dots and no current position. A note says the draft is not approved, or names the approved version. It never implies approval.
 
 Guide: foreground route progress and the current instruction. Keep the camera available and mock status explicit. Do not change guide lifecycle, navigation or camera behavior from a design task; keep the selectors and `data-*` attributes the browser check reads. Keep synthetic observation controls dark and secondary. Retain honest uncertainty, manual evidence and arrival text. Never show a flowing direction cue without confirmed orientation; still dots carry no direction. The route map uses equal steps, bends only on approved turns and never implies distance. The card border is static; the glow carries the state. The guide scopes its palette by overriding the night tokens on its page only.
 

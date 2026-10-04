@@ -8,8 +8,10 @@ import type { Checkpoint, CoreAdapter, Direction, Id, Result, Route } from '@con
 import { DIRECTION_TEXT } from '@/ui/Arrow.tsx';
 import { Brand } from '@/ui/Brand.tsx';
 import actionFixture from '@contracts/fixture.actions.v1.json';
+import { RouteMap } from '@/features/guide/RouteMap.tsx';
 import { ActionEditor } from './ActionEditor.tsx';
 import { VideoUpload } from './VideoUpload.tsx';
+import styles from './creator.module.css';
 
 export interface CreatorScreenProps {
   core: CoreAdapter;
@@ -109,7 +111,7 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
     return () => { active = false; token.current++; request.current?.abort(); request.current = null; };
   }, [core, routeId, followPath]);
 
-  if (!route) return <main className="creator">{msg ? <p className="notice error">{msg.text}</p> : <p>Loading route…</p>}</main>;
+  if (!route) return <main className={`creator ${styles.page}`}><div className={styles.inner}>{msg ? <p className="notice error">{msg.text}</p> : <p>Loading route…</p>}</div></main>;
 
   const approved = route.status === 'approved';
   const fixtureRoute = route.id === 'demo-route' || route.id === actionFixture.route.id;
@@ -178,21 +180,26 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
   };
 
   return (
-    <main className="creator">
+    <main className={`creator ${styles.page}`}>
+      {/* Static decorative glow; no motion. */}
+      <div className={styles.glow} aria-hidden="true" />
+      <div className={styles.inner}>
       <header>
         <div className="creator-top">
           <Brand />
-          <div className="creator-context"><span>Teach a route</span>{fixtureRoute && <Badge variant="outline" className="mock-badge">Mock route</Badge>}</div>
+          <div className={styles.topRight}>
+            <div className="creator-context"><span>Teach a route</span>{fixtureRoute && <Badge variant="outline" className="mock-badge">Mock route</Badge>}</div>
+            <AnimatePresence initial={false} mode="wait">
+              <motion.span key={`${route.status}-${saved}`} {...noticeMotion}>
+                <Badge variant={approved ? 'success' : 'secondary'} className="status" data-status={route.status}>
+                  {approved ? `Approved · v${route.version}` : `Draft · v${route.version}${saved ? '' : ' · Unsaved'}`}
+                </Badge>
+              </motion.span>
+            </AnimatePresence>
+          </div>
         </div>
         <div className="route-title">
           <h1 ref={heading} tabIndex={-1}>{route.name}</h1>
-          <AnimatePresence initial={false} mode="wait">
-            <motion.span key={`${route.status}-${saved}`} {...noticeMotion}>
-              <Badge variant={approved ? 'success' : 'secondary'} className="status" data-status={route.status}>
-                {approved ? `Approved · v${route.version}` : `Draft · v${route.version}${saved ? '' : ' · Unsaved'}`}
-              </Badge>
-            </motion.span>
-          </AnimatePresence>
         </div>
         <dl className="route-summary">
           <div><dt>Start</dt><dd>{route.startDescription}</dd></div>
@@ -203,16 +210,12 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
           : approved ? 'Route from your video. You approved this version after checking every step.' : 'Draft from your video. Check every step; nothing is approved yet.'}</p>
       </header>
 
+      <div className={styles.prompt}>
+        <VideoUpload onCreateDraft={requestExtraction} onSelectionChange={clearExtraction} extractionBusy={extracting}
+          extractionDisabled={busy || !!guardMedia || !!pendingDraft} />
+      </div>
+
       <div className="creator-body">
-        <aside className="creator-sidebar" aria-label="Teaching video and testing tools">
-          <VideoUpload onCreateDraft={requestExtraction} onSelectionChange={clearExtraction} extractionBusy={extracting}
-            extractionDisabled={busy || !!guardMedia || !!pendingDraft} />
-          {route.id !== actionFixture.route.id && <div className="creator-test-tools">
-            <h2>Testing tools</h2>
-            <p>Explore a fictional route with doors, stairs and an elevator.</p>
-            <Button variant="ghost" disabled={busy || !saved} onClick={loadActionFixture}>Review detailed-action mock fixture</Button>
-          </div>}
-        </aside>
         <section className="creator-route" aria-label="Review route">
 
       <AnimatePresence initial={false}>
@@ -317,6 +320,22 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
       </ol>
 
         </section>
+        <aside className="creator-sidebar" aria-label="Route preview and testing tools">
+          <div className={styles.preview}>
+            <RouteMap checkpoints={route.checkpoints} current={-1} guiding={false} flow={false} reduced={!!reduceMotion}
+              statuses={route.checkpoints.map((c) => (approved || reviewed.has(c.id) ? 'checked' : 'not checked'))}
+              locale="en" name={route.name} title="Route preview" note="Not to scale" />
+            <p className={styles.previewNote}>{approved
+              ? `Drawn from the checkpoints of approved version ${route.version}.`
+              : 'Drawn from the current draft checkpoints. This draft is not approved.'}</p>
+          </div>
+          {route.id !== actionFixture.route.id && <div className="creator-test-tools">
+            <h2>Testing tools</h2>
+            <p>Explore a fictional route with doors, stairs and an elevator.</p>
+            <Button variant="ghost" disabled={busy || !saved} onClick={loadActionFixture}>Review detailed-action mock fixture</Button>
+          </div>}
+        </aside>
+      </div>
       </div>
       <div className="approve-bar" aria-live="polite">
         {!approved && (

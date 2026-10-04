@@ -6,6 +6,7 @@ import type { Id, Result } from '@contracts/contracts.ts';
 import type { StoredMedia } from '@/server/media/media.ts';
 import { MEDIA_ACCEPT, MEDIA_LIMIT_TEXT, mediaInputError, mediaPickError } from '@/shared/mediaLimits.ts';
 import { compressionErrorMessage, compressVideo } from './compressVideo.ts';
+import styles from './creator.module.css';
 
 type Message = { kind: 'error'; text: string } | { kind: 'ok'; media: StoredMedia };
 
@@ -133,8 +134,15 @@ export function VideoUpload({ onCreateDraft, onSelectionChange, extractionBusy, 
 
   return (
     <section className="step media-upload" aria-labelledby="media-heading">
-      <h2 id="media-heading">Teach from a video</h2>
-      <p className="meta">Pick a route video to preview and store on this computer. Create a draft after storing the video, then check every step.</p>
+      <div className={styles.videoHead}>
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <rect x="3" y="6" width="13" height="12" rx="3" /><path d="M16 10l5-3v10l-5-3" />
+        </svg>
+        <div>
+          <h2 id="media-heading">Teach from a video</h2>
+          <p className="meta">Pick a route video to preview and store on this computer. Create a draft after storing the video, then check every step.</p>
+        </div>
+      </div>
       <label htmlFor="route-video">
         Route video
         <Input ref={inputRef} id="route-video" type="file" accept={MEDIA_ACCEPT}

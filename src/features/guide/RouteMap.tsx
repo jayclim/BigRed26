@@ -27,19 +27,21 @@ const px = (n: number) => `calc(50% + ${n}px)`;
  * Schematic map. Position changes only with accepted guidance (`current`); nothing animates it.
  * `statuses` are the guide's existing per-checkpoint statuses, also read by the screen-reader list.
  * `flow` uses the cue condition and only adds three pulsing dots on the current → next edge.
+ * Optional `title` and `note` replace the heading and the not-started text (creator preview).
  */
-export function RouteMap({ checkpoints, statuses, current, guiding, flow, reduced, locale, name }: {
+export function RouteMap({ checkpoints, statuses, current, guiding, flow, reduced, locale, name, title, note }: {
   checkpoints: Checkpoint[]; statuses: string[]; current: number; guiding: boolean; flow: boolean;
-  reduced: boolean; locale: Locale; name: string;
+  reduced: boolean; locale: Locale; name: string; title?: string; note?: string;
 }) {
   const t = T[locale];
+  const heading = title ?? t.title;
   const layout = useMemo(() => layoutRoute(checkpoints), [checkpoints]);
   const n = checkpoints.length;
   const step = layout.width ? Math.max(32, Math.min(60, Math.floor(150 / layout.width))) : 60;
   const cx = (x: number) => (x - layout.width / 2) * step;
   const cy = (y: number) => PAD + y * step;
   const arrived = statuses[current] === 'arrived';
-  const summary = current < 0 ? t.summary(n) : arrived ? t.arrived(checkpoints[current].label)
+  const summary = current < 0 ? (note ? `${heading}, ${n} steps. ${note}.` : t.summary(n)) : arrived ? t.arrived(checkpoints[current].label)
     : t.at(current + 1, n, checkpoints[current].label) + (checkpoints[current + 1] ? t.next(checkpoints[current + 1].label) : '');
   const look = (i: number) => i === current ? (arrived ? 'arrived' : 'current') : statuses[i];
   const active = flow && current >= 0 && current < n - 1 ? layout.edges[current] : null;
@@ -47,8 +49,8 @@ export function RouteMap({ checkpoints, statuses, current, guiding, flow, reduce
   return (
     <section className={styles.mapCard} aria-labelledby="route-map-h">
       <div className={styles.cardHead}>
-        <h2 id="route-map-h">{t.title}</h2>
-        <span>{current < 0 ? t.notStarted : t.of(current + 1, n)}</span>
+        <h2 id="route-map-h">{heading}</h2>
+        <span>{current < 0 ? note ?? t.notStarted : t.of(current + 1, n)}</span>
       </div>
       <div className={styles.map} role="img" aria-label={summary} data-reduced={reduced || undefined}
         style={{ height: layout.height * step + PAD * 2 }}>
