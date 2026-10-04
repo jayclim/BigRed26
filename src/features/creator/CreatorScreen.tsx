@@ -3,34 +3,40 @@ import { Button } from '@/ui/button';
 import { Textarea } from '@/ui/textarea';
 import { Badge } from '@/ui/badge';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import type { Checkpoint, CoreAdapter, Direction, Id, Result, Route } from '@contracts/contracts.ts';
 import { DIRECTION_TEXT } from '@/ui/Arrow.tsx';
-import { Brand } from '@/ui/Brand.tsx';
-import { LookToggle } from '@/ui/LookToggle.tsx';
+import { Input } from '@/ui/input';
+import { SiteHeader } from '@/ui/SiteHeader.tsx';
+import type { PublicBounty } from '@/client/bounties.ts';
 import { RouteMap } from '@/features/guide/RouteMap.tsx';
 import { ActionEditor } from './ActionEditor.tsx';
+import { BountyPanel } from './BountyPanel.tsx';
 import { VideoUpload } from './VideoUpload.tsx';
 import styles from './creator.module.css';
 
 export interface CreatorScreenProps {
   core: CoreAdapter;
-  routeId: Id;
-  /** Path of the visitor guide for this route, e.g. /follow/my-route */
-  followPath: string;
+  /** A stored route to edit. Without it the screen starts a new route from a video. */
+  routeId?: Id;
+  /** Path of the visitor guide for the edited route, e.g. /follow/my-route */
+  followPath?: string;
+  /** The bounty this route answers. Names a new draft after it and offers "Submit to bounty" once approved. */
+  bounty?: { id: Id; loaded: PublicBounty | null; error?: string | null };
+  /** Called once when a new route's first draft opens, so the page can put the route id in the URL. */
+  onRouteCreated?: (route: Route) => void;
 }
 
 const DIRECTIONS: Direction[] = ['forward', 'left', 'right', 'up', 'down'];
 
-export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps) {
+export function CreatorScreen({ core, routeId, followPath, bounty, onRouteCreated }: CreatorScreenProps) {
   const reduceMotion = useReducedMotion();
   const [route, setRoute] = useState<Route | null>(null);
   const [saved, setSaved] = useState(true);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'error' | 'ok'; text: string } | null>(null);
   const [origin, setOrigin] = useState('');
-  const [guidePath, setGuidePath] = useState(followPath);
+  const [guidePath, setGuidePath] = useState(followPath ?? '');
 
   const [extracting, setExtracting] = useState(false);
   const [extractionError, setExtractionError] = useState<string | null>(null);
@@ -43,6 +49,9 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
   const heading = useRef<HTMLHeadingElement>(null);
   const extractionNotice = useRef<HTMLDivElement>(null);
   const focusHeading = useRef(false);
+  const openId = useRef<Id | null>(null); // id of the route on screen, so a URL that catches up with a new draft does not reload it
+  const prefillName = useRef<string | null>(null);
+  prefillName.current = bounty?.loaded?.title ?? null;
 
   function clearExtraction() {
     token.current++;
@@ -52,10 +61,15 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
   }
 
   function openDraft(draft: Route) {
-    setRoute(draft); setSaved(true);
+    const named = prefillName.current && draft.name !== prefillName.current;
+    openId.current = draft.id;
+    setRoute(named ? { ...draft, name: prefillName.current! } : draft);
+    if (named) edits.current++;
+    setSaved(!named);
     setGuidePath(`/follow/${draft.id}`); setPendingDraft(null);
-    setMsg({ kind: 'ok', text: 'Draft created. Review the steps, then approve.' });
+    setMsg({ kind: 'ok', text: named ? 'Draft created and named after the bounty. Review the steps, then approve.' : 'Draft created. Review the steps, then approve.' });
     focusHeading.current = true;
+    onRouteCreated?.(draft);
   }
 
   async function extract(mediaId: Id) {
@@ -99,21 +113,30 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
     }
   }, [extractionError, guardMedia, pendingDraft]);
 
+  useEffect(() => () => { token.current++; request.current?.abort(); request.current = null; }, []); // leaving the page cancels extraction
+  useEffect(() => { // the browser asks before a reload or full navigation drops unsaved edits
+    if (!route || saved) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [route, saved]);
   useEffect(() => {
+    setOrigin(window.location.origin);
+    if (!routeId) { // a new route: the first extracted draft opens it
+      if (openId.current) { openId.current = null; clearExtraction(); setRoute(null); setSaved(true); setMsg(null); } // header Teach link from an open route
+      return;
+    }
+    if (openId.current === routeId) return; // the URL caught up with a draft opened here; keep its unsaved edits
     let active = true;
     clearExtraction();
-    setOrigin(window.location.origin);
     core.getRoute(routeId).then((r) => {
       if (!active) return;
-      if (r.ok) { setRoute(r.value); setSaved(true); setGuidePath(followPath); }
+      if (r.ok) { openId.current = r.value.id; setRoute(r.value); setSaved(true); setGuidePath(followPath ?? `/follow/${encodeURIComponent(routeId)}`); }
       else setMsg({ kind: 'error', text: r.error.message });
     });
     return () => { active = false; token.current++; request.current?.abort(); request.current = null; };
   }, [core, routeId, followPath]);
 
-  if (!route) return <main className={`creator ${styles.page}`}><div className={styles.inner}>{msg ? <p className="notice error">{msg.text}</p> : <p>Loading route…</p>}</div></main>;
-
-  const approved = route.status === 'approved';
   // Keep notices in flow until their exit completes; never animate their height.
   const noticeMotion = {
     initial: reduceMotion ? false as const : { opacity: 0, y: 4 },
@@ -122,8 +145,8 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
     transition: { duration: reduceMotion ? 0 : 0.16 },
   };
 
-  function edit(id: Id, patch: Partial<Checkpoint>) {
-    setRoute((r) => r && { ...r, checkpoints: r.checkpoints.map((c) => (c.id === id ? { ...c, ...patch } : c)) });
+  function editRoute(patch: Partial<Pick<Route, 'name' | 'startDescription' | 'destinationLabel'>>) {
+    setRoute((r) => r && { ...r, ...patch });
     edits.current++; setSaved(false);
     setMsg(null);
   }
@@ -143,6 +166,70 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
   async function run(fn: () => Promise<void>) {
     setBusy(true); setMsg(null);
     try { await fn(); } finally { setBusy(false); }
+  }
+
+
+  const notices = (
+      <AnimatePresence initial={false}>
+    {extracting && <motion.div key="extracting" {...noticeMotion} className="notice" role="status">
+      <p>Creating a draft from your video… this can take a minute</p>
+      <Button variant="outline" onClick={() => { clearExtraction(); setMsg({ kind: 'ok', text: 'Draft creation canceled. Your current route is unchanged.' }); }}>Cancel</Button>
+    </motion.div>}
+    {(extractionError || guardMedia || pendingDraft) && <motion.div key="extraction-notice" {...noticeMotion} ref={extractionNotice} tabIndex={-1}
+      className={`notice extraction-notice${extractionError ? ' error' : ''}`} role={extractionError ? 'alert' : 'status'}>
+      {extractionError && <>
+        <p>{extractionError}</p>
+        <div className="row">
+          <Button disabled={busy} onClick={() => retryMedia.current && requestExtraction(retryMedia.current)}>Retry</Button>
+          <Button variant="outline" onClick={() => setExtractionError(null)}>Dismiss</Button>
+        </div>
+      </>}
+      {guardMedia && <>
+        <p>Your draft has unsaved edits. Choose how to continue.</p>
+        <div className="row">
+          <Button disabled={busy} onClick={() => run(async () => { if (await save()) await extract(guardMedia); })}>Save draft first</Button>
+          <Button variant="outline" disabled={busy} onClick={() => extract(guardMedia)}>Discard edits and create draft</Button>
+          <Button variant="outline" disabled={busy} onClick={() => setGuardMedia(null)}>Keep my edits</Button>
+        </div>
+      </>}
+      {pendingDraft && <>
+        <p>A new draft is ready. You edited the current draft during creation. Choose which draft to keep open.</p>
+        <div className="row">
+          <Button disabled={busy} onClick={() => openDraft(pendingDraft)}>Open new draft (discard my edits)</Button>
+          <Button variant="outline" disabled={busy} onClick={() => setPendingDraft(null)}>Keep my edits</Button>
+        </div>
+      </>}
+    </motion.div>}
+    </AnimatePresence>
+  );
+
+  if (!route && routeId) return <main className={`creator ${styles.page}`}><div className={styles.inner}>{msg ? <p className="notice error">{msg.text}</p> : <p>Loading route…</p>}</div></main>;
+
+  if (!route) return (
+    <main className={`creator ${styles.page}`}>
+      <div className={`creator-glow ${styles.glow}`} aria-hidden="true" />
+      <div className={styles.inner}>
+        <header>
+          <SiteHeader current="teach" />
+          <div className="route-title"><h1 ref={heading} tabIndex={-1}>Teach a route</h1></div>
+          <p className="notice">Record a walk-through of a short indoor route. Breadcrumb drafts the steps from your video; you review them and approve with one click.</p>
+        </header>
+        {bounty && <div className={styles.prompt}><BountyPanel bountyId={bounty.id} bounty={bounty.loaded} loadError={bounty.error ?? null} route={null} /></div>}
+        <div className={styles.prompt}>
+          <VideoUpload onCreateDraft={requestExtraction} onSelectionChange={clearExtraction} extractionBusy={extracting}
+            extractionDisabled={busy || !!guardMedia || !!pendingDraft} />
+        </div>
+        <section className={`creator-route ${styles.prompt}`} aria-label="Draft status">{notices}</section>
+      </div>
+    </main>
+  );
+
+  const approved = route.status === 'approved';
+
+  function edit(id: Id, patch: Partial<Checkpoint>) {
+    setRoute((r) => r && { ...r, checkpoints: r.checkpoints.map((c) => (c.id === id ? { ...c, ...patch } : c)) });
+    edits.current++; setSaved(false);
+    setMsg(null);
   }
 
   const approve = () => run(async () => {
@@ -170,19 +257,15 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
       <div className={`creator-glow ${styles.glow}`} aria-hidden="true" />
       <div className={styles.inner}>
       <header>
-        <div className="creator-top">
-          <Brand />
-          <div className={styles.topRight}>
-            <div className="creator-context"><Link href="/routes" className="creator-nav">All routes</Link><LookToggle className="creator-nav" /><span>Teach a route</span></div>
-            <AnimatePresence initial={false} mode="wait">
-              <motion.span key={`${route.status}-${saved}`} {...noticeMotion}>
-                <Badge variant={approved ? 'success' : 'secondary'} className="status" data-status={route.status}>
-                  {approved ? `Approved · v${route.version}` : `Draft · v${route.version}${saved ? '' : ' · Unsaved'}`}
-                </Badge>
-              </motion.span>
-            </AnimatePresence>
-          </div>
-        </div>
+        <SiteHeader current="teach">
+          <AnimatePresence initial={false} mode="wait">
+            <motion.span key={`${route.status}-${saved}`} {...noticeMotion}>
+              <Badge variant={approved ? 'success' : 'secondary'} className="status" data-status={route.status}>
+                {approved ? `Approved · v${route.version}` : `Draft · v${route.version}${saved ? '' : ' · Unsaved'}`}
+              </Badge>
+            </motion.span>
+          </AnimatePresence>
+        </SiteHeader>
         <div className="route-title">
           <h1 ref={heading} tabIndex={-1}>{route.name}</h1>
         </div>
@@ -193,6 +276,7 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
         <p className="notice">{approved ? 'Route from your video. You approved this version.' : 'Draft from your video. Review the steps; nothing is approved yet.'}</p>
       </header>
 
+      {bounty && <div className={styles.prompt}><BountyPanel bountyId={bounty.id} bounty={bounty.loaded} loadError={bounty.error ?? null} route={route} /></div>}
       <div className={styles.prompt}>
         <VideoUpload onCreateDraft={requestExtraction} onSelectionChange={clearExtraction} extractionBusy={extracting}
           extractionDisabled={busy || !!guardMedia || !!pendingDraft} />
@@ -201,37 +285,7 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
       <div className="creator-body">
         <section className="creator-route" aria-label="Review route">
 
-      <AnimatePresence initial={false}>
-      {extracting && <motion.div key="extracting" {...noticeMotion} className="notice" role="status">
-        <p>Creating a draft from your video… this can take a minute</p>
-        <Button variant="outline" onClick={() => { clearExtraction(); setMsg({ kind: 'ok', text: 'Draft creation canceled. Your current route is unchanged.' }); }}>Cancel</Button>
-      </motion.div>}
-      {(extractionError || guardMedia || pendingDraft) && <motion.div key="extraction-notice" {...noticeMotion} ref={extractionNotice} tabIndex={-1}
-        className={`notice extraction-notice${extractionError ? ' error' : ''}`} role={extractionError ? 'alert' : 'status'}>
-        {extractionError && <>
-          <p>{extractionError}</p>
-          <div className="row">
-            <Button disabled={busy} onClick={() => retryMedia.current && requestExtraction(retryMedia.current)}>Retry</Button>
-            <Button variant="outline" onClick={() => setExtractionError(null)}>Dismiss</Button>
-          </div>
-        </>}
-        {guardMedia && <>
-          <p>Your draft has unsaved edits. Choose how to continue.</p>
-          <div className="row">
-            <Button disabled={busy} onClick={() => run(async () => { if (await save()) await extract(guardMedia); })}>Save draft first</Button>
-            <Button variant="outline" disabled={busy} onClick={() => extract(guardMedia)}>Discard edits and create draft</Button>
-            <Button variant="outline" disabled={busy} onClick={() => setGuardMedia(null)}>Keep my edits</Button>
-          </div>
-        </>}
-        {pendingDraft && <>
-          <p>A new draft is ready. You edited the current draft during creation. Choose which draft to keep open.</p>
-          <div className="row">
-            <Button disabled={busy} onClick={() => openDraft(pendingDraft)}>Open new draft (discard my edits)</Button>
-            <Button variant="outline" disabled={busy} onClick={() => setPendingDraft(null)}>Keep my edits</Button>
-          </div>
-        </>}
-      </motion.div>}
-      </AnimatePresence>
+      {notices}
 
       {approved && (
         <section className="share" aria-labelledby="share-h">
@@ -245,6 +299,18 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
             <Button variant="outline" onClick={() => navigator.clipboard?.writeText(shareUrl)}>Copy link</Button>
             <Button variant="outline" onClick={startNewVersion}>Edit as version {route.version + 1}</Button>
           </div>
+        </section>
+      )}
+
+      {!approved && (
+        <section className="step route-details" aria-labelledby="details-h">
+          <h2 id="details-h">Route details</h2>
+          <label>Route name
+            <Input value={route.name} maxLength={200} onChange={(e) => editRoute({ name: e.target.value })} /></label>
+          <label>Start
+            <Input value={route.startDescription} maxLength={500} onChange={(e) => editRoute({ startDescription: e.target.value })} /></label>
+          <label>Destination
+            <Input value={route.destinationLabel} maxLength={200} onChange={(e) => editRoute({ destinationLabel: e.target.value })} /></label>
         </section>
       )}
 

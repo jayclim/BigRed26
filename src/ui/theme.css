@@ -112,6 +112,9 @@
 }
 .brand { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: 650; font-size: 1rem; letter-spacing: -.025em; }
 .brand svg { width: 2.25rem; height: auto; flex: none; }
+.brand-link { color: inherit; text-decoration: none; min-height: 44px; }
+.brand-link:hover .brand-name { text-decoration: underline; text-underline-offset: 3px; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 
 /* Creator: one route sequence, with supporting teaching tools. */
 .creator { max-width: 1200px; margin: 0 auto; padding: 0 var(--space-8) var(--space-8); }

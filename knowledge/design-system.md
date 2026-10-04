@@ -23,6 +23,12 @@ The executable source is `src/ui/theme.css`. Keep these tokens there:
 
 Computed contrast checks: primary on white 6.15:1; secondary text on white 5.52:1; guide text on its surface 14.20:1; guide secondary text 8.20:1. Creator (computed 2026-10-03): white on action #0a6f82 5.82:1; muted on page 5.54:1; disabled field text 5.29:1; draft badge 6.65:1; #424e55 over an upper-bound stack of all three glow peaks 4.97:1; preview note 8.40:1. These pairs do not establish whole-screen accessibility. Always name the state in text.
 
+## Landing and site navigation
+
+Status: implemented 2026-10-04 (`stages/03-build/output/landing.md`). Every page except the live guides uses `PageShell` (the creator's light page, static glow and column) and `SiteHeader`: the Breadcrumb mark links to `/`, then Routes (`/#routes`), Bounties (`/#bounties`), Teach (`/teach`) and the Clay toggle, all 44px pills. The two live guides keep their dark top bar; its mark links to `/` as a plain anchor so the camera and microphone are released.
+
+`/` is one scroll: hero (centered on desktop, left-aligned on phones; value line, "Find a route" dark primary, "Teach a route" outline, a text link to post a bounty, one static dark picture of the guide look that carries no data), "How it works" as the creator's numbered rail (horizontal on desktop, vertical on phones), the iMessage line, "Routes" (approved cards, drafts as compact rows), "Open bounties" with a dark "Post a bounty" button that opens the post form in a native modal dialog. The dialog cannot be closed while the one-time poster secret is on screen. Route and bounty cards use the creator's 20px white cards and soft shadow; the Clay look restyles them through the same tokens. Reduced motion removes the hero entrance.
+
 ## Primitives and composition
 
 Use the adapted shadcn Button, Input, Textarea and Badge in `src/ui/`, with `cn` for class merging. Button variants are primary, outline and ghost. Keep native selects. Approval is one explicit Approve click on the saved version; there are no per-step review checkboxes (user decision, 2026-10-04). Controls retain 44px tap targets, visible focus and full labels. Map Tailwind v4 and shadcn semantic colors to Breadcrumb tokens. Import Tailwind theme and utilities only. Do not enable preflight: the guide uses its existing class and DOM interface.

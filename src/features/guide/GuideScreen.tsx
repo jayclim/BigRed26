@@ -239,7 +239,7 @@ export function GuideScreen({ core, routeId, exitHref, uploadFrame = realUploadF
       <div className="guide-layout">
         <section className="guide" aria-label={route.name}>
           <div className="guide-top">
-            <div className={g.brandRow}><Brand compact /><span className={g.routeName}>{route.name}</span></div>
+            <div className={g.brandRow}><Brand compact href="/" /><span className={g.routeName}>{route.name}</span></div>
             <div className="controls">
               <button className="ctl" aria-pressed={sound} aria-describedby="speech-source" onClick={() => setSound((s) => !s)}>
                 {sound ? t.soundOn : t.soundOff}
