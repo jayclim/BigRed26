@@ -153,7 +153,7 @@ export interface CoreAdapter {
   saveDraft(route: Route): Promise<Result<Route>>;
   // AMENDMENT 4: every stored route, in storage order.
   listRoutes(): Promise<Result<RouteSummary[]>>;
-  // AMENDMENT 1: approval names the checkpoints a human explicitly reviewed; all must be listed.
+  // AMENDMENT 1: approval lists every checkpoint id. Human review is the explicit Approve click on the saved version (2026-10-04).
   approveRoute(routeId: Id, version: number, reviewedCheckpointIds: Id[]): Promise<Result<Route>>;
   startSession(routeId: Id, locale: Locale, mode: Mode): Promise<Result<Session>>;
   getSession(sessionId: Id): Promise<Result<Session>>;

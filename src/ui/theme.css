@@ -327,7 +327,7 @@
   :is([data-slot='button'], .ctl, .scene):not(:disabled):not([aria-disabled='true']):hover { transform: translateY(-1px); }
 }
 :is([data-slot='button'], .ctl, .scene):not(:disabled):not([aria-disabled='true']):active { transform: scale(.97); }
-:is([data-slot='button'], .ctl, .scene):focus-visible,
+:is([data-slot='button'], .ctl, .scene):focus-visible { box-shadow: 0 0 0 3px var(--ring-soft); }
 
 .creator :is(input:not([type='checkbox']), textarea, select) {
   transition: border-color var(--ease), box-shadow var(--ease), background-color var(--ease);
