@@ -99,6 +99,127 @@ Do not claim real recognition from these fixture tests.
 
 Next action: PR 2, the live Recognizer with fake provider and transport tests. No real provider call until spending caps are confirmed.
 
+# Part B, PR 2: live recognizer
+
+Status: implemented and checked locally with fake providers and fake transport. Date: 2026-10-03.
+Branch: feat/follow-recognizer, PR base feat/follow-camera. The integration owner registers the recognizer and merges.
+
+## Changes
+
+createRecognizer reads the uploaded frame and sends all checkpoint candidates to the provider.
+Candidates contain ids, labels, identifying evidence, approach descriptions and action target metadata.
+They do not contain approved instructions, action steps or completion text.
+Strict, bounded output validation returns only an Observation. The core owns guidance and progress.
+Unknown ids and invalid output fail with retryable PROVIDER_UNAVAILABLE. Null ids return unknown with empty evidence.
+A single deadline bounds frame reads and providers that ignore the abort signal.
+One flight per session limits concurrent recognition cost. Every exit releases the flight.
+The Gemini adapter has a separate enable flag, bounded response reads and safe error messages.
+HTTP 429 returns retryable RATE_LIMITED. No logging or replay recognizer was added.
+
+## Owned files
+
+- src/server/recognition/recognizer.ts
+- src/server/recognition/gemini.ts
+- src/server/recognition/recognizer.check.ts
+- stages/03-build/output/follow-route.md (this appended section)
+
+## Actual checks
+
+Local runtime: Node 26.8.2. Node 24 was requested but was not the runtime supplied here.
+
+| Command | Actual result |
+| --- | --- |
+| node src/server/recognition/recognizer.check.ts | PASS. Five groups: approved guidance and validation; single flight and deadlines; manual stale race; destination arrival without timer progress; fake transport and absent modes. |
+| npm run check | PASS. Existing core, media and extraction checks; extraction reports 32 cases and no network calls. |
+| npm run typecheck | PASS. tsc --noEmit. |
+
+The recognition check replaces global fetch with a throwing stub and injects fake transport.
+Initial recognition check runs failed on Buffer versus Uint8Array comparison, an invalid attempt to overwrite approved v1, and test synchronization before the second provider entered.
+These test harness errors were repaired. The final check passed.
+No build or server was run by the worker. No real provider was called.
+
+Host checks by the lead on 2026-10-03 (macOS, Node 24.21.0). All passed.
+
+| Command | Actual result |
+| --- | --- |
+| node src/server/recognition/recognizer.check.ts | PASS. All five groups. |
+| npm run check | PASS. Core, media and extraction (32 cases, no network calls). |
+| npm run typecheck | PASS. |
+| npm run build | PASS. Route table unchanged. No app module imports the recognizer yet, so the build does not bundle it. |
+
+node scripts/smoke-api.mjs was not run. This change adds no HTTP handler and changes no HTTP behavior.
+
+## Review repair
+
+2026-10-03, PR #12: non-OK Gemini responses left the body open. The adapter now cancels the body without waiting before it throws the same safe error. Network-free 429 and 500 streams exceed the size cap and never settle cancellation; each cancels once and returns the expected retryable code. All five recognition groups, npm run check and npm run typecheck passed. No live provider call was made. Host rerun by the lead (Node 24.21.0): recognition check, npm run check, typecheck and build passed.
+
+### Review repair: blank evidence
+
+2026-10-03, PR #12: after trimming, each evidence item must contain at least one character outside whitespace, \p{C}, \p{Z}, \p{M}, Default_Ignorable_Code_Point and U+2800. A rejected item rejects the full provider output as retryable `PROVIDER_UNAVAILABLE`, including when the item is mixed with valid evidence. Rejected examples include `\u200b`, `\u200d\u200c`, `\u2060`, `\u00ad`, `\u200e`, tabs/newlines and spaces. Preserved examples include `Room 204`, `Salida`, `→`, `Room\u200b204` and `👩‍💻`. Commit 6f5feb0 added `minLength: 1` to provider JSON Schema evidence items (`{"type":"string","minLength":1,"maxLength":200}`). Trim and the visibility rule are runtime-only. The JSON Schema `minLength: 1` assertion remains.
+
+Before the fix, a temporary schema assertion for `['\u200b']` failed with `AssertionError [ERR_ASSERTION]: Expected values to be strictly equal: true !== false` (`actual: true`, `expected: false`). After the fix, `node src/server/recognition/recognizer.check.ts` passed all six groups, including the entrance rejection cases with unchanged checkpoint and guidance, destination mixed evidence, preserved schema examples and JSON Schema assertion. `npm run check` passed core, media and extraction (32 cases; no network calls). `npm run typecheck` passed (`tsc --noEmit`). No real fetch or provider call was used.
+
+Actual checks in this worktree: `node src/server/recognition/recognizer.check.ts` passed all six groups, including the new blank-evidence group; `npm run check` passed core, media and extraction (32 cases, no network calls); `npm run typecheck` passed (`tsc --noEmit`).
+
+### Review repair: default-ignorable evidence
+
+2026-10-03, PR #12, P2/P3: the previous regex accepted evidence made only of default-ignorable characters outside \p{C} and \p{Z}. The rule now excludes \p{C}, \p{Z}, \p{M}, whitespace, Default_Ignorable_Code_Point and U+2800. The lead chose to reject U+2800 because it renders blank. Braille U+2801–U+28FF remains accepted.
+
+The blank-evidence group rejects `\u034f`, `\ufe0f`, `\u3164`, `\u115f`, `\u1160`, `\uffa0` and `\u2800`, alone and beside `Room 204`. Each returns retryable `PROVIDER_UNAVAILABLE` through matchFrame with checkpoint and guidance unchanged. Schema checks still accept `Room 204`, `\u2192`, `\ud83d\udc69\u200d\ud83d\udcbb`, `Room\u200b204`, `\u00e9`, `\u4e2d`, `e\u0301`, `\u0915\u093f` and `\u2801`.
+
+Actual checks in this worktree (Node 26.8.2): `node src/server/recognition/recognizer.check.ts` passed all six groups. With only the regex temporarily restored to its previous value, the same command failed on the first new rejection case (`\u034f`): matchFrame accepted it; `AssertionError [ERR_ASSERTION]`, `true !== false`, exit 1. The repaired regex was restored and the check passed again. `npm run check` passed core, media and extraction (32 cases; no network calls). `npm run typecheck` passed (`tsc --noEmit`). No network or real provider call was made.
+
+Host rerun by the lead (Node 24.21.0, after merging main 9b65316): a direct regex probe shows all seven rejected code points pass the previous rule and fail the new one; the eight preserved examples pass. recognizer.check.ts passed all six groups; npm run check, npm run typecheck and npm run build passed in this worktree. smoke-api was not run because no HTTP handler changed.
+
+Full closure still needs core matching against `identifyingEvidence`. This remains an integration-owner decision. Next action: owner reviews this repair and decides the core evidence rule.
+
+### Review repair: mark-only evidence
+
+2026-10-03, PR #12, P3 advisory on f943fcb: lone U+0301 still counted as recognition evidence. The lead chose to reject evidence made only of combining marks. Text with a base character stays accepted. VISIBLE now also excludes \p{M}. The invisible list adds `\u0301`, `\u0301\u0308` and `\u0903`. Each is checked alone and beside `Room 204` through matchFrame, with checkpoint and guidance unchanged. Accepted examples include `e\u0301` and `\u0915\u093f`; the other accepted items remain.
+
+Actual checks in this worktree (Node 26.8.2): `node src/server/recognition/recognizer.check.ts` passed all six groups. Temporarily restoring only the previous regex made the same command fail on lone `\u0301`: matchFrame accepted it; `AssertionError [ERR_ASSERTION]`, `true !== false`, exit 1. The repaired regex was restored and all six groups passed again. `npm run check` passed core, media and extraction (32 cases; no network calls). `npm run typecheck` passed (`tsc --noEmit`). No sandbox write or temp-directory block occurred. No network or provider call was made.
+
+Host rerun by the lead (Node 24.21.0): a direct regex probe shows `\u0301`, `\u0301\u0308` and `\u0903` pass the previous rule and fail the new one; `e\u0301`, `\u0915\u093f`, `Room 204`, CJK, emoji ZWJ and `\u2801` pass. recognizer.check.ts passed all six groups; npm run check, npm run typecheck and npm run build passed. smoke-api was not run because no HTTP handler changed.
+
+Full closure still needs core matching against `identifyingEvidence`. This remains an integration-owner decision. Next action: owner reviews this repair and decides the core evidence rule.
+
+## Design details and limitations
+
+There is no production registration in this change. Live and replay still fail honestly without registration.
+The real Gemini request shape is unverified against a live call.
+The core window is current/next only. The recognizer sends all approved checkpoint candidates.
+JPEG bytes are not decoded. Visible-text truth requires provider evidence; schema checks prove structure and bounds only.
+Host rerun by the lead (2026-10-03): the new checks fail against the old schema (matchFrame accepted blank evidence) and pass with the fix. On the host, recognizer.check.ts passed all six groups, and npm run check and npm run typecheck passed. npm run build of commit 6f5feb0 passed in the main checkout. In this worktree the build stops early because node_modules is a symlink outside the project root, which Turbopack rejects. That is an environment limit, not a code failure. smoke-api was not run because no HTTP handler changed.
+
+Host rerun by the lead for the visible-character repair (2026-10-03): the worker wrote a plain space where the U+00A0 case was specified; the lead changed that one test literal to '\u00a0'. With the faf135e schema, the new invisible-character checks fail (matchFrame accepts the evidence). With the fix, recognizer.check.ts passed all six groups, and npm run check, npm run typecheck and npm run build passed in the main checkout. smoke-api was not run because no HTTP handler changed. The worker sandbox could not write to the earlier separate worktree, so this repair ran in the main checkout.
+
+Legacy checkpoints without an action still accept any non-blank evidence string in core. Matching evidence against `identifyingEvidence` remains an integration-owner core decision.
+The stale race uses sequence 1 to activate the action, then slow sequence 2 and manual sequence 3.
+The core requires an active action for completeAction, so slow sequence 1 versus manual sequence 2 cannot be accepted in a fresh session without first activating that action.
+Manual completion remains a core behavior and can reach a destination; the observation-arrival check proves that idle time does not advance the route.
+
+## Integration requests
+
+In src/server/core/instance.ts, add this import:
+
+```ts
+import { liveRecognizer, liveRecognitionEnabled } from '../recognition/gemini.ts';
+```
+
+Use this recognizers entry in createCore:
+
+```ts
+recognizers: { mock: fixtureRecognizer, ...(liveRecognitionEnabled() ? { live: liveRecognizer } : {}) },
+```
+
+Add `node src/server/recognition/recognizer.check.ts` to npm run check and CI.
+Set `BREADCRUMB_GEMINI_RECOGNITION=1` and `GEMINI_API_KEY` only after provider spending is authorized.
+`GEMINI_MODEL` is optional. The default is DEFAULT_GEMINI_MODEL from extraction.
+The production provider config is captured at module load. Restart after env changes.
+Part A note: src/server/extraction/extraction.ts also throws on non-OK Gemini responses without cancelling the body. Part B did not edit it.
+
+Next action: owner reviews and registers the module, adds the check to CI, and reruns build and HTTP smoke after registration. A live provider call requires separate authorization.
+
 # Follow route: Part B, PR 3 (voice consumer)
 
 ## Status
@@ -251,3 +372,5 @@ Independent review of the exact PR head. After Part C merges, the integration ow
 Host checks on this branch (lead): npm ci installed main's locked dependencies from #13. The stale .next cache was cleared. Then voicePlayback.check.ts (9 groups plus all 8 regression groups), checkView.check.ts (8 groups), npm run check, npm run typecheck and npm run build passed. node scripts/follow-camera.check.mjs 3153 passed all 8 groups. The scratch CDP browser-speech render passed at 390x844 and 1280x800 on main's #13 theme: the label sits under the controls, the controls are 44px high, and there is no overlap or horizontal scroll. No CSS change was needed. smoke-api was not run because no HTTP handler changed.
 
 Next action: a fresh independent review of the exact head. Then close PR #14 as superseded.
+
+Update, 2026-10-04: PR #12 merged into main at adb37d8. This branch merged main in. The only conflict was this receipt, where both PRs appended a section. The resolution keeps main's receipt verbatim, including the PR 2 section, then the unchanged PR 3 section. The guide files did not conflict. Host checks after the merge are recorded in the PR.
