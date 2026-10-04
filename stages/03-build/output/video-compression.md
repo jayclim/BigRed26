@@ -1,6 +1,6 @@
 # Local video compression before upload
 
-Status: implemented. The original synthetic browser checks passed at beac2e2. The audio repair below passes unit, TypeScript and Webpack build checks on 2026-10-04. A browser run of the repair and real phone checks are pending.
+Status: implemented. The original synthetic browser checks passed at beac2e2. The current PR18 repair rejects unknown or undecodable audio in every track. Its checks are recorded below. Browser and real phone checks of this repair are pending.
 
 ## Behavior
 
@@ -16,7 +16,7 @@ The lead had already installed Mediabunny 1.61.1. No install or network request 
 
 The conversion uses BlobSource and ALL_FORMATS, an MP4 output and BufferTarget. Display dimensions include pixel aspect ratio and rotation. The long edge is capped at 1920 and the short edge at 1080. Dimensions round down to even values, without upscaling. Contain fitting preserves the image aspect ratio within the rounded output bounds. Packet statistics determine whether to request 30 fps; lower source frame rates stay unchanged. Video and AAC audio use QUALITY_HIGH. AVC is selected when the browser can encode it; otherwise Mediabunny selects a supported MP4 video codec.
 
-Invalid conversions and discarded primary video fail. Required audio loss fails with audio-specific guidance. The repair below allows removal of an unknown disabled secondary audio track when the primary audio is decodable. Discarding a secondary video track alone is allowed. Cancellation calls `conversion.cancel()` and returns AbortError. Input resources are disposed. No fallback encoder or automatic further downscale is added.
+Invalid conversions and discarded primary video fail. Any discarded audio track is a loss. Unknown or undecodable audio in any track fails before conversion starts, with audio-specific guidance and track details. No audio is discarded. Discarding a secondary video track alone is allowed. Cancellation calls `conversion.cancel()` and returns AbortError. Input resources are disposed. No fallback encoder or automatic further downscale is added.
 
 ## Actual checks
 
@@ -43,7 +43,9 @@ The portrait input has rotated pixel dimensions, not rotation metadata. No real 
 
 Next action: convert real phone footage (HEVC, HDR, rotation metadata, long clip) on a phone browser and listen to the audio.
 
-## Phone audio failure repair (2026-10-04)
+## Previous repair worker snapshot (recorded 2026-10-04; superseded by published commit 6086578)
+
+This section records the previous worker's behavior and checks. Published commit `6086578` supersedes its pre-publication status. The current PR18 repair below replaces its audio-discard policy.
 
 Input provenance: user-supplied Android Chrome screenshot, dated 2026-10-03. It shows `file26479.mp4`, 316,846,695 bytes (about 302 MiB), a portrait indoor video preview, and `An audio track cannot be preserved. Unsupported tracks: unknown_source_codec`. No raw video file was supplied. The screenshot establishes the reported failure. It does not establish the audio codec, track count, track purpose, or decoder support on that phone.
 
@@ -93,4 +95,25 @@ Viewport inspection found an existing `viewport` export with `width: 'device-wid
 
 Remaining gates: obtain the raw phone recording privately to inspect actual track codecs, track count and enabled flags. Confirm whether a decodable primary exists beside an unknown disabled track. Run compression on the target Android Chrome phone and listen to retained audio. A 302 MiB file still needs successful local compression below 100 MiB; the small fixtures do not prove memory use, duration support or that size result. Run the browser harness with the auxiliary fixture on a host that permits an isolated server. PR review and integration remain with the integration owner.
 
-Publication receipt: explicit-path `git add` failed, exit 128, because the sandbox could not create `.git/worktrees/video-compression/index.lock` (`Operation not permitted`). The repair remains uncommitted and unstaged. No push was attempted. Local HEAD and the cached origin branch ref are both `ba54d5ab8c1bd1b6d5d6f176a32afda4957b1713`. Live `git ls-remote origin refs/heads/feat/video-compression` failed, exit 128, with `Could not resolve host: github.com`; the current remote SHA is unverified. Next action for the host: review the six changed paths, commit them on `feat/video-compression`, push, and verify matching live local/remote SHAs. Do not merge or change the PR ready state as part of this repair.
+Historical pre-publication receipt (superseded by `6086578`): explicit-path `git add` failed, exit 128, because the sandbox could not create `.git/worktrees/video-compression/index.lock` (`Operation not permitted`). At that time, the repair was uncommitted and unstaged. No push was attempted. Local HEAD and the cached origin branch ref were both `ba54d5ab8c1bd1b6d5d6f176a32afda4957b1713`. Live `git ls-remote origin refs/heads/feat/video-compression` failed, exit 128, with `Could not resolve host: github.com`. These results describe the old worker snapshot, not the current publication state.
+
+## PR18 review blocker repair (2026-10-03 EDT)
+
+Worker base: `feat/video-compression`, `6086578`. Unknown audio in any track now rejects with `AUDIO_FORMAT_UNKNOWN`. Undecodable audio in any known track rejects with `AUDIO_DECODER_UNSUPPORTED`. Both errors include track details and state that the original file is unchanged. Rejection occurs before any encoder is constructed. No audio is discarded. Any discarded audio track is a loss. The disabled-secondary exception and its log are removed. The 100 MiB upload bound and VideoUpload cancellation and stale-selection protection are unchanged.
+
+The secondary and unknown-only fixtures now test production `compressVideo`. They assert the error, track details, zero encoder constructions and unchanged original bytes. The real parser still checks the AAC primary and null-codec disabled secondary. Node tests inject AAC decoder capability; they do not decode audio. An in-memory copy restores the secondary AAC object type and injects decoder failure for that track. No fixture file was changed or added.
+
+Actual checks on Node 24.11.1:
+
+- `node src/features/creator/compressVideo.check.ts`: exit 0. Output: `Video compression checks passed: dimensions, audio loss/errors, real MP4 parsing, unknown-only/secondary and undecodable-secondary rejection before encoding, original bytes, cancellation, picker/server limits.`
+- `npm run check`: exit 0. Core, media and the same compressor checks passed. Output includes `media checks passed (bounded streams, exact file field, synthetic headers, storage, metadata, write failure)` and `extraction checks passed (32 cases; no network calls)`.
+- `npx tsc --noEmit`: exit 0; no output.
+- `npx next build --webpack`: exit 0. Output: `✓ Compiled successfully in 1387ms`, `  Finished TypeScript in 978ms ...` and `✓ Generating static pages using 13 workers (6/6) in 71ms`.
+- `npm run build`: exit 1. Turbopack failed on the guide CSS module. Output: `Error [TurbopackInternalError]: Failed to write app endpoint /page`, `- binding to a port` and `- Operation not permitted (os error 1)`.
+- `git diff --check`: exit 0; no output.
+
+The parser warning `Unsupported audio codec (objectTypeIndication 255) - discarding track.` is expected for these synthetic fixtures. The compressor rejects the file; it does not return a file with that track removed.
+
+Limits: this worker ran no browser or phone check and made no network or provider call. The original 302 MiB phone file is not available. This repair does not claim to fix that file. Fixtures are synthetic. Browser codec behavior, real audio playback, large-file memory use and compression below 100 MiB remain unverified.
+
+Next action: the host commits and pushes the owned changes. Run the browser check, then a fresh independent review of the new published commit. This worker did not commit or push.

@@ -21,19 +21,6 @@ export function audioTrackDiagnostics<T>(tracks: readonly AudioTrackInfo<T>[]): 
   }).join('; ');
 }
 
-// A disabled secondary track is the only auxiliary audio we can identify from
-// MP4 metadata. Do not infer that an active unknown track contains no sound.
-export function auxiliaryAudioTracks<T>(tracks: readonly AudioTrackInfo<T>[], primaryAudio: T | null, isIsoBmff: boolean): T[] {
-  const primary = tracks.find(({ track }) => track === primaryAudio);
-  const unknown = tracks.filter(({ codec }) => codec === null);
-  if (unknown.length && (!isIsoBmff || !primary?.codec || !primary.decodable
-    || unknown.some(({ track, isDefault }) => track === primaryAudio || isDefault))) {
-    const message = primary?.codec && !primary.decodable ? AUDIO_DECODER_UNSUPPORTED : AUDIO_FORMAT_UNKNOWN;
-    throw new VideoCompressionError(`${message} Track details: ${audioTrackDiagnostics(tracks)}.`);
-  }
-  return unknown.map(({ track }) => track);
-}
-
 export function targetSize(width: number, height: number): { width: number; height: number } {
   if (!Number.isFinite(width) || !Number.isFinite(height) || width < 2 || height < 2) {
     throw new Error('The video dimensions must be at least 2 pixels.');
@@ -47,13 +34,12 @@ export function targetSize(width: number, height: number): { width: number; heig
 
 export function requiredTrackLoss<T extends object>(
   discardedTracks: readonly { track: T; reason: string }[],
-  inputTracks: { primaryVideo: T | null; audioTracks: readonly T[]; auxiliaryAudio?: readonly T[] },
+  inputTracks: { primaryVideo: T | null; audioTracks: readonly T[] },
 ): string | null {
   if (discardedTracks.some(({ track }) => track === inputTracks.primaryVideo)) {
     return 'The primary video track cannot be preserved.';
   }
-  const audioLoss = discardedTracks.find(({ track, reason }) => inputTracks.audioTracks.includes(track)
-    && !(reason === 'discarded_by_user' && inputTracks.auxiliaryAudio?.includes(track)));
+  const audioLoss = discardedTracks.find(({ track }) => inputTracks.audioTracks.includes(track));
   if (audioLoss) {
     if (audioLoss.reason === 'unknown_source_codec') return AUDIO_FORMAT_UNKNOWN;
     if (audioLoss.reason === 'undecodable_source_codec') return AUDIO_DECODER_UNSUPPORTED;
@@ -82,16 +68,15 @@ export async function compressVideo(file: File, { onProgress, signal }: {
   try {
     const primaryVideo = await input.getPrimaryVideoTrack();
     const audioTracks = await input.getAudioTracks();
-    const primaryAudio = await input.getPrimaryAudioTrack();
-    const isIsoBmff = await input.getFormat() instanceof mb.IsobmffInputFormat;
     const audioInfo = await Promise.all(audioTracks.map(async (track) => ({
       track, id: track.id, codec: await track.getCodec(),
       internalCodecId: await track.getInternalCodecId(),
       isDefault: (await track.getDisposition()).default, decodable: await track.canDecode(),
     })));
     if (signal?.aborted) throw abortError();
-    const auxiliaryAudio = auxiliaryAudioTracks(audioInfo, primaryAudio, isIsoBmff);
-    if (auxiliaryAudio.length) console.info('Video compression: discarding disabled secondary audio.', audioTrackDiagnostics(audioInfo));
+    const audioError = audioInfo.some(({ codec }) => codec === null) ? AUDIO_FORMAT_UNKNOWN
+      : audioInfo.some(({ decodable }) => !decodable) ? AUDIO_DECODER_UNSUPPORTED : null;
+    if (audioError) throw new VideoCompressionError(`${audioError} Track details: ${audioTrackDiagnostics(audioInfo)}.`);
     if (!primaryVideo) throw new Error('No primary video track was found.');
     conversion = await mb.Conversion.init({
       input, output, showWarnings: false,
@@ -107,11 +92,10 @@ export async function compressVideo(file: File, { onProgress, signal }: {
           bitrate: mb.QUALITY_HIGH,
         };
       },
-      audio: (track) => auxiliaryAudio.includes(track)
-        ? { discard: true } : { codec: 'aac', bitrate: mb.QUALITY_HIGH },
+      audio: { codec: 'aac', bitrate: mb.QUALITY_HIGH },
     });
     if (signal?.aborted) { await conversion.cancel(); throw abortError(); }
-    const loss = requiredTrackLoss(conversion.discardedTracks, { primaryVideo, audioTracks, auxiliaryAudio });
+    const loss = requiredTrackLoss(conversion.discardedTracks, { primaryVideo, audioTracks });
     if (!conversion.isValid || loss) {
       const reasons = conversion.discardedTracks.map(({ track, reason }) => `${track.type} track ${track.id}: ${reason}`).join('; ');
       throw new VideoCompressionError(`${loss ?? COMPRESSION_FAILED}${reasons ? ` Track results: ${reasons}.` : ''}${audioInfo.length ? ` Track details: ${audioTrackDiagnostics(audioInfo)}.` : ''}`);

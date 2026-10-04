@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as mb from 'mediabunny';
 import {
-  targetSize, requiredTrackLoss, auxiliaryAudioTracks, audioTrackDiagnostics,
+  targetSize, requiredTrackLoss, audioTrackDiagnostics,
   compressionErrorMessage, VideoCompressionError, AUDIO_FORMAT_UNKNOWN,
   AUDIO_DECODER_UNSUPPORTED, COMPRESSION_FAILED, COMPRESSION_UNSUPPORTED, compressVideo,
 } from './compressVideo.ts';
@@ -34,106 +34,100 @@ assert.match(requiredTrackLoss(discarded(audio), { primaryVideo: video, audioTra
 assert.match(requiredTrackLoss(discarded(secondAudio), { primaryVideo: video, audioTracks: [audio, secondAudio] })!, /audio/);
 const primaryInfo = { track: audio, id: 2, codec: 'aac', internalCodecId: 'mp4a', isDefault: true, decodable: true };
 const unknownInfo = { track: secondAudio, id: 3, codec: null, internalCodecId: 'mp4a', isDefault: false, decodable: false };
-assert.deepEqual(auxiliaryAudioTracks([primaryInfo, unknownInfo], audio, true), [secondAudio]);
-assert.deepEqual(auxiliaryAudioTracks([primaryInfo], audio, true), []);
-assert.deepEqual(auxiliaryAudioTracks([], null, true), []);
-assert.deepEqual(auxiliaryAudioTracks([primaryInfo, { ...unknownInfo, codec: 'aac', decodable: true }], audio, true), []);
-for (const [tracks, primary, iso] of [
-  [[unknownInfo], secondAudio, true],
-  [[primaryInfo, unknownInfo], secondAudio, true],
-  [[primaryInfo, { ...unknownInfo, isDefault: true }], audio, true],
-  [[primaryInfo, unknownInfo], audio, false],
-] as const) {
-  assert.throws(() => auxiliaryAudioTracks(tracks, primary, iso), (error: unknown) => {
-    assert.ok(error instanceof VideoCompressionError);
-    const text = compressionErrorMessage(error);
-    assert.ok(text.startsWith(AUDIO_FORMAT_UNKNOWN));
-    assert.match(text, /audio track 3: codec=unknown, container=mp4a/);
-    assert.match(text, /original file is unchanged/);
-    assert.doesNotMatch(text, /desktop|Edge|This browser cannot compress/);
-    return true;
-  });
-}
-assert.throws(() => auxiliaryAudioTracks([{ ...primaryInfo, decodable: false }, unknownInfo], audio, true),
-  new RegExp(AUDIO_DECODER_UNSUPPORTED.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-const withAuxiliary = { primaryVideo: video, audioTracks: [audio, secondAudio], auxiliaryAudio: [secondAudio] };
-assert.equal(requiredTrackLoss([{ track: secondAudio, reason: 'discarded_by_user' }], withAuxiliary), null);
-assert.equal(requiredTrackLoss([{ track: secondAudio, reason: 'unknown_source_codec' }], withAuxiliary), AUDIO_FORMAT_UNKNOWN);
-assert.ok(requiredTrackLoss([{ track: audio, reason: 'discarded_by_user' }], withAuxiliary));
-assert.equal(requiredTrackLoss([{ track: audio, reason: 'undecodable_source_codec' }], withAuxiliary), AUDIO_DECODER_UNSUPPORTED);
+const inputTracks = { primaryVideo: video, audioTracks: [audio, secondAudio] };
+assert.ok(requiredTrackLoss([{ track: secondAudio, reason: 'discarded_by_user' }], inputTracks));
+assert.equal(requiredTrackLoss([{ track: secondAudio, reason: 'unknown_source_codec' }], inputTracks), AUDIO_FORMAT_UNKNOWN);
+assert.ok(requiredTrackLoss([{ track: audio, reason: 'discarded_by_user' }], inputTracks));
+assert.equal(requiredTrackLoss([{ track: secondAudio, reason: 'undecodable_source_codec' }], inputTracks), AUDIO_DECODER_UNSUPPORTED);
 assert.equal(compressionErrorMessage(new Error('unexpected')), COMPRESSION_FAILED);
 assert.equal(compressionErrorMessage(new VideoCompressionError(COMPRESSION_UNSUPPORTED)), COMPRESSION_UNSUPPORTED);
 assert.match(audioTrackDiagnostics([primaryInfo, unknownInfo]), /default=false, decodable=false/);
 
-// Real MP4 parser and Conversion reproduction; no browser codec is needed for packet copying.
 // The fixture has H.264, default AAC and a disabled extra mp4a track whose esds
 // objectTypeIndication is patched from 0x40 to 0xff. It contains only synthetic sound.
 const fixture = readFileSync(new URL('./fixtures/unknown-secondary-audio.mp4', import.meta.url));
-const input = new mb.Input({ source: new mb.BufferSource(fixture), formats: mb.ALL_FORMATS });
-try {
-  const audios = await input.getAudioTracks();
-  const primary = await input.getPrimaryAudioTrack();
-  assert.equal(audios.length, 2);
-  assert.equal(primary, audios[0]);
-  assert.equal(await audios[0].getCodec(), 'aac');
-  assert.equal(await audios[1].getCodec(), null);
-  assert.equal((await audios[1].getDisposition()).default, false);
-  const makeOutput = () => new mb.Output({ format: new mb.Mp4OutputFormat(), target: new mb.BufferTarget() });
-  const reproduction = await mb.Conversion.init({ input, output: makeOutput(), video: { discard: true }, showWarnings: false });
-  assert.ok(reproduction.discardedTracks.some(({ track, reason }) => track === audios[1] && reason === 'unknown_source_codec'));
-  assert.ok(reproduction.utilizedTracks.includes(audios[0]));
-  await reproduction.cancel();
-
-  // Inject only capability evidence: Node has no AudioDecoder. A native browser
-  // run is still needed to check this policy with its decoder and encoder.
-  const info = await Promise.all(audios.map(async track => ({
-    track, id: track.id, codec: await track.getCodec(), internalCodecId: await track.getInternalCodecId(),
-    isDefault: (await track.getDisposition()).default, decodable: track === primary,
-  })));
-  const auxiliary = auxiliaryAudioTracks(info, primary, await input.getFormat() instanceof mb.IsobmffInputFormat);
-  const output = makeOutput();
-  const fixed = await mb.Conversion.init({ input, output, video: { discard: true },
-    audio: track => auxiliary.includes(track) ? { discard: true } : {}, showWarnings: false });
-  assert.equal(fixed.isValid, true);
-  assert.equal(requiredTrackLoss(fixed.discardedTracks, { primaryVideo: null, audioTracks: audios, auxiliaryAudio: auxiliary }), null);
-  assert.deepEqual(fixed.utilizedTracks, [primary]);
-  assert.ok(fixed.discardedTracks.some(({ track, reason }) => track === audios[1] && reason === 'discarded_by_user'));
-  await fixed.execute();
-  const result = new mb.Input({ source: new mb.BufferSource((output.target as mb.BufferTarget).buffer!), formats: mb.ALL_FORMATS });
-  try {
-    const retained = await result.getAudioTracks();
-    assert.equal(retained.length, 1);
-    assert.equal(await retained[0].getCodec(), 'aac');
-    assert.ok((await retained[0].computePacketStats()).packetCount > 0);
-  } finally { result.dispose(); }
-} finally { input.dispose(); }
-
 const canceled = new AbortController(); canceled.abort();
 await assert.rejects(compressVideo(new File([fixture], 'fixture.mp4'), { signal: canceled.signal }), { name: 'AbortError' });
 // Pass only the initial encoder-presence gate. Unknown audio must fail before
 // any encoder is constructed. This checks the actual compressor error boundary.
 const encoderDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'VideoEncoder');
-Object.defineProperty(globalThis, 'VideoEncoder', { configurable: true, value: class {
-  constructor() { throw new Error('Unknown audio must fail before encoding.'); }
+const audioEncoderDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'AudioEncoder');
+const audioDecoderDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'AudioDecoder');
+let encoderConstructions = 0;
+const Encoder = class {
+  constructor() { encoderConstructions++; throw new Error('Audio rejection must precede encoding.'); }
+};
+Object.defineProperty(globalThis, 'VideoEncoder', { configurable: true, value: Encoder });
+Object.defineProperty(globalThis, 'AudioEncoder', { configurable: true, value: Encoder });
+// Node has no native AudioDecoder. Inject AAC capability only; keep real parsing.
+Object.defineProperty(globalThis, 'AudioDecoder', { configurable: true, value: class {
+  static async isConfigSupported(config: AudioDecoderConfig) {
+    return { supported: config.codec.startsWith('mp4a.40.'), config };
+  }
 } });
 try {
+  const input = new mb.Input({ source: new mb.BufferSource(fixture), formats: mb.ALL_FORMATS });
+  try {
+    const audios = await input.getAudioTracks();
+    assert.equal(audios.length, 2);
+    assert.equal(await input.getPrimaryAudioTrack(), audios[0]);
+    assert.equal(await audios[0].getCodec(), 'aac');
+    assert.equal(await audios[0].canDecode(), true);
+    assert.equal(await audios[1].getCodec(), null);
+    assert.equal((await audios[1].getDisposition()).default, false);
+  } finally { input.dispose(); }
+
   const unknownOnly = readFileSync(new URL('./fixtures/unknown-only-audio.mp4', import.meta.url));
-  const original = new File([unknownOnly], 'unknown-only.mp4', { type: 'video/mp4' });
-  await assert.rejects(compressVideo(original), (error: unknown) => {
-    assert.ok(error instanceof VideoCompressionError);
-    assert.ok(compressionErrorMessage(error).startsWith(AUDIO_FORMAT_UNKNOWN));
-    assert.doesNotMatch(error.message, /desktop|Edge|This browser cannot compress/);
-    assert.match(error.message, /audio track 2: codec=unknown, container=mp4a/);
-    return true;
-  });
-  assert.deepEqual(Buffer.from(await original.arrayBuffer()), unknownOnly);
+  for (const [bytes, name, trackId] of [
+    [fixture, 'unknown-secondary.mp4', 3], [unknownOnly, 'unknown-only.mp4', 2],
+  ] as const) {
+    const original = new File([bytes], name, { type: 'video/mp4' });
+    await assert.rejects(compressVideo(original), (error: unknown) => {
+      assert.ok(error instanceof VideoCompressionError);
+      assert.ok(compressionErrorMessage(error).startsWith(AUDIO_FORMAT_UNKNOWN));
+      assert.doesNotMatch(error.message, /desktop|Edge|This browser cannot compress/);
+      assert.ok(error.message.includes(`audio track ${trackId}: codec=unknown, container=mp4a`));
+      assert.match(error.message, /original file is unchanged/);
+      if (trackId === 3) assert.match(error.message, /audio track 2: codec=aac, container=mp4a, default=true, decodable=true/);
+      return true;
+    });
+    assert.equal(encoderConstructions, 0);
+    assert.deepEqual(Buffer.from(await original.arrayBuffer()), bytes);
+  }
+
+  // Restore the secondary track's AAC object type in memory, then inject an
+  // unsupported secondary decoder. Do not change or add fixture files.
+  const knownSecondary = Buffer.from(fixture);
+  assert.equal(knownSecondary[1847], 0xff);
+  knownSecondary[1847] = 0x40;
+  const canDecode = mb.InputAudioTrack.prototype.canDecode;
+  mb.InputAudioTrack.prototype.canDecode = async function () {
+    return this.id === 3 ? false : canDecode.call(this);
+  };
+  try {
+    const original = new File([knownSecondary], 'undecodable-secondary.mp4', { type: 'video/mp4' });
+    await assert.rejects(compressVideo(original), (error: unknown) => {
+      assert.ok(error instanceof VideoCompressionError);
+      assert.ok(compressionErrorMessage(error).startsWith(AUDIO_DECODER_UNSUPPORTED));
+      assert.match(error.message, /audio track 2: codec=aac, container=mp4a, default=true, decodable=true/);
+      assert.match(error.message, /audio track 3: codec=aac, container=mp4a, default=false, decodable=false/);
+      assert.match(error.message, /original file is unchanged/);
+      return true;
+    });
+    assert.equal(encoderConstructions, 0);
+    assert.deepEqual(Buffer.from(await original.arrayBuffer()), knownSecondary);
+  } finally { mb.InputAudioTrack.prototype.canDecode = canDecode; }
 } finally {
   if (encoderDescriptor) Object.defineProperty(globalThis, 'VideoEncoder', encoderDescriptor);
   else Reflect.deleteProperty(globalThis, 'VideoEncoder');
+  if (audioEncoderDescriptor) Object.defineProperty(globalThis, 'AudioEncoder', audioEncoderDescriptor);
+  else Reflect.deleteProperty(globalThis, 'AudioEncoder');
+  if (audioDecoderDescriptor) Object.defineProperty(globalThis, 'AudioDecoder', audioDecoderDescriptor);
+  else Reflect.deleteProperty(globalThis, 'AudioDecoder');
 }
 const largeVideo = { type: 'video/mp4', size: MAX_MEDIA_BYTES + 1 };
 assert.equal(mediaPickError(largeVideo), null);
 assert.ok(mediaInputError(largeVideo));
 assert.ok(mediaPickError({ ...largeVideo, type: 'image/png' }));
 assert.ok(mediaPickError({ type: 'video/mp4', size: 0 }));
-console.log('Video compression checks passed: dimensions, audio policy/errors, real MP4 unknown_source_codec reproduction, retained AAC packets, cancellation, picker/server limits.');
+console.log('Video compression checks passed: dimensions, audio loss/errors, real MP4 parsing, unknown-only/secondary and undecodable-secondary rejection before encoding, original bytes, cancellation, picker/server limits.');
