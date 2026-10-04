@@ -1,6 +1,6 @@
 // Browser side of the Gemini Live guide: token, camera frames, optional microphone, gapless audio playback.
 // The browser holds only a short-lived, single-use ephemeral token. The long-lived key never leaves the server.
-import type { Locale, Result } from '@contracts/contracts.ts';
+import type { Result } from '@contracts/contracts.ts';
 import { captureFrame } from '@/features/guide/frameCapture.ts';
 import {
   FRAME_INTERVAL_MS, INPUT_SAMPLE_RATE, OUTPUT_SAMPLE_RATE, START_TEXT, TICK_AFTER_SILENCE_MS, TICK_TEXT,
@@ -10,7 +10,7 @@ import {
 
 export { liveGuideEnabled } from './liveProbe.ts';
 
-export interface LiveTokenInfo { token: string; endpoint: string; setup: unknown; routeName: string; locale: Locale }
+export interface LiveTokenInfo { token: string; endpoint: string; setup: unknown; routeName: string; language: string }
 export type LiveStatus = 'idle' | 'starting' | 'live' | 'reconnecting' | 'stopped' | 'error';
 export type LiveFailure = 'unavailable' | 'camera_denied' | 'camera_missing' | 'camera_error' | 'token' | 'socket' | 'limit' | 'mic_denied' | 'mic_error';
 export interface LiveHandlers {
@@ -19,14 +19,14 @@ export interface LiveHandlers {
   onCaptions(lines: string[]): void;
   onSpeaking(speaking: boolean): void;
 }
-export interface LiveOptions { routeId: string; locale: Locale; video: HTMLVideoElement; handlers: LiveHandlers; fetchToken?: typeof fetchLiveToken }
+export interface LiveOptions { routeId: string; language: string; video: HTMLVideoElement; handlers: LiveHandlers; fetchToken?: typeof fetchLiveToken }
 
 const MAX_RECONNECTS = 3;
 const MAX_BUFFERED = 1_000_000; // skip frames when the socket backs up
 
-export async function fetchLiveToken(routeId: string, locale: Locale): Promise<Result<LiveTokenInfo>> {
+export async function fetchLiveToken(routeId: string, language: string): Promise<Result<LiveTokenInfo>> {
   try {
-    const res = await fetch('/api/live/token', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ routeId, locale }), cache: 'no-store' });
+    const res = await fetch('/api/live/token', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ routeId, language }), cache: 'no-store' });
     return await res.json() as Result<LiveTokenInfo>;
   } catch { return { ok: false, error: { code: 'PROVIDER_UNAVAILABLE', message: "Can't reach the Breadcrumb server.", retryable: true } }; }
 }
@@ -166,7 +166,7 @@ export class LiveGuideSession {
 
   private async connect() {
     const gen = ++this.generation; this.ready = false;
-    const minted = await (this.o.fetchToken ?? fetchLiveToken)(this.o.routeId, this.o.locale);
+    const minted = await (this.o.fetchToken ?? fetchLiveToken)(this.o.routeId, this.o.language);
     if (this.stopped || gen !== this.generation) return;
     if (!minted.ok) { this.fail(minted.error.code === 'PROVIDER_UNAVAILABLE' && !minted.error.retryable ? 'unavailable' : 'token', minted.error.message); return; }
     const info = minted.value;

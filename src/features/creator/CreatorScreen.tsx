@@ -3,6 +3,7 @@ import { Button } from '@/ui/button';
 import { Textarea } from '@/ui/textarea';
 import { Badge } from '@/ui/badge';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import type { Checkpoint, CoreAdapter, Direction, Id, Result, Route } from '@contracts/contracts.ts';
 import { DIRECTION_TEXT } from '@/ui/Arrow.tsx';
@@ -26,7 +27,6 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
   const reduceMotion = useReducedMotion();
   const [route, setRoute] = useState<Route | null>(null);
   const [saved, setSaved] = useState(true);
-  const [reviewed, setReviewed] = useState<Set<Id>>(new Set());
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'error' | 'ok'; text: string } | null>(null);
   const [origin, setOrigin] = useState('');
@@ -52,9 +52,9 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
   }
 
   function openDraft(draft: Route) {
-    setRoute(draft); setSaved(true); setReviewed(new Set());
+    setRoute(draft); setSaved(true);
     setGuidePath(`/follow/${draft.id}`); setPendingDraft(null);
-    setMsg({ kind: 'ok', text: 'Draft created. Check every step before approving.' });
+    setMsg({ kind: 'ok', text: 'Draft created. Review the steps, then approve.' });
     focusHeading.current = true;
   }
 
@@ -105,7 +105,7 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
     setOrigin(window.location.origin);
     core.getRoute(routeId).then((r) => {
       if (!active) return;
-      if (r.ok) { setRoute(r.value); setSaved(true); setReviewed(new Set()); setGuidePath(followPath); }
+      if (r.ok) { setRoute(r.value); setSaved(true); setGuidePath(followPath); }
       else setMsg({ kind: 'error', text: r.error.message });
     });
     return () => { active = false; token.current++; request.current?.abort(); request.current = null; };
@@ -115,7 +115,6 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
 
   const approved = route.status === 'approved';
   const fixtureRoute = route.id === 'demo-route' || route.id === actionFixture.route.id;
-  const allReviewed = route.checkpoints.every((c) => reviewed.has(c.id));
   // Keep notices in flow until their exit completes; never animate their height.
   const noticeMotion = {
     initial: reduceMotion ? false as const : { opacity: 0, y: 4 },
@@ -126,7 +125,6 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
 
   function edit(id: Id, patch: Partial<Checkpoint>) {
     setRoute((r) => r && { ...r, checkpoints: r.checkpoints.map((c) => (c.id === id ? { ...c, ...patch } : c)) });
-    setReviewed((s) => { const n = new Set(s); n.delete(id); return n; }); // an edit needs a fresh review
     edits.current++; setSaved(false);
     setMsg(null);
   }
@@ -150,7 +148,7 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
 
   const approve = () => run(async () => {
     if (!saved && !(await save())) return;
-    const r = await core.approveRoute(route.id, route.version, [...reviewed]);
+    const r = await core.approveRoute(route.id, route.version, route.checkpoints.map((c) => c.id));
     if (!r.ok) return setMsg({ kind: 'error', text: r.error.message });
     setRoute(r.value);
     setMsg({ kind: 'ok', text: `Version ${r.value.version} approved. New guide sessions use it.` });
@@ -161,7 +159,7 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
   function startNewVersion() {
     clearExtraction(); edits.current++;
     setRoute({ ...route!, version: route!.version + 1, status: 'draft' });
-    setReviewed(new Set()); setSaved(false);
+    setSaved(false);
     setMsg({ kind: 'ok', text: `Editing version ${route!.version + 1}. Version ${route!.version} stays live until you approve this one.` });
   }
 
@@ -174,7 +172,7 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
       // Explicit fixture selection can add this draft to an older store. No existing route is changed.
       if (!r.ok && r.error.code === 'NOT_FOUND') r = await core.saveDraft(actionFixture.route as Route);
       if (!r.ok) return setMsg({ kind: 'error', text: r.error.message });
-      setRoute(r.value); setSaved(true); setReviewed(new Set());
+      setRoute(r.value); setSaved(true);
       setGuidePath(`/follow/${r.value.id}`);
     });
   };
@@ -188,7 +186,7 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
         <div className="creator-top">
           <Brand />
           <div className={styles.topRight}>
-            <div className="creator-context"><span>Teach a route</span>{fixtureRoute && <Badge variant="outline" className="mock-badge">Mock route</Badge>}</div>
+            <div className="creator-context"><Link href="/routes" className="creator-nav">All routes</Link><span>Teach a route</span>{fixtureRoute && <Badge variant="outline" className="mock-badge">Mock route</Badge>}</div>
             <AnimatePresence initial={false} mode="wait">
               <motion.span key={`${route.status}-${saved}`} {...noticeMotion}>
                 <Badge variant={approved ? 'success' : 'secondary'} className="status" data-status={route.status}>
@@ -206,8 +204,8 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
           <div><dt>Destination</dt><dd>{route.destinationLabel}</dd></div>
         </dl>
         <p className="notice">{fixtureRoute
-          ? 'Fictional mock fixture; no video was recorded. Check each step, then approve. Fixture success is not field or terrain-safety evidence.'
-          : approved ? 'Route from your video. You approved this version after checking every step.' : 'Draft from your video. Check every step; nothing is approved yet.'}</p>
+          ? 'Fictional mock fixture; no video was recorded. Review each step, then approve. Fixture success is not field or terrain-safety evidence.'
+          : approved ? 'Route from your video. You approved this version.' : 'Draft from your video. Review the steps; nothing is approved yet.'}</p>
       </header>
 
       <div className={styles.prompt}>
@@ -266,12 +264,12 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
       )}
 
       <div className="section-heading">
-        <div><h2>{approved ? 'Approved route' : 'Review checkpoints'}</h2><p>{approved ? 'This version is ready for visitors.' : 'Check the instructions in both languages before approving.'}</p></div>
+        <div><h2>{approved ? 'Approved route' : 'Review checkpoints'}</h2><p>{approved ? 'This version is ready for visitors.' : 'Review the instructions in both languages before approving.'}</p></div>
         <Badge variant="outline">{route.checkpoints.length} steps</Badge>
       </div>
       <ol className="trail" aria-label="Route checkpoints in walking order">
         {route.checkpoints.map((c, i) => (
-          <li key={c.id} data-reviewed={approved || reviewed.has(c.id)} style={{ animationDelay: `${Math.min((i + 2) * 32, 160)}ms` }}>
+          <li key={c.id} data-reviewed={approved} style={{ animationDelay: `${Math.min((i + 2) * 32, 160)}ms` }}>
             <div className={`node${c.isDestination ? ' dest' : ''}`} aria-hidden="true">{i + 1}</div>
             <article className="step" aria-labelledby={`cp-${c.id}`}>
               <h2 id={`cp-${c.id}`}>
@@ -307,13 +305,6 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
               )}
               {!c.isDestination && <ActionEditor action={c.action} disabled={approved || busy}
                 onChange={(action) => edit(c.id, { action })} />}
-              {!approved && (
-                <label className="review">
-                  <input type="checkbox" checked={reviewed.has(c.id)}
-                    onChange={(e) => setReviewed((s) => { const n = new Set(s); if (e.target.checked) n.add(c.id); else n.delete(c.id); return n; })} />
-                  I checked this step
-                </label>
-              )}
             </article>
           </li>
         ))}
@@ -323,7 +314,7 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
         <aside className="creator-sidebar" aria-label="Route preview and testing tools">
           <div className={styles.preview}>
             <RouteMap checkpoints={route.checkpoints} current={-1} guiding={false} flow={false} reduced={!!reduceMotion}
-              statuses={route.checkpoints.map((c) => (approved || reviewed.has(c.id) ? 'checked' : 'not checked'))}
+              statuses={route.checkpoints.map(() => (approved ? 'approved' : 'draft'))}
               locale="en" name={route.name} title="Route preview" note="Not to scale" />
             <p className={styles.previewNote}>{approved
               ? `Drawn from the checkpoints of approved version ${route.version}.`
@@ -341,11 +332,11 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
         {!approved && (
           <>
             <Button variant="outline" onClick={saveDraft} disabled={busy || extracting || saved}>Save draft</Button>
-            <Button onClick={approve} disabled={busy || extracting || !!pendingDraft || !!guardMedia || !allReviewed}>
+            <Button onClick={approve} disabled={busy || extracting || !!pendingDraft || !!guardMedia}>
               Approve version {route.version}
             </Button>
             <span style={{ color: 'var(--muted)' }}>
-              {reviewed.size} of {route.checkpoints.length} steps checked
+              Approving makes version {route.version} live for visitors.
             </span>
           </>
         )}

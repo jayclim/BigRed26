@@ -18,13 +18,13 @@ Scope mechanism:
 Layout:
 - Desktop (>=900px): top bar (brand left; "Teach a route", mock badge and status badge right). Centered route name, notice text and Start/Destination pills. Large video card (max 760px) under the title. Then two columns: checkpoint rail (left) and a 340px sticky column with the route preview and testing tools (right).
 - Tablet (641–899px): one column. Preview and testing tools follow the checkpoints, side by side.
-- Phone (<=640px): left-aligned title (32px), stacked fields, full-width review pill, 16px input text, approve bar as a 2-column button grid with the count above.
+- Phone (<=640px): left-aligned title (32px), stacked fields, 16px input text, approve bar as a 2-column button grid with the count above.
 - Sticky bottom bar spans the full width. Its content aligns to the 1116px content width. The step count shows on the left, buttons on the right; the message line wraps below. Only the non-interactive count is moved by CSS `order`; focus order is unchanged.
 
 Checkpoint rail:
 - 28px nodes (26px on phones) in a 36px column with 2px connecting rules. A checked step (or every step of an approved route) fills its node and the rule below it with #0a6f82. The destination node stays dark ink.
-- Every step stays open with all fields. The mockup collapses unopened steps behind Edit/Review buttons; that would change review interaction, so it is not adopted.
-- The review checkbox and its text "I checked this step" are styled as a pill. It fills with the action color when checked (the mockup's "Mark reviewed").
+- Every step stays open with all fields. The mockup collapses unopened steps behind Edit/Review buttons; that would hide edits, so it is not adopted.
+- After merging main (PR 26), approval is one explicit Approve click; the per-step review checkboxes and their pill styling are gone. An approved version fills every rail node and rule with the action color.
 - The direction tag is an accent-tint pill.
 
 Route preview:
@@ -72,6 +72,8 @@ Contrast (computed, not rendered): white on #0a6f82 5.82:1; muted on page 5.54:1
 - Not covered here: the ignored creator extraction harness (`.overnight/ui-extraction.mjs`, not in this checkout), extraction success and failure states with injected responses, full keyboard focus walk (only review-pill focus was checked), and a real phone.
 
 - Review of `d601dd2` (independent, approve): fixed its P2 (keyboard focus on a checked review pill now shows a white outline and an ink ring; confirmed in a render after real Tab key presses, `:focus-visible` true) and P3 notes (video heading weight, sticky column height, stale text here).
+
+- Merge of `origin/main` `7b8dc3b` (PR 25 squash, PR 26 one-click approve and route dashboard, PR 27 live languages): resolved conflicts by keeping this layout, adding PR 26's "All routes" link to the top bar and its wording, and taking `RouteMap.tsx` from this branch (main's copy equals the PR 25 version). Removed the now-dead review-pill styles and the preview's dependency on review state; the preview's screen-reader status reads draft or approved.
 
 ## Limitations
 

@@ -49,6 +49,16 @@ export interface Route {
   checkpoints: Checkpoint[];
   accessNotes: string[]; // Human-verified facts only, no inferred accessibility certification
 }
+// AMENDMENT 4: one row per route for the route dashboard. Built from the latest version; no timestamps exist in v1 routes.
+export interface RouteSummary {
+  id: Id;
+  name: string;
+  latestVersion: number;
+  latestStatus: Route['status'];
+  approvedVersion: number | null; // newest approved version; visitors follow this one
+  checkpointCount: number;
+  destinationLabel: string;
+}
 export interface Session {
   id: Id;
   routeId: Id;
@@ -141,7 +151,9 @@ export interface CoreAdapter {
   getBuild(jobId: Id): Promise<Result<BuildJob>>;
   getRoute(routeId: Id, version?: number): Promise<Result<Route>>;
   saveDraft(route: Route): Promise<Result<Route>>;
-  // AMENDMENT 1: approval names the checkpoints a human explicitly reviewed; all must be listed.
+  // AMENDMENT 4: every stored route, in storage order.
+  listRoutes(): Promise<Result<RouteSummary[]>>;
+  // AMENDMENT 1: approval lists every checkpoint id. Human review is the explicit Approve click on the saved version (2026-10-04).
   approveRoute(routeId: Id, version: number, reviewedCheckpointIds: Id[]): Promise<Result<Route>>;
   startSession(routeId: Id, locale: Locale, mode: Mode): Promise<Result<Session>>;
   getSession(sessionId: Id): Promise<Result<Session>>;

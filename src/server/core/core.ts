@@ -3,7 +3,7 @@
 import { randomUUID } from 'node:crypto';
 import type {
   Checkpoint, CoreAdapter, ErrorCode, EventKind, FrameRequest, Guidance, Id, Locale, Mode,
-  NavigationEvent, Result, Route, Session,
+  NavigationEvent, Result, Route, RouteSummary, Session,
 } from '../../../contracts/contracts.ts';
 import { FrameRequestSchema, ManualCompletionBodySchema, RouteSchema } from '../../../contracts/schemas.ts';
 
@@ -187,6 +187,21 @@ export function createCore(opts: {
     async getRoute(routeId, version) {
       const r = getVersion(routeId, version);
       return r ? ok(structuredClone(r)) : fail('NOT_FOUND', 'Route not found.');
+    },
+
+    async listRoutes() {
+      const summaries: RouteSummary[] = [];
+      for (const id of Object.keys(state.routes)) { // own enumerable keys only
+        const versions = versionsOf(id);
+        const head = versions?.at(-1);
+        if (!versions || !head) continue;
+        summaries.push({
+          id, name: head.name, latestVersion: head.version, latestStatus: head.status,
+          approvedVersion: versions.findLast((r) => r.status === 'approved')?.version ?? null,
+          checkpointCount: head.checkpoints.length, destinationLabel: head.destinationLabel,
+        });
+      }
+      return ok(summaries);
     },
 
     async saveDraft(input) {

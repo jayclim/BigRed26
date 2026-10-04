@@ -129,6 +129,12 @@ assert.equal(oversized.connection, 'close'); // the server ends a connection who
 assert.deepEqual(readdirSync(mediaDir).sort(), beforeOversized);
 console.log('POST ', '/api/media (chunked over cap)'.padEnd(48), oversized.status, oversized.json.error.code);
 
+const listed = await call('GET', '/api/routes');
+assert.equal(listed.status, 200);
+const listedDemo = listed.value.find((r) => r.id === 'demo-route');
+assert.ok(listedDemo, 'route list includes demo-route');
+assert.deepEqual([listedDemo.latestStatus, listedDemo.approvedVersion], ['draft', null]);
+assert.ok(listedDemo.checkpointCount > 0 && listedDemo.name && listedDemo.destinationLabel);
 const route = (await call('GET', '/api/routes/demo-route')).value;
 assert.equal(route.status, 'draft');
 assert.equal((await call('POST', '/api/sessions', { routeId: 'demo-route', locale: 'en', mode: 'mock' })).status, 409);
@@ -138,6 +144,7 @@ assert.equal((await call('PUT', '/api/routes/demo-route/draft', edited)).status,
 assert.equal((await call('POST', '/api/routes/demo-route/approve', { version: 1, reviewedCheckpointIds: ['entrance'] })).status, 409);
 const ids = route.checkpoints.map((c) => c.id);
 assert.equal((await call('POST', '/api/routes/demo-route/approve', { version: 1, reviewedCheckpointIds: ids })).value.status, 'approved');
+assert.equal((await call('GET', '/api/routes')).value.find((r) => r.id === 'demo-route').approvedVersion, 1);
 assert.equal((await call('POST', '/api/sessions', { routeId: 'demo-route', locale: 'en', mode: 'live' })).status, 503);
 
 const s = (await call('POST', '/api/sessions', { routeId: 'demo-route', locale: 'en', mode: 'mock' })).value;

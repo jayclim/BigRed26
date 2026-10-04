@@ -140,7 +140,7 @@ export function VideoUpload({ onCreateDraft, onSelectionChange, extractionBusy, 
         </svg>
         <div>
           <h2 id="media-heading">Teach from a video</h2>
-          <p className="meta">Pick a route video to preview and store on this computer. Create a draft after storing the video, then check every step.</p>
+          <p className="meta">Pick a route video to preview and store on this computer. Create a draft after storing the video, then review the steps.</p>
         </div>
       </div>
       <label htmlFor="route-video">

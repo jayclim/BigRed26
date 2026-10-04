@@ -1,16 +1,17 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import type { Locale } from '@contracts/contracts.ts';
 import { Brand } from '@/ui/Brand.tsx';
 import { httpCore } from '@/client/httpCore.ts';
 import { LiveGuideSession, liveGuideEnabled, type LiveFailure, type LiveStatus } from '@/client/liveGuide.ts';
+import { LIVE_LANGUAGES, LIVE_LANGUAGE_STORAGE_KEY, DEFAULT_LIVE_LANGUAGE, isLiveLanguage, liveLanguage, pickDefaultLanguage, uiLocaleFor } from '@/server/live/liveLanguages.ts';
 import styles from './mode.module.css';
+import picker from './liveStream.module.css';
 
 const T = {
   en: {
     badge: 'LIVE · Gemini', note: 'Camera frames and, if you turn it on, your voice stream to Google Gemini while the guide runs.',
     start: 'Start live guide', stop: 'Stop', starting: 'Starting live guide…', reconnecting: 'Reconnecting…', stopped: 'Live guide stopped.',
-    retry: 'Try again', exit: 'Exit', classic: 'Use check-view guide', other: 'Español',
+    retry: 'Try again', exit: 'Exit', classic: 'Use check-view guide', language: 'Voice language',
     micOn: 'Turn mic on', micOff: 'Mute mic', micHint: 'Mic is off. Turn it on to talk to the guide.',
     listening: 'Mic on', speaking: 'Guide is speaking', quiet: 'Watching the camera', waiting: 'The guide will speak when you start walking.',
     preview: 'Camera preview', captions: 'Guide captions', loading: 'Loading route…',
@@ -31,7 +32,7 @@ const T = {
   es: {
     badge: 'EN VIVO · Gemini', note: 'Los fotogramas de la cámara y, si lo activas, tu voz se envían a Google Gemini mientras la guía funciona.',
     start: 'Iniciar guía en vivo', stop: 'Detener', starting: 'Iniciando guía en vivo…', reconnecting: 'Reconectando…', stopped: 'Guía en vivo detenida.',
-    retry: 'Reintentar', exit: 'Salir', classic: 'Usar la guía de comprobar vista', other: 'English',
+    retry: 'Reintentar', exit: 'Salir', classic: 'Usar la guía de comprobar vista', language: 'Idioma de la voz',
     micOn: 'Activar micrófono', micOff: 'Silenciar micrófono', micHint: 'El micrófono está apagado. Actívalo para hablar con la guía.',
     listening: 'Micrófono activo', speaking: 'La guía está hablando', quiet: 'Observando la cámara', waiting: 'La guía hablará cuando empieces a caminar.',
     preview: 'Vista previa de la cámara', captions: 'Subtítulos de la guía', loading: 'Cargando ruta…',
@@ -55,7 +56,7 @@ export function LiveStream({ routeId, exitHref }: { routeId: string; exitHref: s
   const video = useRef<HTMLVideoElement>(null);
   const session = useRef<LiveGuideSession | null>(null);
   const mounted = useRef(true);
-  const [locale, setLocale] = useState<Locale>('en');
+  const [language, setLanguage] = useState(DEFAULT_LIVE_LANGUAGE);
   const [status, setStatus] = useState<LiveStatus>('idle');
   const [failure, setFailure] = useState<{ kind: LiveFailure; detail?: string } | null>(null);
   const [captions, setCaptions] = useState<string[]>([]);
@@ -63,10 +64,14 @@ export function LiveStream({ routeId, exitHref }: { routeId: string; exitHref: s
   const [mic, setMic] = useState(false);
   const [name, setName] = useState<string | null>(null);
   const [blocked, setBlocked] = useState<'off' | 'notApproved' | 'missing' | null>(null);
+  const lang = liveLanguage(language) ?? liveLanguage(DEFAULT_LIVE_LANGUAGE)!;
+  const locale = uiLocaleFor(language); // interface text is en or es; other languages use English text
   const t = T[locale];
 
   useEffect(() => {
     mounted.current = true;
+    try { setLanguage(pickDefaultLanguage(navigator.languages?.length ? navigator.languages : [navigator.language], localStorage.getItem(LIVE_LANGUAGE_STORAGE_KEY))); }
+    catch { setLanguage(pickDefaultLanguage(typeof navigator === 'undefined' ? [] : [navigator.language])); }
     void (async () => {
       const [enabled, route] = await Promise.all([liveGuideEnabled(), httpCore.getRoute(routeId)]);
       if (!mounted.current) return;
@@ -79,12 +84,12 @@ export function LiveStream({ routeId, exitHref }: { routeId: string; exitHref: s
 
   const active = status === 'starting' || status === 'live' || status === 'reconnecting';
 
-  function start() {
-    if (!video.current || active) return;
+  function start(chosen = language) {
+    if (!video.current) return;
     session.current?.stop();
     setFailure(null); setCaptions([]); setMic(false); setSpeaking(false);
     const s = new LiveGuideSession({
-      routeId, locale, video: video.current,
+      routeId, language: chosen, video: video.current,
       handlers: {
         onStatus: (v) => { if (mounted.current && session.current === s) setStatus(v); },
         onFailure: (kind, detail) => { if (mounted.current && session.current === s) setFailure({ kind, detail }); },
@@ -94,6 +99,13 @@ export function LiveStream({ routeId, exitHref }: { routeId: string; exitHref: s
     });
     session.current = s;
     void s.start(); // AudioContext is created synchronously inside this click
+  }
+  function pickLanguage(code: string) {
+    if (!isLiveLanguage(code) || code === language) return;
+    setLanguage(code);
+    try { localStorage.setItem(LIVE_LANGUAGE_STORAGE_KEY, code); } catch { /* storage may be blocked */ }
+    // A session speaks one language. Stop it and wait for a Start tap: iOS needs a tap to start audio again.
+    if (active) stop();
   }
   function stop() { session.current?.stop(); session.current = null; setMic(false); setSpeaking(false); }
   async function toggleMic() {
@@ -113,7 +125,12 @@ export function LiveStream({ routeId, exitHref }: { routeId: string; exitHref: s
           <div className="guide-top">
             <Brand compact />
             <div className="controls">
-              <button className="ctl" disabled={active} onClick={() => setLocale((l) => (l === 'en' ? 'es' : 'en'))} lang={locale === 'en' ? 'es' : 'en'}>{t.other}</button>
+              <label className={picker.picker}>
+                <span>{t.language}</span>
+                <select className="ctl" value={language} onChange={(e) => pickLanguage(e.target.value)}>
+                  {LIVE_LANGUAGES.map((l) => <option key={l.code} value={l.code} lang={l.code}>{l.native}</option>)}
+                </select>
+              </label>
               <a className="ctl" href={`/follow/${encodeURIComponent(routeId)}`}>{t.classic}</a>
               <a className="ctl" href={exitHref}>{t.exit}</a>
             </div>
@@ -124,7 +141,7 @@ export function LiveStream({ routeId, exitHref }: { routeId: string; exitHref: s
               <div className="placeholder">
                 <p style={{ margin: 0 }}>{blockedText ?? name ?? t.loading}</p>
                 <p style={{ margin: 0 }}>{t.note}</p>
-                <button className="ctl" disabled={blocked !== null || name === null} onClick={start}>{failure || status === 'stopped' ? t.retry : t.start}</button>
+                <button className="ctl" disabled={blocked !== null || name === null} onClick={() => start()}>{failure || status === 'stopped' ? t.retry : t.start}</button>
               </div>
             )}
             {active && (
@@ -143,8 +160,8 @@ export function LiveStream({ routeId, exitHref }: { routeId: string; exitHref: s
 
           <div className="card" data-state={status === 'live' ? 'guiding' : 'start'}>
             <div />
-            <ul className={styles.captions} aria-live="polite" aria-label={t.captions}>
-              {captions.length ? captions.map((line, i) => <li key={i}>{line.trim()}</li>) : <li>{active ? t.waiting : ''}</li>}
+            <ul className={styles.captions} lang={lang.code} dir={lang.rtl ? 'rtl' : 'ltr'} aria-live="polite" aria-label={t.captions}>
+              {captions.length ? captions.map((line, i) => <li key={i}>{line.trim()}</li>) : <li lang={locale}>{active ? t.waiting : ''}</li>}
             </ul>
           </div>
           {failureText && <p className="banner" role="alert">{failureText}{failure?.detail && failure.kind === 'token' ? ` (${failure.detail})` : ''}</p>}
