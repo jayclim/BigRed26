@@ -8,6 +8,7 @@ import actionFixture from '@contracts/fixture.actions.v1.json';
 import { Brand } from '@/ui/Brand.tsx';
 import { Camera } from './Camera.tsx';
 import { uploadFrame as realUploadFrame } from '@/client/frameUpload.ts';
+import { liveGuideEnabled } from '@/client/liveProbe.ts';
 import { checkView } from './checkView.ts';
 import styles from './mode.module.css';
 import { reconcileGuide } from './reconcileGuide.ts';
@@ -28,7 +29,7 @@ const T = {
   en: {
     mock: 'Mock', replay: 'Replay', live: 'Live',
     notes: { mock: 'Camera not analyzed', replay: 'Recorded frames, not a live camera', live: 'Frames you check are sent to the server for recognition' },
-    soundOn: 'Sound on', soundOff: 'Sound off', other: 'Español', exit: 'Exit',
+    soundOn: 'Sound on', soundOff: 'Sound off', other: 'Español', exit: 'Exit', liveVoice: 'Use live voice guide',
     start: (d: string) => `Start at the entrance: ${d}.`, startLabel: 'Ready',
     guiding: (l: string) => `At ${l}`, uncertain: 'Not sure where you are', off_route: 'Off the recorded route',
     reorient: "Check which way you're facing", arrived: 'Destination confirmed',
@@ -42,7 +43,7 @@ const T = {
   es: {
     mock: 'Simulado', replay: 'Repetición', live: 'En vivo',
     notes: { mock: 'La cámara no se analiza', replay: 'Fotogramas grabados, no una cámara en vivo', live: 'Las vistas que compruebas se envían al servidor para su reconocimiento' },
-    soundOn: 'Con sonido', soundOff: 'Sin sonido', other: 'English', exit: 'Salir',
+    soundOn: 'Con sonido', soundOff: 'Sin sonido', other: 'English', exit: 'Salir', liveVoice: 'Usar guía de voz en vivo',
     start: (d: string) => `Empieza en la entrada: ${d}.`, startLabel: 'Listo',
     guiding: (l: string) => `En ${l}`, uncertain: 'No sé dónde estás', off_route: 'Fuera de la ruta grabada',
     reorient: 'Comprueba hacia dónde miras', arrived: 'Destino confirmado',
@@ -65,6 +66,7 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
   const [problem, setProblem] = useState<string | null>(null);
   const [fatal, setFatal] = useState<{ code: string; message: string } | null>(null);
   const [sound, setSound] = useState(false);
+  const [liveAvailable, setLiveAvailable] = useState(false); // shown only when the server reports the live guide enabled
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>(null);
   const voicePlayer = useRef<ReturnType<typeof createVoicePlayer> | null>(null);
   const mounted = useRef(false);
@@ -76,6 +78,12 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
 
   const locale: Locale = session?.locale ?? 'en';
   const t = T[locale];
+
+  useEffect(() => {
+    let current = true;
+    void liveGuideEnabled().then((enabled) => { if (current) setLiveAvailable(enabled); });
+    return () => { current = false; };
+  }, []);
 
   useEffect(() => {
     mounted.current = true;
@@ -257,6 +265,7 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
                 {sound ? t.soundOn : t.soundOff}
               </button>
               <button className="ctl" disabled={pending} onClick={switchLocale} lang={locale === 'en' ? 'es' : 'en'}>{t.other}</button>
+              {liveAvailable && <a className="ctl" href={`/follow/${encodeURIComponent(routeId)}?mode=stream`}>{t.liveVoice}</a>}
               <a className="ctl" href={exitHref}>{t.exit}</a>
             </div>
           </div>

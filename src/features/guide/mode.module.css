@@ -5,3 +5,11 @@
 .check { position: absolute; left: .6rem; bottom: .6rem; }
 .speechSource { margin: -.35rem 0 .4rem; text-align: right; font-size: .75rem; color: var(--on-night-muted); }
 .voiceStatus { margin: .25rem 1rem; font-size: .85rem; }
+.captions { margin: 0; padding: 0; list-style: none; display: grid; gap: .35rem; min-height: 4.5rem; font-size: var(--type-lg); line-height: 1.35; }
+.captions li { color: var(--on-night-muted); }
+.captions li:last-child { color: var(--on-night); font-weight: 600; }
+.liveBar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.dot { width: .6rem; height: .6rem; border-radius: 50%; background: var(--night-rule); display: inline-block; }
+.dotOn { background: var(--cyan); }
+@media (prefers-reduced-motion: no-preference) { .dotOn { animation: livePulse 1.2s ease-in-out infinite; } }
+@keyframes livePulse { 50% { opacity: .35; } }
