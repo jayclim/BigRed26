@@ -104,7 +104,8 @@ export function LiveStream({ routeId, exitHref }: { routeId: string; exitHref: s
     if (!isLiveLanguage(code) || code === language) return;
     setLanguage(code);
     try { localStorage.setItem(LIVE_LANGUAGE_STORAGE_KEY, code); } catch { /* storage may be blocked */ }
-    if (active) start(code); // a session speaks one language, so changing it restarts the session
+    // A session speaks one language. Stop it and wait for a Start tap: iOS needs a tap to start audio again.
+    if (active) stop();
   }
   function stop() { session.current?.stop(); session.current = null; setMic(false); setSpeaking(false); }
   async function toggleMic() {
@@ -160,7 +161,7 @@ export function LiveStream({ routeId, exitHref }: { routeId: string; exitHref: s
           <div className="card" data-state={status === 'live' ? 'guiding' : 'start'}>
             <div />
             <ul className={styles.captions} lang={lang.code} dir={lang.rtl ? 'rtl' : 'ltr'} aria-live="polite" aria-label={t.captions}>
-              {captions.length ? captions.map((line, i) => <li key={i}>{line.trim()}</li>) : <li>{active ? t.waiting : ''}</li>}
+              {captions.length ? captions.map((line, i) => <li key={i}>{line.trim()}</li>) : <li lang={locale}>{active ? t.waiting : ''}</li>}
             </ul>
           </div>
           {failureText && <p className="banner" role="alert">{failureText}{failure?.detail && failure.kind === 'token' ? ` (${failure.detail})` : ''}</p>}

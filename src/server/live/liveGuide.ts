@@ -79,7 +79,7 @@ export function buildSystemInstruction(route: Route, languageCode: string): stri
 }
 
 // No speechConfig.languageCode: the Live docs say native audio models choose the language themselves and do not accept an
-// explicit code, so the system instruction sets the language. Verified with a real Chinese session (see the receipt).
+// explicit code, so the system instruction sets the language. Not yet observed in a real non-English session (see the receipt).
 /** The full Live setup. Sent in the token (locked) and returned so the browser can send the identical first message. */
 export function buildLiveSetup(route: Route, language: string, model: string) {
   return {
