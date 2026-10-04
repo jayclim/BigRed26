@@ -37,9 +37,10 @@ Teach a short indoor route once with a walk-through video. Anyone can then follo
 | 💸 **Earn** | Post a **bounty** for a route you need. A creator teaches it, the poster approves, and payout goes through **Capital One Nessie** (sandbox money). |
 
 <p align="center">
-  <img src="docs/screenshots/08-landing-mobile.png" alt="Landing on a phone" width="220">
-  &nbsp;
-  <img src="docs/screenshots/09-teach-new-mobile.png" alt="Teach a new route" width="220">
+  <img src="docs/screenshots/phone-1-landing.png" alt="Landing on a phone" width="190">
+  <img src="docs/screenshots/phone-2-routes.png" alt="Route dashboard" width="190">
+  <img src="docs/screenshots/phone-3-voice-guide.png" alt="Live voice guide" width="190">
+  <img src="docs/screenshots/phone-4-teach.png" alt="Teach a route" width="190">
 </p>
 
 ## 🧭 How it works
