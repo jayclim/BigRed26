@@ -134,7 +134,8 @@ try {
     assert(pendingRelease); assert.equal(uploads, before + 1);
     assert(await p.evaluate("[...document.querySelectorAll('button')].find(b => b.textContent === 'Check this view').disabled"));
     pendingRelease(); await p.wait("document.querySelector('.card').dataset.state === 'guiding' && document.querySelector('.card').getAttribute('aria-busy') === 'false'");
-    assert(await p.evaluate(`document.querySelector('.say').textContent === ${JSON.stringify(fixture.checkpoints[0].instruction.en)}`));
+    // The previous instruction stays mounted during its short exit fade; wait for the accepted text.
+    await p.wait(`document.querySelectorAll('.say').length === 1 && document.querySelector('.say').textContent === ${JSON.stringify(fixture.checkpoints[0].instruction.en)}`);
     assert(await p.evaluate('document.documentElement.scrollWidth <= window.innerWidth'));
     await p.shot(`live-${width}`);
     const session = Object.values(core.state.sessions).at(-1).session;
@@ -154,7 +155,8 @@ try {
     await p.wait("document.querySelector('.card').dataset.state === 'guiding' && document.querySelector('.card').getAttribute('aria-busy') === 'false'");
     assert.equal(await p.evaluate("Number(document.querySelector('.card').dataset.sequence)"), session.lastAcceptedSequence);
     assert.equal(session.lastConfirmedCheckpointId, fixture.checkpoints[0].id);
-    assert(await p.evaluate(`document.querySelector('.say').textContent === ${JSON.stringify(fixture.checkpoints[0].instruction.en)}`));
+    // The previous instruction stays mounted during its short exit fade; wait for the accepted text.
+    await p.wait(`document.querySelectorAll('.say').length === 1 && document.querySelector('.say').textContent === ${JSON.stringify(fixture.checkpoints[0].instruction.en)}`);
   }
   console.log('PASS mobile/desktop live label, one upload per double click, busy button, core guidance');
   console.log('PASS locale preserves cursor, unknown removes arrow, stop keeps late accepted result and clears stream');
