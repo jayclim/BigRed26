@@ -3,7 +3,7 @@
 // Run: node scripts/photon-agent.mjs   (needs SPECTRUM_PROJECT_ID, SPECTRUM_PROJECT_SECRET, BREADCRUMB_AGENT_SECRET)
 import { Spectrum } from '@spectrum-ts/core';
 import { imessage } from '@spectrum-ts/imessage';
-import { forward, loadBridgeConfig } from '../src/server/agent/photonBridge.ts';
+import { createBusyState, forward, loadBridgeConfig } from '../src/server/agent/photonBridge.ts';
 
 const loaded = loadBridgeConfig();
 if (!loaded.ok) {
@@ -21,8 +21,10 @@ const stop = async () => { if (stopping) return; stopping = true; await app.stop
 process.on('SIGINT', stop);
 process.on('SIGTERM', stop);
 
+const busy = createBusyState();
 async function handle(space, message) {
-  const reply = await forward(config, space.id, message.content.text);
+  const reply = await forward(config, space.id, message.content.text, { busy });
+  if (reply === null) return; // rate-limited sender already told to wait: stay silent so a flood does not burn line quota
   await space.responding(async () => { await message.reply(reply); });
 }
 

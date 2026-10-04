@@ -27,6 +27,12 @@ export const matcherConfig = (): MatcherConfig => ({ apiKey: process.env.XAI_API
 export const clean = (value: unknown, max: number): string =>
   (typeof value === 'string' ? value : '').replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]+/gu, ' ').replace(/\s+/gu, ' ').trim().slice(0, max);
 
+const URLISH = /https?:|www\.|[\p{L}\p{N}-]+\.\p{L}{2,}|:\/\/|\/follow|\w@\w/iu;
+/** True when text could be read as a link: scheme, www, a bare domain such as evil.example/claim, x.com or bit.ly, an email, or our own path.
+ *  Checked after Unicode folding, so full-width dots and zero-width characters do not hide a link. Errs toward true. */
+export const looksLikeLink = (text: string): boolean =>
+  URLISH.test(text.normalize('NFKC').replace(/[\u200b-\u200f\u2060\ufeff\u00ad]/gu, '').replace(/[\u3002\uff61]/gu, '.'));
+
 /** Approved routes only, newest approved version, text bounded. A route that cannot be read is skipped. */
 export async function loadCatalog(core: Pick<CoreAdapter, 'listRoutes' | 'getRoute'>): Promise<Result<CatalogRoute[]>> {
   const listed = await core.listRoutes();
@@ -36,15 +42,23 @@ export async function loadCatalog(core: Pick<CoreAdapter, 'listRoutes' | 'getRou
     if (summary.approvedVersion === null || catalog.length >= MAX_ROUTES) continue;
     const route = await core.getRoute(summary.id, summary.approvedVersion);
     if (!route.ok || route.value.status !== 'approved') continue;
-    catalog.push(toCatalog(route.value));
+    const entry = toCatalog(route.value);
+    if (entry) catalog.push(entry); // a route whose name or destination looks like a link is not offered at all
   }
   return { ok: true, value: catalog };
 }
-const toCatalog = (route: Route): CatalogRoute => ({
-  id: route.id, name: clean(route.name, 80), destination: clean(route.destinationLabel, 80),
-  stops: route.checkpoints.slice(0, 12).map((c) => clean(c.label, 60)).filter(Boolean),
-  evidence: route.checkpoints.flatMap((c) => c.identifyingEvidence.slice(0, 2)).slice(0, 8).map((e) => clean(e, 60)).filter(Boolean),
-});
+/** Route text is written by the public, so it is filtered like any other stranger text before it can enter a reply.
+ *  Null when the name or destination looks like a link. Stops and evidence that look like a link are dropped. */
+export function toCatalog(route: Route): CatalogRoute | null {
+  const name = clean(route.name, 1000), destination = clean(route.destinationLabel, 1000);
+  if (!name || looksLikeLink(name) || looksLikeLink(destination)) return null;
+  const safe = (value: unknown, max: number) => { const text = clean(value, 1000); return text && !looksLikeLink(text) ? text.slice(0, max) : ''; };
+  return {
+    id: route.id, name: name.slice(0, 80), destination: destination.slice(0, 80),
+    stops: route.checkpoints.slice(0, 12).map((c) => safe(c.label, 60)).filter(Boolean),
+    evidence: route.checkpoints.flatMap((c) => c.identifyingEvidence.slice(0, 2)).slice(0, 8).map((e) => safe(e, 60)).filter(Boolean),
+  };
+}
 
 const SYSTEM = [
   'You choose which indoor route a person wants. Reply only with the JSON the schema asks for.',
@@ -93,8 +107,6 @@ function outputText(body: unknown): string | null {
   return typeof chat === 'string' ? chat : null;
 }
 
-const URLISH = /https?:|www\.|[a-z0-9-]+\.[a-z]{2,}(?:\/|\b)|:\/\/|\/follow/iu;
-
 /** Checks a Grok answer against the real approved ids. Unknown ids are dropped; null if nothing usable remains. */
 export function validateModelAnswer(raw: unknown, catalog: CatalogRoute[]): MatchResult | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
@@ -102,7 +114,7 @@ export function validateModelAnswer(raw: unknown, catalog: CatalogRoute[]): Matc
   const known = new Set(catalog.map((r) => r.id));
   const real = (id: unknown): id is string => typeof id === 'string' && known.has(id);
   const lead = clean(answer.reply, MAX_REPLY);
-  const safeLead = lead && !URLISH.test(lead) ? lead : null; // a model sentence never carries a link
+  const safeLead = lead && !looksLikeLink(lead) ? lead : null; // a model sentence never carries a link
   if (real(answer.routeId)) return { match: { kind: 'match', routeId: answer.routeId }, lead: safeLead, matcher: 'grok' };
   const ids = [...new Set(Array.isArray(answer.candidates) ? answer.candidates.filter(real) : [])].slice(0, MAX_CANDIDATES);
   if (ids.length) return { match: { kind: 'ambiguous', routeIds: ids }, lead: safeLead, matcher: 'grok' };

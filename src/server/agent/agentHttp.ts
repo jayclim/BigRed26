@@ -20,10 +20,11 @@ export const MessageSchema = z.object({
   text: z.string().max(MAX_TEXT, `text must be at most ${MAX_TEXT} characters.`).refine((s) => /\S/u.test(s), 'text must not be empty.'),
 }).strict();
 
-export interface AgentConfig extends MatcherConfig { enabled?: string; secret?: string; publicUrl?: string }
+export interface AgentConfig extends MatcherConfig { enabled?: string; secret?: string; publicUrl?: string; allowLocalHttp?: boolean }
 export const agentConfig = (): AgentConfig => ({ enabled: process.env.BREADCRUMB_AGENT, apiKey: process.env.XAI_API_KEY, model: process.env.XAI_MODEL,
   secret: process.env.BREADCRUMB_AGENT_SECRET, publicUrl: process.env.BREADCRUMB_PUBLIC_URL });
-export const agentEnabled = (c: AgentConfig = agentConfig()) => c.enabled === '1' && !!c.apiKey && !!c.secret;
+// Links need a public https URL, so a missing or invalid BREADCRUMB_PUBLIC_URL counts as not configured. allowLocalHttp is for tests only (never read from env).
+export const agentEnabled = (c: AgentConfig = agentConfig()) => c.enabled === '1' && !!c.apiKey && !!c.secret && baseUrlFor(c.publicUrl, c.allowLocalHttp) !== null;
 
 export interface RateState { global: number[]; conversations: Map<string, number[]> }
 export const createRateState = (): RateState => ({ global: [], conversations: new Map() });
@@ -56,7 +57,7 @@ const state = () => (shared.breadcrumbAgent ??= { memory: createMemory(), rate: 
 
 export async function agentMessagePost(req: Request, core: Pick<CoreAdapter, 'listRoutes' | 'getRoute'>, deps: AgentDeps = {}) {
   const config = deps.config ?? agentConfig();
-  if (!agentEnabled(config)) return fail(503, 'The Breadcrumb agent is not enabled. Set BREADCRUMB_AGENT=1, XAI_API_KEY and BREADCRUMB_AGENT_SECRET.');
+  if (!agentEnabled(config)) return fail(503, 'Agent is not enabled.');
   const given = req.headers.get(SECRET_HEADER);
   if (!given) return fail(401, 'Missing agent secret.');
   if (!secretMatches(given, config.secret!)) return fail(403, 'Wrong agent secret.');
@@ -73,7 +74,7 @@ export async function agentMessagePost(req: Request, core: Pick<CoreAdapter, 'li
   if (!allow(mine.rate, conversationId, now())) return fail(429, 'Too many messages. Wait a minute and retry.');
   const result = await handleMessage(conversationId, text, {
     core, memory: mine.memory, now, config: { apiKey: config.apiKey, model: config.model }, fetchImpl: deps.fetchImpl, timeoutMs: deps.timeoutMs,
-    baseUrl: baseUrlFor(config.publicUrl, req.url),
+    baseUrl: baseUrlFor(config.publicUrl, config.allowLocalHttp)!,
   });
   return Response.json({ ok: true, reply: result.reply, routeId: result.routeId, links: result.links, matcher: result.matcher }, { headers: noStore });
 }

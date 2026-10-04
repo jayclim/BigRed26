@@ -1,12 +1,13 @@
 // Run with `npm run check`. Fake fetch only; no network, no real key.
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { Route } from '../../../contracts/contracts.ts';
 import { createCore, emptyState } from '../core/core.ts';
 import { MAX_BODY_BYTES, PER_MINUTE, SECRET_HEADER, agentEnabled, agentMessagePost, allow, createRateState, secretMatches } from './agentHttp.ts';
 import { MEMORY_TTL_MS, baseUrlFor, buildLinks, createMemory, handleMessage, type HandleDeps } from './conversation.ts';
-import { BUSY, DEFAULT_AGENT_URL, SECRET_HEADER as BRIDGE_HEADER, UNAVAILABLE, conversationKey, forward, loadBridgeConfig } from './photonBridge.ts';
-import { DEFAULT_XAI_MODEL, XAI_URL, askGrok, clean, keywordMatch, loadCatalog, matchRoute, validateModelAnswer } from './routeMatcher.ts';
+import { BUSY, BUSY_WINDOW_MS, DEFAULT_AGENT_URL, SECRET_HEADER as BRIDGE_HEADER, UNAVAILABLE, conversationKey, createBusyState, forward, loadBridgeConfig } from './photonBridge.ts';
+import { DEFAULT_XAI_MODEL, XAI_URL, askGrok, clean, keywordMatch, loadCatalog, looksLikeLink, matchRoute, validateModelAnswer } from './routeMatcher.ts';
 
 const keepAlive = setInterval(() => {}, 1000); // AbortSignal.timeout timers are unref'd; a server has other work, this script does not
 const demo = JSON.parse(readFileSync('contracts/fixture.v1.json', 'utf8')).route as Route;
@@ -188,19 +189,55 @@ for (const [name, f] of [
   // The same message through the keyword path carries no foreign link either.
   const r = await handleMessage('c8', evil, deps(undefined));
   assert.ok(!/evil\.example/u.test(r.reply));
-  // A route name with a link in it is data in the catalog, but the reply links stay ours.
-  const sneaky = emptyState(); sneaky.routes['ok-route'] = [mk('ok-route', 'Study room http://evil.example', 'Study', ['A', 'Study'])];
-  const sneakyReply = await handleMessage('c8', 'study', { ...deps(undefined), core: createCore({ state: sneaky, recognizers: {} }) });
-  assert.deepEqual(sneakyReply.links, links('ok-route'));
-  assert.equal(sneakyReply.routeId, 'ok-route');
+}
+
+// Route text comes from the public. A link in a name or destination: the route is never offered. In a stop or evidence: that text is dropped.
+{
+  for (const bad of ['http://evil.example', 'https://evil.example/claim', 'www.evil.example', 'Free pizza: evil.example/claim', 'evil.example/claim', 'x.com', 'go to bit.ly/abc',
+    'evil\u3002example/claim', 'evil\uff0eexample', 'evil.e\u200bxample', 'a@b.co', '/follow/other', 'EVIL.COM'])
+    assert.ok(looksLikeLink(bad), bad);
+  for (const fine of ['To the AEP study room', 'Room 204 entrance', 'Stairwell B', 'Floor 2.5', 'Cafe, 2nd floor', '']) assert.ok(!looksLikeLink(fine), fine);
+
+  const evilState = emptyState();
+  evilState.routes['good'] = [mk('good', 'Study room', 'Study', ['Hall', 'Study'])];
+  evilState.routes['bad-name'] = [mk('bad-name', 'Free pizza: evil.example/claim', 'Pizza', ['Hall', 'Pizza'])];
+  evilState.routes['bad-dest'] = [mk('bad-dest', 'Pizza place', 'evil.example/claim', ['Hall', 'Pizza'])];
+  evilState.routes['bad-stop'] = [mk('bad-stop', 'Lab route', 'Lab', ['Hall', 'visit bit.ly/x', 'Lab'])];
+  evilState.routes['bad-ev'] = [mk('bad-ev', 'Gym route', 'Gym', ['Hall', 'Gym'])];
+  evilState.routes['bad-ev'][0].checkpoints[0].identifyingEvidence = ['sign says www.evil.example', 'blue door'];
+  const evilCore = createCore({ state: evilState, recognizers: {} });
+  const evilCatalog = await loadCatalog(evilCore);
+  assert.ok(evilCatalog.ok); if (!evilCatalog.ok) throw new Error();
+  assert.deepEqual(evilCatalog.value.map((r) => r.id).sort(), ['bad-ev', 'bad-stop', 'good']); // name or destination with a link: not in the catalog
+  assert.deepEqual(evilCatalog.value.find((r) => r.id === 'bad-stop')!.stops, ['Hall', 'Lab']);
+  assert.deepEqual(evilCatalog.value.find((r) => r.id === 'bad-ev')!.evidence, ['blue door', 'Gym sign']);
+  assert.ok(!JSON.stringify(evilCatalog.value).includes('evil'));
+  const evilDeps = { ...deps(undefined), core: evilCore };
+  // Never offered: not by keyword match, not by Grok naming the id, not in the Available list or the ambiguous list.
+  const byName = await handleMessage('e1', 'free pizza evil', evilDeps);
+  assert.equal(byName.routeId, null); assert.ok(!/evil|pizza/iu.test(byName.reply));
+  for (const id of ['bad-name', 'bad-dest']) {
+    const viaGrok = await handleMessage('e2', 'pizza', { ...deps(grok(reply(id, [], 'Here you go.'))), core: evilCore });
+    assert.equal(viaGrok.routeId, null); assert.equal(viaGrok.links, null); assert.ok(!/evil/u.test(viaGrok.reply));
+    const viaList = await handleMessage('e3', 'pizza', { ...deps(grok(reply(null, [id, 'good']))), core: evilCore });
+    assert.ok(!/evil|pizza/iu.test(viaList.reply));
+  }
+  const unknown = await handleMessage('e4', 'moon', evilDeps);
+  assert.match(unknown.reply, /Available/u); assert.ok(!/evil|pizza|claim/iu.test(unknown.reply));
+  // Only link-bearing routes approved: nothing to offer.
+  const onlyBad = emptyState(); onlyBad.routes['bad-name'] = evilState.routes['bad-name'];
+  assert.match((await handleMessage('e5', 'pizza', { ...deps(undefined), core: createCore({ state: onlyBad, recognizers: {} }) })).reply, /No routes/u);
 }
 
 // Link building and base URL.
 assert.deepEqual(buildLinks('https://a.test', 'a b/c'), { stream: 'https://a.test/follow/a%20b%2Fc?mode=stream', classic: 'https://a.test/follow/a%20b%2Fc' });
-assert.equal(baseUrlFor('https://pub.example.test/', 'http://localhost:3000/api/agent/message'), 'https://pub.example.test');
-assert.equal(baseUrlFor(undefined, 'http://localhost:3000/api/agent/message'), 'http://localhost:3000');
-assert.equal(baseUrlFor('javascript:alert(1)', 'http://localhost:3000/x'), 'http://localhost:3000');
-assert.equal(baseUrlFor('not a url', 'http://localhost:3000/x'), 'http://localhost:3000');
+assert.equal(baseUrlFor('https://pub.example.test/'), 'https://pub.example.test');
+assert.equal(baseUrlFor(' https://pub.example.test/base/ '), 'https://pub.example.test/base');
+for (const bad of [undefined, '', '  ', 'javascript:alert(1)', 'not a url', 'pub.example.test', 'http://pub.example.test', 'http://localhost:3000', 'ftp://pub.example.test',
+  'https://user:pw@pub.example.test', 'https://pub.example.test/?a=1', 'https://pub.example.test/#x']) assert.equal(baseUrlFor(bad), null, String(bad));
+assert.equal(baseUrlFor('http://localhost:3000', true), 'http://localhost:3000'); // loopback http only when a test asks for it
+assert.equal(baseUrlFor('http://127.0.0.1:3012/', true), 'http://127.0.0.1:3012');
+assert.equal(baseUrlFor('http://pub.example.test', true), null);
 
 // HTTP endpoint.
 const good = { conversationId: 'conv-1', text: 'I want to go to the AEP study room' };
@@ -211,10 +248,13 @@ const json = async (r: Response) => (await r.json()) as any;
 {
   calls.length = 0;
   // Disabled or half-configured: 503 before anything else, even with a good secret and no body work.
-  for (const cfg of [{}, { enabled: '0', apiKey: KEY, secret: SECRET }, { enabled: '1', secret: SECRET }, { enabled: '1', apiKey: KEY }, { apiKey: KEY, secret: SECRET }]) {
-    const r = await post(good, undefined, { config: cfg }); assert.equal(r.status, 503); assert.equal((await json(r)).error.code, 'PROVIDER_UNAVAILABLE');
+  for (const cfg of [{}, { enabled: '0', apiKey: KEY, secret: SECRET, publicUrl: BASE }, { enabled: '1', secret: SECRET, publicUrl: BASE }, { enabled: '1', apiKey: KEY, publicUrl: BASE }, { apiKey: KEY, secret: SECRET, publicUrl: BASE },
+    { enabled: '1', apiKey: KEY, secret: SECRET }, { enabled: '1', apiKey: KEY, secret: SECRET, publicUrl: 'http://pub.example.test' }, { enabled: '1', apiKey: KEY, secret: SECRET, publicUrl: 'http://localhost:3000' }]) {
+    const r = await post(good, undefined, { config: cfg }); assert.equal(r.status, 503); const j = await json(r); assert.equal(j.error.code, 'PROVIDER_UNAVAILABLE');
+    assert.equal(j.error.message, 'Agent is not enabled.'); assert.ok(!/BREADCRUMB|XAI|SECRET|URL/u.test(JSON.stringify(j))); // no variable names in a public error
   }
-  assert.equal(agentEnabled({ enabled: '1', apiKey: KEY, secret: SECRET }), true); assert.equal(agentEnabled({}), false);
+  assert.equal(agentEnabled({ enabled: '1', apiKey: KEY, secret: SECRET, publicUrl: BASE }), true); assert.equal(agentEnabled({}), false);
+  assert.equal(agentEnabled({ enabled: '1', apiKey: KEY, secret: SECRET }), false);
   assert.equal(calls.length, 0);
   // Secret.
   assert.equal((await post(good, {})).status, 401);
@@ -239,9 +279,9 @@ const json = async (r: Response) => (await r.json()) as any;
   assert.ok(body.reply.includes(body.links.stream) && body.reply.includes(body.links.classic));
   assert.ok(!JSON.stringify(body).includes(KEY) && !JSON.stringify(body).includes(SECRET));
   assert.equal(calls.length, 1);
-  // Base URL falls back to the request origin when none is configured.
-  const origin = await json(await post(good, undefined, { config: { enabled: '1', apiKey: KEY, secret: SECRET } }));
-  assert.equal(origin.links.stream, 'http://localhost:3000/follow/aep-study?mode=stream');
+  // No fallback to the request origin: loopback http works only when a test opts in.
+  const local = await json(await post(good, undefined, { config: { enabled: '1', apiKey: KEY, secret: SECRET, publicUrl: 'http://localhost:3000', allowLocalHttp: true } }));
+  assert.equal(local.links.stream, 'http://localhost:3000/follow/aep-study?mode=stream');
   // Memory through HTTP: ambiguous, then "2".
   const mem = memory(); const lib = { memory: mem, fetchImpl: grok(reply(null, ['lib-cafe', 'lib-quiet'])) };
   const amb = await json(await post({ conversationId: 'conv-2', text: 'library' }, undefined, lib));
@@ -273,24 +313,46 @@ const json = async (r: Response) => (await r.json()) as any;
   assert.deepEqual(loadBridgeConfig({ SPECTRUM_PROJECT_ID: 'p', SPECTRUM_PROJECT_SECRET: ' ', BREADCRUMB_AGENT_SECRET: 's' }), { ok: false, missing: ['SPECTRUM_PROJECT_SECRET'] });
   const loaded = loadBridgeConfig({ SPECTRUM_PROJECT_ID: 'p', SPECTRUM_PROJECT_SECRET: 'ps', BREADCRUMB_AGENT_SECRET: 's' });
   assert.ok(loaded.ok); if (!loaded.ok) throw new Error();
-  assert.equal(loaded.config.agentUrl, DEFAULT_AGENT_URL);
+  assert.equal(loaded.config.agentUrl, DEFAULT_AGENT_URL); assert.equal(DEFAULT_AGENT_URL, 'http://127.0.0.1:3012/api/agent/message');
   const custom = loadBridgeConfig({ SPECTRUM_PROJECT_ID: 'p', SPECTRUM_PROJECT_SECRET: 'ps', BREADCRUMB_AGENT_SECRET: 's', BREADCRUMB_AGENT_URL: 'https://x.test/api/agent/message' });
   assert.ok(custom.ok && custom.config.agentUrl === 'https://x.test/api/agent/message');
   assert.equal(BRIDGE_HEADER, SECRET_HEADER);
-  assert.match(conversationKey('+15551234567'), /^[0-9a-f]{32}$/u); assert.ok(!conversationKey('+15551234567').includes('5551234567'));
-  assert.equal(conversationKey('a'), conversationKey('a')); assert.notEqual(conversationKey('a'), conversationKey('b'));
+  const K = (id: string) => conversationKey(id, 's');
+  assert.match(K('+15551234567'), /^[0-9a-f]{32}$/u); assert.ok(!K('+15551234567').includes('5551234567'));
+  assert.equal(K('a'), K('a')); assert.notEqual(K('a'), K('b'));
+  assert.notEqual(conversationKey('a', 's1'), conversationKey('a', 's2')); // keyed: not a plain hash anyone can recompute
+  assert.notEqual(conversationKey('a', 's'), createHash('sha256').update('a').digest('hex').slice(0, 32));
+  const logs: string[] = []; const log = (l: string) => { logs.push(l); };
   let seen: { url: string; init: RequestInit } | undefined;
   const ok = (async (url: string, init: RequestInit) => { seen = { url, init }; return Response.json({ ok: true, reply: 'Hello there' }); }) as unknown as typeof fetch;
-  assert.equal(await forward(loaded.config, '+15551234567', 'hi', ok), 'Hello there');
+  assert.equal(await forward(loaded.config, '+15551234567', 'hi', { fetchImpl: ok, log }), 'Hello there');
   assert.equal(seen!.url, DEFAULT_AGENT_URL); assert.equal((seen!.init.headers as Record<string, string>)[SECRET_HEADER], 's');
-  const sent = JSON.parse(seen!.init.body as string); assert.deepEqual(sent, { conversationId: conversationKey('+15551234567'), text: 'hi' });
+  const sent = JSON.parse(seen!.init.body as string); assert.deepEqual(sent, { conversationId: K('+15551234567'), text: 'hi' });
   assert.ok(!seen!.init.body!.toString().includes('5551234567'));
+  assert.equal(logs.length, 0);
   const status = (code: number) => (async () => new Response('provider-secret-body', { status: code })) as unknown as typeof fetch;
-  assert.equal(await forward(loaded.config, 's', 'hi', status(429)), BUSY);
-  for (const f of [status(500), status(401), (async () => Response.json({ ok: false })) as unknown as typeof fetch, (async () => Response.json({ ok: true, reply: '  ' })) as unknown as typeof fetch,
-    (async () => new Response('nope')) as unknown as typeof fetch, (async () => { throw new Error('down'); }) as unknown as typeof fetch])
-    assert.equal(await forward(loaded.config, 's', 'hi', f), UNAVAILABLE);
-  assert.equal((await forward(loaded.config, 's', 'x'.repeat(900), (async (_u: string, init: RequestInit) => { assert.equal(JSON.parse(init.body as string).text.length, 500); return Response.json({ ok: true, reply: 'r'.repeat(5000) }); }) as unknown as typeof fetch)).length, 1200);
+  // Failure reasons are logged as one line with the status or error name, never a body.
+  for (const [code, line] of [[500, 'HTTP 500'], [401, 'HTTP 401'], [503, 'HTTP 503']] as const) {
+    logs.length = 0; assert.equal(await forward(loaded.config, 's', 'hi', { fetchImpl: status(code), log }), UNAVAILABLE);
+    assert.equal(logs.length, 1); assert.ok(logs[0].includes(line)); assert.ok(!/provider-secret-body|\n/u.test(logs[0]));
+  }
+  for (const f of [(async () => Response.json({ ok: false })) as unknown as typeof fetch, (async () => Response.json({ ok: true, reply: '  ' })) as unknown as typeof fetch,
+    (async () => new Response('nope')) as unknown as typeof fetch, (async () => { throw new Error('down secret-in-message'); }) as unknown as typeof fetch]) {
+    logs.length = 0; assert.equal(await forward(loaded.config, 's', 'hi', { fetchImpl: f, log }), UNAVAILABLE);
+    assert.equal(logs.length, 1); assert.ok(!/secret-in-message|nope/u.test(logs[0]));
+  }
+  assert.equal((await forward(loaded.config, 's', 'x'.repeat(900), { log, fetchImpl: (async (_u: string, init: RequestInit) => { assert.equal(JSON.parse(init.body as string).text.length, 500); return Response.json({ ok: true, reply: 'r'.repeat(5000) }); }) as unknown as typeof fetch }))!.length, 1200);
+  // Rate limited: BUSY once per window per conversation, then silence; another sender still gets one; the window reopens.
+  {
+    const busy = createBusyState(); let t = 9_000_000; const o = (f: typeof fetch) => ({ fetchImpl: f, log, busy, now: () => t });
+    assert.equal(await forward(loaded.config, 'flood', 'hi', o(status(429))), BUSY);
+    for (let i = 0; i < 5; i++) assert.equal(await forward(loaded.config, 'flood', 'hi', o(status(429))), null);
+    assert.equal(await forward(loaded.config, 'other', 'hi', o(status(429))), BUSY);
+    t += BUSY_WINDOW_MS + 1;
+    assert.equal(await forward(loaded.config, 'flood', 'hi', o(status(429))), BUSY);
+    assert.equal(await forward(loaded.config, 'flood', 'hi', o(ok)), 'Hello there'); // a normal answer clears the notice
+    assert.equal(await forward(loaded.config, 'flood', 'hi', o(status(429))), BUSY);
+  }
 }
 
 clearInterval(keepAlive);

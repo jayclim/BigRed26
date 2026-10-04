@@ -17,13 +17,19 @@ export function buildLinks(baseUrl: string, routeId: string): Links {
   return { stream: `${baseUrl}${path}?mode=stream`, classic: `${baseUrl}${path}` };
 }
 
-/** A configured public URL if it is http(s); else the request origin. Never returns a trailing slash. */
-export function baseUrlFor(configured: string | undefined, requestUrl: string): string {
-  for (const candidate of [configured?.trim(), new URL(requestUrl).origin]) {
-    if (!candidate) continue;
-    try { const u = new URL(candidate); if (u.protocol === 'https:' || u.protocol === 'http:') return u.origin + u.pathname.replace(/\/+$/, ''); } catch { /* try the next */ }
-  }
-  return new URL(requestUrl).origin;
+/** The configured public URL as `origin + path`, or null. It must be an absolute https URL with no credentials, query or fragment.
+ *  http is accepted only for loopback hosts and only when `allowLocalHttp` is set (tests). There is no fallback to the request origin:
+ *  behind the Photon bridge that origin is loopback, and a link to it cannot be opened on a phone. Never returns a trailing slash. */
+export function baseUrlFor(configured: string | undefined, allowLocalHttp = false): string | null {
+  const candidate = configured?.trim();
+  if (!candidate) return null;
+  try {
+    const u = new URL(candidate);
+    if (u.username || u.password || u.search || u.hash) return null;
+    const loopback = u.hostname === 'localhost' || u.hostname === '127.0.0.1' || u.hostname === '[::1]';
+    if (u.protocol !== 'https:' && !(allowLocalHttp && loopback && u.protocol === 'http:')) return null;
+    return u.origin + u.pathname.replace(/\/+$/, '');
+  } catch { return null; }
 }
 
 const label = (r: CatalogRoute) => (r.destination && r.destination !== r.name ? `${r.name} (to ${r.destination})` : r.name);
