@@ -1,6 +1,6 @@
 # Local video compression before upload
 
-Status: implemented. The original synthetic browser checks passed at beac2e2. The current PR18 repair rejects unknown or undecodable audio in every track. Its checks are recorded below. Browser and real phone checks of this repair are pending.
+Status: implemented. The original synthetic browser checks passed at beac2e2. The current PR18 repair rejects unknown or undecodable audio in every track. Its checks are recorded below. Desktop browser checks of this repair passed at b0f6701 (below). Target-phone checks are pending.
 
 ## Behavior
 
@@ -117,3 +117,9 @@ The parser warning `Unsupported audio codec (objectTypeIndication 255) - discard
 Limits: this worker ran no browser or phone check and made no network or provider call. The original 302 MiB phone file is not available. This repair does not claim to fix that file. Fixtures are synthetic. Browser codec behavior, real audio playback, large-file memory use and compression below 100 MiB remain unverified.
 
 Next action: the host commits and pushes the owned changes. Run the browser check, then a fresh independent review of the new published commit. This worker did not commit or push.
+
+## Host browser check and review of b0f6701 (2026-10-04)
+
+The lead ran a headless desktop Chrome harness against an isolated build of `b0f6701`. Exit 0. Synthetic landscape (21,977,955 to 1,763,870 bytes) and portrait (21,458,685 to 1,707,066 bytes) clips compressed and uploaded. A real 83,238,820-byte phone `.mov` became 76,342,954 bytes with AAC kept, and uploaded. Cancel left no stale output. A missing encoder showed the unsupported-browser error. The unknown-only and unknown-secondary fixtures showed the specific audio error, produced no compressed output and kept the original selectable. There was no overflow at 390 or 1280 px.
+
+A fresh independent review of `b0f6701` found no blockers. Non-blocking follow-ups: a missing primary video shows the generic error; the Compress button stays visible after upload. Target-phone compression, listening and the original 302 MiB file remain unverified.
