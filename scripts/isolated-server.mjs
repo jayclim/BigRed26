@@ -1,5 +1,7 @@
 // Starts the already-built app (`npm run build` first) on its own BREADCRUMB_DATA_FILE inside a fresh
-// mkdtemp directory, so test scripts never read, reset or overwrite your real .data/ store.
+// mkdtemp directory, so test scripts never read, reset or overwrite your real .data/ store. It also sets
+// BREADCRUMB_TEST_FIXTURES=1: the fictional test routes are seeded and the synthetic test recognizer is registered.
+// Production never sets this flag.
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -9,7 +11,7 @@ export async function startIsolatedServer(port) {
   const dir = mkdtempSync(join(tmpdir(), 'breadcrumb-data-'));
   const dataFile = join(dir, 'store.json');
   const proc = spawn('node_modules/.bin/next', ['start', '-p', String(port)], {
-    env: { ...process.env, BREADCRUMB_DATA_FILE: dataFile }, stdio: ['ignore', 'pipe', 'inherit'],
+    env: { ...process.env, BREADCRUMB_DATA_FILE: dataFile, BREADCRUMB_TEST_FIXTURES: '1' }, stdio: ['ignore', 'pipe', 'inherit'],
   });
   let ready = false;
   let output = '';

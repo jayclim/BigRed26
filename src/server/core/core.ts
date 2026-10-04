@@ -178,10 +178,10 @@ export function createCore(opts: {
     state,
 
     async startBuild() {
-      return fail('PROVIDER_UNAVAILABLE', 'Route extraction from video is not implemented in this mock milestone.');
+      return fail('PROVIDER_UNAVAILABLE', 'Route extraction from video is not available in this build.');
     },
     async getBuild() {
-      return fail('NOT_FOUND', 'No build jobs exist in this mock milestone.');
+      return fail('NOT_FOUND', 'No build jobs exist.');
     },
 
     async getRoute(routeId, version) {
@@ -243,7 +243,7 @@ export function createCore(opts: {
 
     async startSession(routeId, locale, mode) {
       if (!opts.recognizers[mode])
-        return fail('PROVIDER_UNAVAILABLE', `${mode} input is not available in this build. Choose mock explicitly; there is no automatic fallback.`);
+        return fail('PROVIDER_UNAVAILABLE', `${mode} input is not available in this build. There is no automatic fallback.`);
       const route = versionsOf(routeId)?.findLast((r) => r.status === 'approved');
       if (!route) return fail(versionsOf(routeId) ? 'NOT_APPROVED' : 'NOT_FOUND', 'Approve the route before starting a guide session.');
       const session: Session = {

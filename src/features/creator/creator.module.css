@@ -76,7 +76,6 @@
 .page :global([data-slot='badge']) { border-radius: 999px; padding: 4px 10px; font-weight: 700; }
 .page :global([data-slot='badge'].status) { font-size: .8125rem; padding: 6px 12px; }
 .page :global([data-slot='badge'][data-status='draft']) { background: var(--draft-bg); color: var(--draft-ink); }
-.page :global(.mock-badge) { border-radius: 999px; }
 .page :global(.dir-tag) { border-radius: 999px; background: var(--accent-soft); color: var(--accent-ink); font-size: .75rem; font-weight: 700; padding: 4px 10px; }
 
 /* Video card: the prompt-like primary action under the title. */
@@ -147,10 +146,6 @@
 .previewNote { margin: 0; font-size: .75rem; line-height: 1.5; color: var(--on-night-muted); }
 
 /* Testing tools stay secondary. */
-.page :global(.creator-test-tools) { display: grid; gap: 10px; padding: 18px; border: 1px solid var(--rule-soft); border-radius: 20px; background: var(--paper); }
-.page :global(.creator-test-tools h2) { font-size: .875rem; font-weight: 700; }
-.page :global(.creator-test-tools p) { margin: 0; }
-.page :global(.creator-test-tools [data-slot='button']) { justify-content: center; padding-inline: 20px; border-color: var(--rule); background: var(--paper); color: var(--ink); font-size: .875rem; }
 
 /* Sticky Save / Approve bar, full width. */
 .page :global(.approve-bar) {

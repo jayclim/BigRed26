@@ -21,7 +21,7 @@ const recognize = async (route) => {
   return observed === 'unknown' ? ok({ kind: 'unknown', evidence: [] })
     : ok({ kind: 'checkpoint', checkpointId: route.checkpoints[0].id, approachConfirmed: true, evidence: ['Synthetic entrance'] });
 };
-const core = createCore({ state: emptyState(), recognizers: { live: recognize, replay: recognize } });
+const core = createCore({ state: emptyState(), recognizers: { live: recognize } });
 assert((await core.saveDraft({ ...fixture, status: 'draft' })).ok);
 assert((await core.approveRoute(fixture.id, 1, fixture.checkpoints.map((c) => c.id))).ok);
 async function browser(denied = false) {
@@ -81,23 +81,24 @@ const p = await browser();
 try {
   for (const [width, height] of [[390, 844], [1280, 800]]) {
     await p.size(width, height); await p.go();
-    assert(await p.evaluate("document.querySelector('.stage-label').textContent.includes('Mock') && !!document.querySelector('.mock-panel')"));
-    await p.click('Entrance, approached as recorded'); await p.wait("document.querySelector('.card').dataset.state === 'guiding'");
-    await p.shot(`mock-${width}`);
+    // No ?mode opens the Gemini Live voice guide. It shows no synthetic panel and no mock label.
+    await p.wait("[...document.querySelectorAll('button')].some(b => b.textContent === 'Start live guide')");
+    assert(await p.evaluate("!document.querySelector('.mock-panel') && !/mock|synthetic|simulad/i.test(document.body.innerText)"));
+    assert(await p.evaluate("[...document.querySelectorAll('a')].some(a => a.getAttribute('href') === '/follow/demo-route?mode=live')"));
+    await p.shot(`voice-${width}`);
   }
-  console.log('PASS mobile/desktop default mock badge, panel and pick');
-  for (const mode of ['live', 'replay']) {
-    await p.send('Page.navigate', { url: base + '/follow/demo-route?mode=' + mode });
-    await p.wait("!!document.querySelector('[role=alert]')");
-    assert(await p.evaluate("document.querySelector('[role=alert]').textContent.includes('not available') && !document.querySelector('.mock-panel')"));
+  console.log('PASS mobile/desktop default opens the live voice guide with no mock label or panel');
+  for (const mode of ['mock', 'replay']) {
+    await p.go(`?mode=${mode}`);
+    await p.wait("[...document.querySelectorAll('button')].some(b => b.textContent === 'Start live guide')");
+    assert(await p.evaluate("!document.querySelector('.mock-panel') && !document.querySelector('.stage-label')"));
   }
-  console.log('PASS production live/replay fail honestly without mock fallback');
+  console.log('PASS retired ?mode=mock and ?mode=replay open the live voice guide, never synthetic controls');
+  await p.send('Page.navigate', { url: base + '/follow/demo-route?mode=live' });
+  await p.wait("!!document.querySelector('[role=alert]')");
+  assert(await p.evaluate("document.querySelector('[role=alert]').textContent.includes('not available') && !document.querySelector('.mock-panel')"));
+  console.log('PASS production ?mode=live fails honestly with no fallback');
   await p.live();
-  await p.size(390, 844); await p.go('?mode=replay');
-  assert(await p.evaluate("document.querySelector('.stage-label').textContent.includes('Replay') && !document.querySelector('.mock-panel')"));
-  await p.click('Start camera'); await p.wait("document.querySelector('video').videoWidth > 0");
-  assert(await p.evaluate("![...document.querySelectorAll('button')].some(b => b.textContent === 'Check this view')"));
-  console.log('PASS replay label and preview-only camera with no mock panel or check button');
   for (const [width, height] of [[390, 844], [1280, 800]]) {
     const sessionsBefore = Object.keys(core.state.sessions).length;
     await p.size(width, height); await p.go('?mode=live');

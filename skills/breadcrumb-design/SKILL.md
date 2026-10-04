@@ -7,7 +7,7 @@ description: Design or polish Breadcrumb creator and camera-guide screens with r
 
 Use project-root paths; resolve symlinks to canonical `skills/breadcrumb-design/`. Read [the design system](../../knowledge/design-system.md), relevant scope and existing UI. Read [navigation invariants](../../knowledge/architecture.md#navigation-invariants) when changing guidance.
 
-Choose one composition around the actual route task. Use the system sans stack and tokens in `src/ui/theme.css`. Use the shared shadcn Button, Input, Textarea and Badge. Keep radii at 6–10px, controls at least 44px high and dividers thin. Use whitespace instead of nested cards. Make the guide instruction dominant; creator editing follows the checkpoint sequence. Keep the Breadcrumb name and trail mark. Keep mock status explicit and testing controls secondary.
+Choose one composition around the actual route task. Use the system sans stack and tokens in `src/ui/theme.css`. Use the shared shadcn Button, Input, Textarea and Badge. Keep radii at 6–10px, controls at least 44px high and dividers thin. Use whitespace instead of nested cards. Make the guide instruction dominant; creator editing follows the checkpoint sequence. Keep the Breadcrumb name and trail mark. Keep the live status explicit. Add no mock or testing controls to the product.
 
 Consult [the reuse inventory](../../knowledge/reuse.md) before adding UI packages or assets. Prefer adapting the existing primitives or a suitable maintained asset; record imported asset provenance and license.
 

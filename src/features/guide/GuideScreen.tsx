@@ -1,9 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import type { CoreAdapter, Guidance, Id, Locale, Mode, Route, Session, VoiceAdapter } from '@contracts/contracts.ts';
-import { mockScenes } from '@/shared/mockScenes.ts';
-import actionFixture from '@contracts/fixture.actions.v1.json';
+import type { CoreAdapter, Guidance, Id, Locale, Route, Session, VoiceAdapter } from '@contracts/contracts.ts';
 import { Brand } from '@/ui/Brand.tsx';
 import { LookToggle } from '@/ui/LookToggle.tsx';
 import { Camera } from './Camera.tsx';
@@ -21,8 +19,6 @@ import { createVoicePlayer, type VoiceStatus } from './voicePlayback.ts';
 export interface GuideScreenProps {
   core: CoreAdapter;
   voice?: VoiceAdapter;
-  /** Read once at mount. Remount the screen to change mode. */
-  mode?: Mode;
   uploadFrame?: typeof realUploadFrame;
   routeId: Id;
   /** Where Exit goes, e.g. the creator page */
@@ -31,8 +27,7 @@ export interface GuideScreenProps {
 
 const T = {
   en: {
-    mock: 'Mock', replay: 'Replay', live: 'Live',
-    notes: { mock: 'Camera not analyzed', replay: 'Recorded frames, not a live camera', live: 'Frames you check are sent to the server for recognition' },
+    live: 'Live', note: 'Frames you check are sent to the server for recognition',
     soundOn: 'Sound on', soundOff: 'Sound off', other: 'Español', exit: 'Exit', liveVoice: 'Use live voice guide',
     start: (d: string) => `Start at the entrance: ${d}.`, startLabel: 'Ready',
     guiding: (l: string) => `At ${l}`, uncertain: 'Not sure where you are', off_route: 'Off the recorded route',
@@ -45,8 +40,7 @@ const T = {
     manual: "I've done this (manual)", active: 'Active action — check your view before continuing', thisStep: 'This step',
   },
   es: {
-    mock: 'Simulado', replay: 'Repetición', live: 'En vivo',
-    notes: { mock: 'La cámara no se analiza', replay: 'Fotogramas grabados, no una cámara en vivo', live: 'Las vistas que compruebas se envían al servidor para su reconocimiento' },
+    live: 'En vivo', note: 'Las vistas que compruebas se envían al servidor para su reconocimiento',
     soundOn: 'Con sonido', soundOff: 'Sin sonido', other: 'English', exit: 'Salir', liveVoice: 'Usar guía de voz en vivo',
     start: (d: string) => `Empieza en la entrada: ${d}.`, startLabel: 'Listo',
     guiding: (l: string) => `En ${l}`, uncertain: 'No sé dónde estás', off_route: 'Fuera de la ruta grabada',
@@ -60,7 +54,7 @@ const T = {
   },
 } as const;
 
-export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uploadFrame = realUploadFrame, voice }: GuideScreenProps) {
+export function GuideScreen({ core, routeId, exitHref, uploadFrame = realUploadFrame, voice }: GuideScreenProps) {
   const reduceMotion = useReducedMotion();
   const [session, setSession] = useState<Session | null>(null);
   const [route, setRoute] = useState<Route | null>(null);
@@ -75,7 +69,6 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
   const voicePlayer = useRef<ReturnType<typeof createVoicePlayer> | null>(null);
   const mounted = useRef(false);
   const started = useRef(false);
-  const [mode, setMode] = useState<Mode>(requestedMode ?? 'mock');
   const inFlight = useRef(false);
   const lastSeq = useRef(0);
   const spoken = useRef<Id | null>(null);
@@ -93,20 +86,17 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
     mounted.current = true;
     if (started.current) return () => { mounted.current = false; };
     started.current = true;
-    const queryMode = new URLSearchParams(window.location.search).get('mode');
-    const selected = requestedMode ?? (queryMode === 'live' || queryMode === 'replay' ? queryMode : 'mock');
-    setMode(selected);
     (async () => {
-      const s = await core.startSession(routeId, 'en', selected);
+      const s = await core.startSession(routeId, 'en', 'live');
       if (!mounted.current) return;
-      if (!s.ok) return setFatal({ ...s.error, message: `${T.en[selected]}: ${s.error.message}` });
+      if (!s.ok) return setFatal({ ...s.error, message: `${T.en.live}: ${s.error.message}` });
       const r = await core.getRoute(routeId, s.value.routeVersion);
       if (!mounted.current) return;
       if (!r.ok) return setFatal(r.error);
       setSession(s.value); setRoute(r.value);
     })();
     return () => { mounted.current = false; };
-  }, [core, routeId, requestedMode]);
+  }, [core, routeId]);
 
   async function checkCamera(frame: () => Promise<Blob>) {
     if (!session || inFlight.current) return;
@@ -157,25 +147,6 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
     lastSeq.current = g.sequence;
     setGuidance(g);
     if (g.state === 'guiding' || g.state === 'arrived') setConfirmedId(g.checkpointId);
-  }
-
-  async function observe(mediaId: Id) {
-    if (!session || inFlight.current) return; // one match in flight; extra clicks are dropped
-    inFlight.current = true; setPending(true); setProblem(null);
-    try {
-      const seq = await core.reserveFrameSequence(session.id);
-      if (!mounted.current) return;
-      if (!seq.ok) return setProblem(seq.error.message);
-      const g = await core.matchFrame({
-        sessionId: session.id, routeVersion: seq.value.routeVersion, sequence: seq.value.sequence,
-        capturedAt: new Date().toISOString(), mediaId,
-      });
-      if (!mounted.current) return;
-      if (g.ok) accept(g.value);
-      else if (g.error.code !== 'STALE_FRAME') setProblem(`${T[session.locale].problem} (${g.error.message})`);
-    } finally {
-      inFlight.current = false; if (mounted.current) setPending(false);
-    }
   }
 
   async function refreshGuide(sessionId: Id) {
@@ -274,7 +245,7 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
                 {sound ? t.soundOn : t.soundOff}
               </button>
               <button className="ctl" disabled={pending} onClick={switchLocale} lang={locale === 'en' ? 'es' : 'en'}>{t.other}</button>
-              {liveAvailable && <a className="ctl" href={`/follow/${encodeURIComponent(routeId)}?mode=stream`}>{t.liveVoice}</a>}
+              {liveAvailable && <a className="ctl" href={`/follow/${encodeURIComponent(routeId)}`}>{t.liveVoice}</a>}
               <LookToggle className="ctl" />
               <a className="ctl" href={exitHref}>{t.exit}</a>
             </div>
@@ -284,8 +255,8 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
 
           <div className={g.cols}>
             <div className={g.col}>
-              <Camera locale={locale} busy={pending} onCheck={mode === 'live' ? checkCamera : undefined}>
-                <p className="stage-label"><span className={`${styles.badge} ${styles[mode]}`}>{t[mode]}</span> {t.notes[mode]}</p>
+              <Camera locale={locale} busy={pending} onCheck={checkCamera}>
+                <p className="stage-label"><span className={`${styles.badge} ${styles.live}`}>{t.live}</span> {t.note}</p>
               </Camera>
 
               <div className={`state-glow ${g.glow}`} data-tone={tone}>
@@ -335,43 +306,7 @@ export function GuideScreen({ core, routeId, exitHref, mode: requestedMode, uplo
             </div>
           </div>
         </section>
-
-        {mode === 'mock' && <MockPanel route={route} disabled={pending} lastSeq={lastSeq.current} onPick={observe} />}
       </div>
     </main>
-  );
-}
-
-function MockPanel({ route, disabled, lastSeq, onPick }: {
-  route: Route; disabled: boolean; lastSeq: number; onPick: (mediaId: Id) => void;
-}) {
-  const scenes = mockScenes(route);
-  return (
-    <aside className="mock-panel" aria-labelledby="mock-h" lang="en">
-      <h2 id="mock-h">Mock observations</h2>
-      <p>Fictional mock fixture. Pick a synthetic observation to exercise route rules. Success is not field or terrain-safety evidence.</p>
-      {route.checkpoints.map((c, i) => (
-        <fieldset key={c.id}>
-          <legend>{i + 1}. {c.label}</legend>
-          <div className="scene-grid">
-            {scenes.filter((s) => s.mediaId.startsWith(`mock:${c.id}:`)).map((s) => (
-              <button key={s.mediaId} className="scene" disabled={disabled} onClick={() => onPick(s.mediaId)}>{s.label}</button>
-            ))}
-            {route.id === actionFixture.route.id && actionFixture.observations.filter((s) => s.mediaId.startsWith(`mock:${c.id}:`)).map((s) => (
-              <button key={s.mediaId} className="scene" disabled={disabled} onClick={() => onPick(s.mediaId)}>{s.label}</button>
-            ))}
-          </div>
-        </fieldset>
-      ))}
-      <fieldset>
-        <legend>Other</legend>
-        <div className="scene-grid">
-          {scenes.filter((s) => s.group === 'other').map((s) => (
-            <button key={s.mediaId} className="scene" disabled={disabled} onClick={() => onPick(s.mediaId)}>{s.label}</button>
-          ))}
-        </div>
-      </fieldset>
-      <p role="status">{disabled ? 'Checking…' : lastSeq ? `Last accepted frame: #${lastSeq}` : 'No frames yet.'}</p>
-    </aside>
   );
 }

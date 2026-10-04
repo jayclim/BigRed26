@@ -1,7 +1,7 @@
-// Explicit MOCK observations only. These are no evidence of physical navigation safety.
+// TEST DOUBLE, not product. Synthetic observations for the detailed-action fixture; no evidence of physical navigation safety.
 import fixture from '../../../contracts/fixture.actions.v1.json' with { type: 'json' };
-import type { Recognizer, Observation } from './core.ts';
-import { mockRecognizer } from '../../shared/mockScenes.ts';
+import type { Recognizer, Observation } from '../core/core.ts';
+import { mockRecognizer } from './mockScenes.ts';
 
 export const fixtureRecognizer: Recognizer = async (route, request) => {
   const scene = route.id === fixture.route.id
