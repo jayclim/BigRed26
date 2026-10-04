@@ -1,0 +1,2 @@
+.picker { display: inline-flex; align-items: center; gap: .5rem; font-size: var(--type-sm); color: var(--on-night-muted); }
+.picker select { max-width: 11rem; background: var(--night); color: var(--on-night); }
