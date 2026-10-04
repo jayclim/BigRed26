@@ -57,6 +57,8 @@
   --primary-foreground: #ffffff;
   --secondary: var(--paper-2);
   --secondary-foreground: var(--ink);
+  --success: #edf7f1;
+  --success-foreground: var(--green-ink);
   --muted-foreground: var(--muted);
   --accent: var(--accent-soft);
   --accent-foreground: var(--cyan-ink);
@@ -76,6 +78,8 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
   --color-muted: var(--paper-2);
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
@@ -121,10 +125,6 @@
 .creator h1, .extraction-notice { overflow-wrap: anywhere; }
 .creator h1 { font-size: clamp(1.5rem, 3vw, var(--type-title)); font-weight: 650; line-height: 1.2; margin: 0; letter-spacing: -.035em; }
 .creator h1:focus, .extraction-notice:focus, .media-message:focus { outline: 2px solid var(--cyan-ink); outline-offset: 4px; }
-@layer components {
-  .status { color: var(--muted); }
-  .status[data-status='approved'] { background: #edf7f1; color: var(--green-ink); }
-}
 .route-summary { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); margin: 0; max-width: 780px; }
 .route-summary > div { border-left: 2px solid var(--rule); padding-left: var(--space-3); }
 .route-summary > div:last-child { border-left-color: var(--cyan-ink); }
@@ -163,7 +163,8 @@
 @layer components {
   .step textarea, .step select, .step input:not([type='checkbox']) { width: 100%; border: 1px solid var(--rule); border-radius: var(--radius-sm); padding: .65rem .75rem; background: var(--paper); font-weight: 400; font-size: .875rem; min-height: 44px; line-height: 1.5; box-shadow: var(--shadow-sm); }
   .step textarea { resize: vertical; min-height: 80px; }
-  .step :is(textarea, select, input):disabled { opacity: 1; color: var(--muted); background: var(--paper-2); cursor: default; }
+  .step :is(textarea, select, input):disabled { color: var(--muted); }
+  .step select:disabled { opacity: 1; background: var(--paper-2); cursor: default; }
 }
 .step .langs { display: grid; gap: var(--space-4); grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .step .langs > *, .card > div { min-width: 0; }

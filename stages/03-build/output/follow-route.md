@@ -98,3 +98,279 @@ No shared-file change is required for this local implementation.
 Do not claim real recognition from these fixture tests.
 
 Next action: PR 2, the live Recognizer with fake provider and transport tests. No real provider call until spending caps are confirmed.
+
+# Part B, PR 2: live recognizer
+
+Status: implemented and checked locally with fake providers and fake transport. Date: 2026-10-03.
+Branch: feat/follow-recognizer, PR base feat/follow-camera. The integration owner registers the recognizer and merges.
+
+## Changes
+
+createRecognizer reads the uploaded frame and sends all checkpoint candidates to the provider.
+Candidates contain ids, labels, identifying evidence, approach descriptions and action target metadata.
+They do not contain approved instructions, action steps or completion text.
+Strict, bounded output validation returns only an Observation. The core owns guidance and progress.
+Unknown ids and invalid output fail with retryable PROVIDER_UNAVAILABLE. Null ids return unknown with empty evidence.
+A single deadline bounds frame reads and providers that ignore the abort signal.
+One flight per session limits concurrent recognition cost. Every exit releases the flight.
+The Gemini adapter has a separate enable flag, bounded response reads and safe error messages.
+HTTP 429 returns retryable RATE_LIMITED. No logging or replay recognizer was added.
+
+## Owned files
+
+- src/server/recognition/recognizer.ts
+- src/server/recognition/gemini.ts
+- src/server/recognition/recognizer.check.ts
+- stages/03-build/output/follow-route.md (this appended section)
+
+## Actual checks
+
+Local runtime: Node 26.8.2. Node 24 was requested but was not the runtime supplied here.
+
+| Command | Actual result |
+| --- | --- |
+| node src/server/recognition/recognizer.check.ts | PASS. Five groups: approved guidance and validation; single flight and deadlines; manual stale race; destination arrival without timer progress; fake transport and absent modes. |
+| npm run check | PASS. Existing core, media and extraction checks; extraction reports 32 cases and no network calls. |
+| npm run typecheck | PASS. tsc --noEmit. |
+
+The recognition check replaces global fetch with a throwing stub and injects fake transport.
+Initial recognition check runs failed on Buffer versus Uint8Array comparison, an invalid attempt to overwrite approved v1, and test synchronization before the second provider entered.
+These test harness errors were repaired. The final check passed.
+No build or server was run by the worker. No real provider was called.
+
+Host checks by the lead on 2026-10-03 (macOS, Node 24.21.0). All passed.
+
+| Command | Actual result |
+| --- | --- |
+| node src/server/recognition/recognizer.check.ts | PASS. All five groups. |
+| npm run check | PASS. Core, media and extraction (32 cases, no network calls). |
+| npm run typecheck | PASS. |
+| npm run build | PASS. Route table unchanged. No app module imports the recognizer yet, so the build does not bundle it. |
+
+node scripts/smoke-api.mjs was not run. This change adds no HTTP handler and changes no HTTP behavior.
+
+## Review repair
+
+2026-10-03, PR #12: non-OK Gemini responses left the body open. The adapter now cancels the body without waiting before it throws the same safe error. Network-free 429 and 500 streams exceed the size cap and never settle cancellation; each cancels once and returns the expected retryable code. All five recognition groups, npm run check and npm run typecheck passed. No live provider call was made. Host rerun by the lead (Node 24.21.0): recognition check, npm run check, typecheck and build passed.
+
+### Review repair: blank evidence
+
+2026-10-03, PR #12: after trimming, each evidence item must contain at least one character outside whitespace, \p{C}, \p{Z}, \p{M}, Default_Ignorable_Code_Point and U+2800. A rejected item rejects the full provider output as retryable `PROVIDER_UNAVAILABLE`, including when the item is mixed with valid evidence. Rejected examples include `\u200b`, `\u200d\u200c`, `\u2060`, `\u00ad`, `\u200e`, tabs/newlines and spaces. Preserved examples include `Room 204`, `Salida`, `→`, `Room\u200b204` and `👩‍💻`. Commit 6f5feb0 added `minLength: 1` to provider JSON Schema evidence items (`{"type":"string","minLength":1,"maxLength":200}`). Trim and the visibility rule are runtime-only. The JSON Schema `minLength: 1` assertion remains.
+
+Before the fix, a temporary schema assertion for `['\u200b']` failed with `AssertionError [ERR_ASSERTION]: Expected values to be strictly equal: true !== false` (`actual: true`, `expected: false`). After the fix, `node src/server/recognition/recognizer.check.ts` passed all six groups, including the entrance rejection cases with unchanged checkpoint and guidance, destination mixed evidence, preserved schema examples and JSON Schema assertion. `npm run check` passed core, media and extraction (32 cases; no network calls). `npm run typecheck` passed (`tsc --noEmit`). No real fetch or provider call was used.
+
+Actual checks in this worktree: `node src/server/recognition/recognizer.check.ts` passed all six groups, including the new blank-evidence group; `npm run check` passed core, media and extraction (32 cases, no network calls); `npm run typecheck` passed (`tsc --noEmit`).
+
+### Review repair: default-ignorable evidence
+
+2026-10-03, PR #12, P2/P3: the previous regex accepted evidence made only of default-ignorable characters outside \p{C} and \p{Z}. The rule now excludes \p{C}, \p{Z}, \p{M}, whitespace, Default_Ignorable_Code_Point and U+2800. The lead chose to reject U+2800 because it renders blank. Braille U+2801–U+28FF remains accepted.
+
+The blank-evidence group rejects `\u034f`, `\ufe0f`, `\u3164`, `\u115f`, `\u1160`, `\uffa0` and `\u2800`, alone and beside `Room 204`. Each returns retryable `PROVIDER_UNAVAILABLE` through matchFrame with checkpoint and guidance unchanged. Schema checks still accept `Room 204`, `\u2192`, `\ud83d\udc69\u200d\ud83d\udcbb`, `Room\u200b204`, `\u00e9`, `\u4e2d`, `e\u0301`, `\u0915\u093f` and `\u2801`.
+
+Actual checks in this worktree (Node 26.8.2): `node src/server/recognition/recognizer.check.ts` passed all six groups. With only the regex temporarily restored to its previous value, the same command failed on the first new rejection case (`\u034f`): matchFrame accepted it; `AssertionError [ERR_ASSERTION]`, `true !== false`, exit 1. The repaired regex was restored and the check passed again. `npm run check` passed core, media and extraction (32 cases; no network calls). `npm run typecheck` passed (`tsc --noEmit`). No network or real provider call was made.
+
+Host rerun by the lead (Node 24.21.0, after merging main 9b65316): a direct regex probe shows all seven rejected code points pass the previous rule and fail the new one; the eight preserved examples pass. recognizer.check.ts passed all six groups; npm run check, npm run typecheck and npm run build passed in this worktree. smoke-api was not run because no HTTP handler changed.
+
+Full closure still needs core matching against `identifyingEvidence`. This remains an integration-owner decision. Next action: owner reviews this repair and decides the core evidence rule.
+
+### Review repair: mark-only evidence
+
+2026-10-03, PR #12, P3 advisory on f943fcb: lone U+0301 still counted as recognition evidence. The lead chose to reject evidence made only of combining marks. Text with a base character stays accepted. VISIBLE now also excludes \p{M}. The invisible list adds `\u0301`, `\u0301\u0308` and `\u0903`. Each is checked alone and beside `Room 204` through matchFrame, with checkpoint and guidance unchanged. Accepted examples include `e\u0301` and `\u0915\u093f`; the other accepted items remain.
+
+Actual checks in this worktree (Node 26.8.2): `node src/server/recognition/recognizer.check.ts` passed all six groups. Temporarily restoring only the previous regex made the same command fail on lone `\u0301`: matchFrame accepted it; `AssertionError [ERR_ASSERTION]`, `true !== false`, exit 1. The repaired regex was restored and all six groups passed again. `npm run check` passed core, media and extraction (32 cases; no network calls). `npm run typecheck` passed (`tsc --noEmit`). No sandbox write or temp-directory block occurred. No network or provider call was made.
+
+Host rerun by the lead (Node 24.21.0): a direct regex probe shows `\u0301`, `\u0301\u0308` and `\u0903` pass the previous rule and fail the new one; `e\u0301`, `\u0915\u093f`, `Room 204`, CJK, emoji ZWJ and `\u2801` pass. recognizer.check.ts passed all six groups; npm run check, npm run typecheck and npm run build passed. smoke-api was not run because no HTTP handler changed.
+
+Full closure still needs core matching against `identifyingEvidence`. This remains an integration-owner decision. Next action: owner reviews this repair and decides the core evidence rule.
+
+## Design details and limitations
+
+There is no production registration in this change. Live and replay still fail honestly without registration.
+The real Gemini request shape is unverified against a live call.
+The core window is current/next only. The recognizer sends all approved checkpoint candidates.
+JPEG bytes are not decoded. Visible-text truth requires provider evidence; schema checks prove structure and bounds only.
+Host rerun by the lead (2026-10-03): the new checks fail against the old schema (matchFrame accepted blank evidence) and pass with the fix. On the host, recognizer.check.ts passed all six groups, and npm run check and npm run typecheck passed. npm run build of commit 6f5feb0 passed in the main checkout. In this worktree the build stops early because node_modules is a symlink outside the project root, which Turbopack rejects. That is an environment limit, not a code failure. smoke-api was not run because no HTTP handler changed.
+
+Host rerun by the lead for the visible-character repair (2026-10-03): the worker wrote a plain space where the U+00A0 case was specified; the lead changed that one test literal to '\u00a0'. With the faf135e schema, the new invisible-character checks fail (matchFrame accepts the evidence). With the fix, recognizer.check.ts passed all six groups, and npm run check, npm run typecheck and npm run build passed in the main checkout. smoke-api was not run because no HTTP handler changed. The worker sandbox could not write to the earlier separate worktree, so this repair ran in the main checkout.
+
+Legacy checkpoints without an action still accept any non-blank evidence string in core. Matching evidence against `identifyingEvidence` remains an integration-owner core decision.
+The stale race uses sequence 1 to activate the action, then slow sequence 2 and manual sequence 3.
+The core requires an active action for completeAction, so slow sequence 1 versus manual sequence 2 cannot be accepted in a fresh session without first activating that action.
+Manual completion remains a core behavior and can reach a destination; the observation-arrival check proves that idle time does not advance the route.
+
+## Integration requests
+
+In src/server/core/instance.ts, add this import:
+
+```ts
+import { liveRecognizer, liveRecognitionEnabled } from '../recognition/gemini.ts';
+```
+
+Use this recognizers entry in createCore:
+
+```ts
+recognizers: { mock: fixtureRecognizer, ...(liveRecognitionEnabled() ? { live: liveRecognizer } : {}) },
+```
+
+Add `node src/server/recognition/recognizer.check.ts` to npm run check and CI.
+Set `BREADCRUMB_GEMINI_RECOGNITION=1` and `GEMINI_API_KEY` only after provider spending is authorized.
+`GEMINI_MODEL` is optional. The default is DEFAULT_GEMINI_MODEL from extraction.
+The production provider config is captured at module load. Restart after env changes.
+Part A note: src/server/extraction/extraction.ts also throws on non-OK Gemini responses without cancelling the body. Part B did not edit it.
+
+Next action: owner reviews and registers the module, adds the check to CI, and reruns build and HTTP smoke after registration. A live provider call requires separate authorization.
+
+# Follow route: Part B, PR 3 (voice consumer)
+
+## Status
+
+Implemented and host-verified with fake voice and audio adapters. Date: 2026-10-03.
+Browser speech states were rendered in the real app mount. No provider call was made. Generated-voice states were not rendered in a browser.
+
+## Branch
+
+feat/follow-voice-main, based on main 9b65316 (includes #11 and #13). It supersedes PR #14 (feat/follow-voice), which was stacked on the pre-repair #12 commits. It has no dependency on PR #12. The voice commits df0580a..76e0222 were rebuilt here as one change.
+The host lead commits. The integration owner merges.
+
+## Changes
+
+GuideScreen accepts an optional VoiceAdapter. Required props stay required.
+Without the adapter, browser speech keeps its existing instruction-id rule.
+A visible line under the top controls says Browser speech / Voz del navegador, or Generated voice / Voz generada. The sound button references it with aria-describedby.
+Sound starts off. Captions and navigation state stay independent of voice.
+Voice failures use a separate translated status line. Provider error bodies are not shown or logged.
+
+voicePlayback.ts has no React imports or DOM globals at import time.
+It forwards the exact accepted Guidance.text, locale and instructionId.
+DEFAULT_VOICE_ID is the exported guide token 'default'.
+Native audio plays the returned audioUrl. No browser speech fallback runs with an adapter.
+Session id, instruction id, locale and text form the deduplication key. Sequence changes do not replay successful speech.
+Only the current key is deduplicated, as with browser speech. A, B, A speaks A again.
+A failure clears the current key. The next speak call can retry the same instruction.
+A new instruction cancels old audio. Mute, locale changes and unmount cancel obsolete work.
+Cancellation pauses audio, clears its src and invalidates late results with a generation token.
+Mute clears deduplication. Enabling sound again speaks the current instruction once.
+A successful play or mute clears voice status. No timer advances navigation.
+
+## Checks
+
+Commands below ran in this checkout. All exited 0.
+
+| Command | Actual result |
+| --- | --- |
+| node src/features/guide/voicePlayback.check.ts | PASS. 7 groups, 0 failures. Duplicate instructions and exact fields; mute and re-enable; Spanish switch; stale synthesis; playback and synthesis failures; dispose; source label and caption assertion. |
+| node src/features/guide/checkView.check.ts | PASS. 8 groups, 0 failures. Existing guide, sequence, locale, manual and capture checks. |
+| npm run check | PASS. Core and media checks passed. Extraction passed 32 cases with no network calls. Core and media do not print case counts. |
+| npm run typecheck | PASS. tsc --noEmit. |
+| npm run build | PASS. Compiled successfully and generated 6 static pages. Six dynamic filesystem tracing warnings came from existing server files. |
+| git diff --check | PASS. No whitespace errors. |
+| Host: node src/features/guide/voicePlayback.check.ts | PASS, 7 groups, after the lead repair below. |
+| Host: node src/features/guide/checkView.check.ts; npm run check; npm run typecheck | PASS. |
+| Host: npm run build | PASS. Compiled successfully. |
+| Host: node scripts/follow-camera.check.mjs 3153 | PASS, all 8 groups. Existing mock, live, replay, keyboard and denied-camera behavior is unchanged. |
+| Host: scratch CDP render at 390x844 and 1280x800 (not committed) | PASS both widths. Real app mount, no voice prop, speechSynthesis stubbed to record calls. Sound off by default with a visible Browser speech line. Tab reaches the sound button with a 3px focus ring; Enter turns sound on and Space mutes. One mock pick speaks the exact fixture text once with en-US; a repeated pick does not repeat it. Mute cancels speech and keeps the caption. The Spanish switch speaks the exact Spanish text once with es-ES and shows Voz del navegador. Label stays between the top bar and the camera stage. Controls have equal heights and no overlap. No horizontal scroll. |
+
+node scripts/smoke-api.mjs was not run. This change adds no HTTP handler.
+
+Lead repairs after the worker handback:
+1. The worker's player remembered every spoken key until mute, so A, B, A did not speak A again. Browser speech repeats it. The player now deduplicates only the current key. The check now expects A, B, A to make 3 requests.
+2. The first label sat inside the controls row and stretched the other controls. The first fix overlapped the camera stage by 6px on the phone. The label is now an in-flow line under the top controls.
+
+The voice check uses only fake synthesis and fake audio.
+The labeling check reads source. It does not establish rendered layout or browser playback.
+
+## Review repair
+
+2026-10-03, PR #14, base head df0580a: a new voice adapter object recreated the player. This cleared the current key and repeated the same instruction. The player now starts in the mount effect and is disposed in cleanup. Each effect setup creates a fresh player, including React Strict Mode setup after cleanup. speak receives the adapter per call. At this repair, a replacement adapter kept the current key and clip, including pending synthesis. The next review repair below corrects pending synthesis. A new instruction uses the supplied adapter. Removing the adapter stops generated audio before browser speech runs. Cleanup also cancels browser speech. Generation tokens still reject late results after cancellation. Two new check groups cover adapter replacement without a pause or repeat request, and late synthesis from X after a new instruction through Y. Actual local results: voicePlayback.check.ts passed all 9 groups; checkView.check.ts passed all 8 groups; npm run check passed core, media and extraction (32 extraction cases, no network calls); npm run typecheck passed with tsc --noEmit. All four commands exited 0. No check failed. The worker ran no build or browser check. Host rerun by the lead on the repaired tree: the same four commands passed, npm run build passed, node scripts/follow-camera.check.mjs 3153 passed all 8 groups, and the scratch CDP render passed at 390x844 and 1280x800 for the browser-speech states. Strict Mode behavior and the generated-voice component path were inspected in source only. No provider or phone check was run.
+
+## Review repair: pending adapter, session key and retry
+
+2026-10-03, PR #14. Verified branch feat/follow-voice and base head 8e5a53c before edits.
+Only voicePlayback.ts, voicePlayback.check.ts and this receipt changed.
+The untracked PR14-REVIEW-for-Jayden.md was left alone. No commit, push, agent or network/provider call was made.
+
+Findings: P2 suppressed Y when X was still synthesizing the same key. X could then set unavailable or play its old clip.
+P3 omitted session id from the key. Identical guidance for S2 could be suppressed while S1 later played.
+P3 is hardening. This path is not reachable in the current GuideScreen.
+UR1 kept the key after synthesize ok:false, synthesize throw or play() rejection. Repeated checks can keep instructionId stable, so those failures blocked retries.
+
+The player now stores the current key and adapter. The key includes session id.
+Same-key calls are deduplicated when audio exists or the pending adapter is unchanged.
+A replaced pending adapter cancels the old generation before requesting the new adapter.
+Current failures clear the key. The stale-result guard stays before the ok:false branch with no await between them.
+The catch branch cancels and clears current only for the current generation. stop clears current too.
+Audio stays set after natural completion. dispose and GuideScreen are unchanged.
+No sequence counter, timer or export was added.
+
+Seven new check groups cover X throwing, X returning ok:false, X returning ok, session changes and each of the three failure/retry paths.
+They also check one request for the same pending adapter, stale X not clearing pending Y, replacement after failure at the same sequence, and deduplication after a successful retry.
+The guidance helper now accepts a session id. All nine existing groups keep their meaning.
+
+Before the fix, the new tests ran against unchanged 8e5a53c voicePlayback.ts on Node v26.8.2.
+All nine existing groups passed. The command exited 1 with `Regression failures (45)`.
+The failures covered every new path: replacement Y not requested, obsolete X setting status or playing (for throw, ok:false and ok), the S2 session request and late S1 audio, and every same-instruction retry case (3 failure kinds x same adapter at sequence+1 or new adapter at the same sequence). The lead shortened the full list of 45 messages to this summary.
+
+The status assertion compares the full status list with []. In the X ok case it also detects an obsolete success callback.
+After the exact player fix, actual local results were:
+
+| Command | Actual result |
+| --- | --- |
+| node src/features/guide/voicePlayback.check.ts | Exit 0. Nine existing PASS lines, seven regression CHECK lines, then `PASS all 7 regression groups`. Zero failed assertions. |
+| node src/features/guide/checkView.check.ts | Exit 0. All eight PASS lines. |
+| npm run check | Exit 0. `core check passed`, `media checks passed`, `extraction checks passed (32 cases; no network calls)`. Deadline diagnostics: metadata never read 21.3 ms; metadata late read 21.2 ms; media never read 21.2 ms; media late read 20.2 ms. Each used timeoutMs=20, generate=0, save=0. |
+| npm run typecheck | Exit 0. `tsc --noEmit`. No EPERM; incremental false was not needed. |
+| git diff --check | Exit 0. No output. |
+
+The worker ran no build, browser, provider or phone check. Host rerun by the lead (2026-10-03): with the 8e5a53c player, the new tests report `Regression failures (45)`. With the fix, voicePlayback.check.ts passed all 9 existing groups plus all 7 regression groups. checkView.check.ts (8 groups), npm run check, npm run typecheck and npm run build passed. node scripts/follow-camera.check.mjs 3153 passed 8 groups. The scratch CDP browser-speech render passed at 390x844 and 1280x800. The branch does not include main's #13 theme yet, so the render reflects the older stylesheet. No provider or phone check was run.
+Next action: a fresh independent review of the exact head. (Superseded: rebuilt on main in feat/follow-voice-main; see the separation note at the end.)
+
+## Review repair: adapter change during pending play()
+
+2026-10-03, PR #14. Verified feat/follow-voice at 5a73443 before edits.
+Finding: audio existed before play() settled. This suppressed a replacement adapter for the same key. A later autoplay rejection could strand the instruction.
+The player now stores started separately and sets it only after current play() succeeds.
+Adapter replacement during pending play cancels the old generation and requests Y. Same-adapter pending calls and replacement after successful start stay deduplicated.
+The mine variable has a type annotation because TypeScript otherwise infers started as literal false. No other playback behavior changed.
+
+The new group checks both late rejection and late resolution, cancellation, same-adapter deduplication, stale status isolation, Y playback and deduplication after start. Y first sets unavailable, then a successful retry clears it.
+Against unchanged 5a73443 playback code, the new group exited 1 with 12 failed assertions: missing Y requests, missing X pause/src cleanup, missing Y failure status, stale status clearing, missing Y playback and failed deduplication after start. All 16 existing groups passed.
+After the fix, voicePlayback.check.ts exited 0: nine PASS lines, eight regression CHECK lines and `PASS all 8 regression groups`.
+checkView.check.ts exited 0 with all eight PASS lines. npm run check exited 0 with core and media passed and extraction passed (32 cases; no network calls). All four deadline diagnostics were 21.2 ms with timeoutMs=20, generate=0 and save=0.
+The first typecheck exited 2 with TS2322 (true not assignable to false). After the type annotation, npm run typecheck exited 0 with `tsc --noEmit`. No EPERM occurred.
+git diff --check exited 0 with no output.
+Only the three assigned files changed. The untracked review file was left alone. No commit, push, agent or network/provider call was made. No build, browser or phone check was run.
+Host rerun by the lead (2026-10-03): the 5a73443 player with the new tests reports `Regression failures (13)`. The worker run counted 12. With the fix, voicePlayback.check.ts passed 9 groups plus all 8 regression groups. checkView.check.ts (8 groups), npm run check, npm run typecheck, npm run build, node scripts/follow-camera.check.mjs 3153 (8 groups) and the 390/1280 browser-speech render passed. The branch still predates main's #13 theme.
+Next action: independent review of the repair. Browser autoplay and physical phone audio remain unverified.
+
+## Limitations
+
+Generated voice is not wired into the app mount in this PR.
+Generated-voice UI states (Generated voice label, Voice unavailable status) were not rendered in a browser. The app mount is outside Part B ownership, and a temporary local mount patch was not permitted. The node check covers player logic: requests, playback and status callbacks. It does not test the generated label text, the translated unavailable message or component wiring.
+audio.play() runs after the synthesize promise, outside the tap gesture. Mobile Safari may reject it. The rejection shows Voice unavailable and does not change navigation. Phone behavior is unverified.
+Real provider success, browser autoplay permission and physical phone audio remain unverified.
+A synthesis request cannot be aborted through the current VoiceAdapter contract.
+At 8e5a53c, late results were not ignored for a replaced pending adapter or a changed session. After this fix, those late results are ignored. Part C owns provider deadlines and audio delivery.
+Retries happen only when GuideScreen's speak effect runs again: a new Guidance object, sound toggle, locale change or adapter change. There is no timer. Player tests cannot prove React effect frequency.
+The existing action caption can differ from the full accepted guidance text. This PR preserves it.
+No Next API was added or changed. No dependency or shared contract was changed.
+
+## Integration requests
+
+The integration owner wires voice={httpVoice} in src/app/follow/[routeId]/page.tsx only after Part C's src/client/voice.ts exists and both PRs pass.
+Pass the stable module-level httpVoice. Do not create an adapter object per render. A new object each render would keep replacing pending requests.
+Add node src/features/guide/voicePlayback.check.ts to npm run check and CI.
+Part C maps DEFAULT_VOICE_ID to a server-side voice id. That mapping is Part C's concern.
+
+## Next action
+
+Independent review of the exact PR head. After Part C merges, the integration owner wires voice={httpVoice}, renders the generated-voice and failure states at phone and desktop widths, and tests audio on the target phone.
+
+## Separation from PR #12
+
+2026-10-03: PR #14 (feat/follow-voice) was stacked on the pre-repair #12 commits 0c4858c and 045ea2b. Those commits carry the old recognizer evidence schema, which accepts blank evidence. The integration owner asked that the voice change not bring that code in. #11 merged into main at 9b65316, so this branch rebuilds the voice change on main. The guide files (GuideScreen.tsx, mode.module.css, voicePlayback.ts, voicePlayback.check.ts) are byte-identical to reviewed head 76e0222. The diff against main touches only those files and this receipt. It has no recognizer files and no PR 2 receipt section.
+
+Host checks on this branch (lead): npm ci installed main's locked dependencies from #13. The stale .next cache was cleared. Then voicePlayback.check.ts (9 groups plus all 8 regression groups), checkView.check.ts (8 groups), npm run check, npm run typecheck and npm run build passed. node scripts/follow-camera.check.mjs 3153 passed all 8 groups. The scratch CDP browser-speech render passed at 390x844 and 1280x800 on main's #13 theme: the label sits under the controls, the controls are 44px high, and there is no overlap or horizontal scroll. No CSS change was needed. smoke-api was not run because no HTTP handler changed.
+
+Next action: a fresh independent review of the exact head. Then close PR #14 as superseded.
+
+Update, 2026-10-04: PR #12 merged into main at adb37d8. This branch merged main in. The only conflict was this receipt, where both PRs appended a section. The resolution keeps main's receipt verbatim, including the PR 2 section, then the unchanged PR 3 section. The guide files did not conflict. Host checks after the merge are recorded in the PR.
