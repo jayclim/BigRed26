@@ -1,6 +1,6 @@
 # Motion polish
 
-Status: implemented; code checks passed with a Webpack build; rendered review blocked. Date: 2026-10-03. Source: the user's bounded [SOL] motion assignment.
+Status: implemented; code checks passed with a Webpack build; host-rendered review at 390 and 1280 px recorded below. Date: 2026-10-03. Source: the user's bounded [SOL] motion assignment.
 
 Worktree: `.worktrees/motion-polish`. Branch: `feat/motion-polish`. Base: `origin/main` at `9b65316e3c51d95fa7d5e8b2fd182ac032a2e619`.
 
