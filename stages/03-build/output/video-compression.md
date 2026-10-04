@@ -1,6 +1,6 @@
 # Local video compression before upload
 
-Status: implemented; helper and TypeScript checks pass. Recorded 2026-10-03 in `feat/video-compression`. Browser and real codec checks are pending.
+Status: implemented; helper, TypeScript, build and synthetic browser checks pass. Recorded 2026-10-04 in `feat/video-compression` at commit beac2e2. Real phone checks are pending.
 
 ## Behavior
 
@@ -26,8 +26,19 @@ Invalid conversions and discarded primary video or any audio track fail with bro
 - `npx next build --webpack`: passed, exit 0. Production compilation, TypeScript, static generation and build traces completed.
 - `git diff --check`: passed.
 
+## Browser checks (2026-10-04, commit beac2e2)
+
+An independent read-only review of commit beac2e2 found no defects. Host `npx next build --webpack` passed. A headless Chrome session on an isolated local server ran these checks with synthetic H.264/AAC input:
+
+- 1280 px, landscape 3840x2160, 21,977,955 bytes: output 1,763,870 bytes, 1920x1080, H.264 + AAC, 30 fps. Upload to `/api/media` passed.
+- 390 px, portrait 2160x3840, 21,458,685 bytes: output 1,707,066 bytes, 1080x1920, H.264 + AAC, 30 fps. Upload passed.
+- ffprobe found an audio track in both outputs. Output duration is 2.069 s from 2 s input (AAC padding). Nobody listened to the audio.
+- No horizontal overflow at 390 or 1280 px. The 390 px full-page screenshot was inspected.
+- Cancel prevented a late compressed result.
+- With VideoEncoder disabled, the app showed a clear unsupported-browser error, and the original file stayed uploadable.
+
 ## Limits and next action
 
-No real phone/browser codec proof yet. No rendered 390/1280 review was run for this change. Progress and cancellation are wired to the inspected API but have no real conversion evidence yet. BufferTarget keeps the output in memory; long videos can exhaust browser memory. QUALITY_HIGH does not guarantee a smaller file or an output under 100 MiB. Packet statistics use average frame rate, so variable-rate input does not have a separate instantaneous-frame-rate guarantee.
+The portrait input has rotated pixel dimensions, not rotation metadata. No real phone, HEVC, HDR, rotation-metadata, long-video or memory checks were run. BufferTarget keeps the output in memory; long videos can exhaust browser memory. QUALITY_HIGH does not guarantee a smaller file or an output under 100 MiB. Packet statistics use average frame rate, so variable-rate input does not have a separate instantaneous-frame-rate guarantee. No output above 100 MiB was tested in the browser.
 
-Next action: browser review at 390 and 1280 pixels, then a real codec conversion check with audio and rotated portrait footage. Check cancellation and replacement during conversion, unsupported codecs and an output above 100 MiB. Run an independent review of the exact commit before integration. No independent review, push or deployment was done in this task. The merger must reconcile PROGRESS.md before merge.
+Next action: convert real phone footage (HEVC, HDR, rotation metadata, long clip) on a phone browser and listen to the audio.

@@ -50,6 +50,6 @@ Host checks ran on `2993ab9` merged with main `5c4f790`. The Webpack build, core
 
 Follow-ups for the integration owner: add an own-property check and a regression to core `sessionOf` (`src/server/core/core.ts:170`). Add the PR11 checks to `npm run check` and CI. Next: rebase PR12 on integrated main and review its exact head.
 
-## Video compression (draft PR, 2026-10-04)
+## Video compression (PR 18, 2026-10-04)
 
-Branch `feat/video-compression`: lazy-loaded mediabunny 1.61.1 compresses a selected video in Teach before upload. typecheck, check and build passed on the host. Not done: independent review, browser 390/1280 states, real codec conversion. See [stage output](stages/03-build/output/video-compression.md).
+Branch `feat/video-compression`: lazy-loaded mediabunny 1.61.1 compresses a selected video in Teach before upload. Output long edge is capped at 1920 and short edge at 1080. typecheck, check and Webpack build passed on the host. An independent review of commit beac2e2 found no defects. Synthetic headless Chrome checks passed: landscape and portrait 4K compression with audio kept, local upload, no overflow at 390/1280, Cancel and the unsupported-browser error. Not done: real phone, HEVC, HDR, rotation metadata and long video. See [stage output](stages/03-build/output/video-compression.md).
