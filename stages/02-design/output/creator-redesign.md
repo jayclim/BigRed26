@@ -69,7 +69,7 @@ Contrast (computed, not rendered): white on #0a6f82 5.82:1; muted on page 5.54:1
 - Approve stayed disabled until all three steps were checked; "Approve version 1" then produced the approved state and visitor link.
 - Guide unchanged: guide renders on this branch are byte-identical to the PR 25 build for the compared states; `node scripts/follow-camera.check.mjs` 8 PASS.
 - `npm run check`, `npm run typecheck`, `npm run build` and `node scripts/smoke-api.mjs` pass.
-- Not covered here: the ignored creator extraction harness (`.overnight/ui-extraction.mjs`, not in this checkout), extraction success and failure states with injected responses, keyboard focus walk, and a real phone.
+- Not covered here: the ignored creator extraction harness (`.overnight/ui-extraction.mjs`, not in this checkout), extraction success and failure states with injected responses, full keyboard focus walk (only review-pill focus was checked), and a real phone.
 
 - Review of `d601dd2` (independent, approve): fixed its P2 (keyboard focus on a checked review pill now shows a white outline and an ink ring; confirmed in a render after real Tab key presses, `:focus-visible` true) and P3 notes (video heading weight, sticky column height, stale text here).
 

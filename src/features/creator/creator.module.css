@@ -171,7 +171,7 @@
 .page :global(.approve-bar > .notice) { order: 1; }
 
 @media (min-width: 900px) {
-  /* Sticky only while the column fits; otherwise it scrolls with the page so nothing hides off-screen. */
+  /* Sticky column with a max height; when its content is taller, it scrolls inside itself so nothing hides off-screen. */
   .page :global(.creator-sidebar) { position: sticky; top: 20px; max-height: calc(100dvh - 120px); overflow-y: auto; }
 }
 @media (max-width: 899px) {
