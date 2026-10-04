@@ -4,9 +4,10 @@ import { useCallback, useEffect, useState } from 'react';
 import type { RouteSummary } from '@contracts/contracts.ts';
 import { bountiesApi, savedSecrets, saveSecret, type PublicBounty } from '@/client/bounties.ts';
 import { httpCore } from '@/client/httpCore.ts';
-import { Brand } from '@/ui/Brand.tsx';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
+import { PageShell } from '@/ui/PageShell.tsx';
+import { SiteHeader } from '@/ui/SiteHeader.tsx';
 import styles from './bounties.module.css';
 import { PayoutSummary, SecretNotice, StatusBadge, usd } from './shared.tsx';
 
@@ -67,7 +68,7 @@ function SubmitForm({ bounty, onChange }: { bounty: PublicBounty; onChange: (b: 
   return (
     <form className={styles.form} onSubmit={submit} aria-label="Submit a route">
       <h2>Submit your route</h2>
-      <p className={styles.meta}>Only approved routes can be submitted. <Link href="/" className="creator-nav">Teach a route</Link> and approve it first.</p>
+      <p className={styles.meta}>Only approved routes can be submitted. <Link href={`/teach?bounty=${encodeURIComponent(bounty.id)}`} className="creator-nav">Teach a new route</Link> and approve it first, or pick one you already made.</p>
       <label className={styles.field}>Approved route
         <select value={routeId} onChange={(e) => setRouteId(e.target.value)} required style={{ minHeight: 44 }}>
           <option value="">{routes === null ? 'Loading routes…' : routes.length ? 'Choose a route' : 'No approved routes yet'}</option>
@@ -114,6 +115,22 @@ function PosterPanel({ bounty, onChange }: { bounty: PublicBounty; onChange: (b:
   );
 }
 
+/** Shown to the person who claimed this bounty in this browser: the claim secret is saved here. */
+function TeachPrompt({ bounty }: { bounty: PublicBounty }) {
+  const [mine, setMine] = useState(false);
+  useEffect(() => { setMine(!!savedSecrets(bounty.id).claimSecret); }, [bounty.id, bounty.status]);
+  if (bounty.status !== 'claimed' || !mine) return null;
+  return (
+    <section className={styles.card} aria-label="Teach this route">
+      <h3>You took this request</h3>
+      <p className={styles.meta}>Record a walk-through video of the route. Breadcrumb drafts the steps, you approve them, then you submit the route here to get paid.</p>
+      <div className="row">
+        <Button asChild><Link href={`/teach?bounty=${encodeURIComponent(bounty.id)}`}>Teach this route</Link></Button>
+      </div>
+    </section>
+  );
+}
+
 export function BountyScreen({ id }: { id: string }) {
   const [bounty, setBounty] = useState<PublicBounty | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -128,12 +145,9 @@ export function BountyScreen({ id }: { id: string }) {
 
   const terminal = bounty?.status === 'paid' || bounty?.status === 'cancelled';
   return (
-    <main className="creator">
+    <PageShell>
       <header>
-        <div className="creator-top">
-          <Brand />
-          <div className="creator-context"><Link href="/bounties" className="creator-nav">All bounties</Link></div>
-        </div>
+        <SiteHeader current="bounties" />
         {bounty && <div className="route-title"><h1>{bounty.title}</h1></div>}
       </header>
       {error && <div className="notice error" role="alert"><p>{error}</p><Button variant="outline" onClick={() => void load()}>Retry</Button></div>}
@@ -144,13 +158,14 @@ export function BountyScreen({ id }: { id: string }) {
             <div className="row"><StatusBadge bounty={bounty} /><span className={styles.reward}>{usd(bounty.rewardUsd)}</span></div>
             <p>{bounty.description}</p>
             <p className={styles.meta}>Posted by {bounty.poster}{bounty.claim ? ` · Claimed by ${bounty.claim.creatorName} (account ending ${bounty.claim.accountLast4})` : ''}</p>
+            <TeachPrompt bounty={bounty} />
             {bounty.route && (
               <section className={styles.card} aria-label="Submitted route">
                 <h3>{bounty.route.name}</h3>
                 <p className={styles.meta}>Approved version {bounty.route.version}</p>
                 <div className="row">
                   <Button variant="outline" size="sm" asChild><a href={`/follow/${encodeURIComponent(bounty.route.id)}?mode=stream`}>Open live voice guide</a></Button>
-                  <Button variant="ghost" size="sm" asChild><Link href={`/?route=${encodeURIComponent(bounty.route.id)}`}>View route</Link></Button>
+                  <Button variant="ghost" size="sm" asChild><Link href={`/teach?route=${encodeURIComponent(bounty.route.id)}`}>View route</Link></Button>
                 </div>
               </section>
             )}
@@ -168,6 +183,6 @@ export function BountyScreen({ id }: { id: string }) {
           {!payments && !terminal && <p className="notice">Payouts are not set up on this server, so this board is read-only.</p>}
         </div>
       )}
-    </main>
+    </PageShell>
   );
 }

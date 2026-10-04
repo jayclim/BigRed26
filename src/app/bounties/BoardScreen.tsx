@@ -3,14 +3,15 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { bountiesApi, saveSecret, type Board, type PublicBounty } from '@/client/bounties.ts';
 import { Badge } from '@/ui/badge';
-import { Brand } from '@/ui/Brand.tsx';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
+import { PageShell } from '@/ui/PageShell.tsx';
+import { SiteHeader } from '@/ui/SiteHeader.tsx';
 import { Textarea } from '@/ui/textarea';
 import styles from './bounties.module.css';
 import { SecretNotice, StatusBadge, usd } from './shared.tsx';
 
-function BountyCard({ b }: { b: PublicBounty }) {
+export function BountyCard({ b }: { b: PublicBounty }) {
   return (
     <li className={styles.card}>
       <div className={styles.cardTop}><h3>{b.title}</h3><span className={styles.reward}>{usd(b.rewardUsd)}</span></div>
@@ -19,13 +20,17 @@ function BountyCard({ b }: { b: PublicBounty }) {
       <div className="row">
         <StatusBadge bounty={b} />
         {b.payout?.transferId && <Badge variant="outline">Transfer {b.payout.transferId.slice(0, 8)}</Badge>}
-        <Button variant={b.status === 'open' ? 'default' : 'outline'} size="sm" asChild><Link href={`/bounties/${encodeURIComponent(b.id)}`}>{b.status === 'open' ? 'View and claim' : 'Open'}</Link></Button>
+        <Button variant={b.status === 'open' ? 'default' : 'outline'} size="sm" asChild><Link href={`/bounties/${encodeURIComponent(b.id)}`}>{b.status === 'open' ? 'Take this request' : 'Open'}</Link></Button>
       </div>
     </li>
   );
 }
 
-function PostForm({ board, onPosted }: { board: Board; onPosted: () => void }) {
+/** The post form. `onLockChange` reports when the one-time poster secret is on screen, so a dialog can refuse to close over it.
+ *  `onFinish` runs when the poster confirms the secret is saved. */
+export function PostForm({ board, onPosted, onLockChange, onFinish }: {
+  board: Board; onPosted: () => void; onLockChange?: (locked: boolean) => void; onFinish?: () => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [made, setMade] = useState<{ id: string; secret: string } | null>(null);
@@ -43,12 +48,14 @@ function PostForm({ board, onPosted }: { board: Board; onPosted: () => void }) {
     if (!r.ok) { setError(r.error.message); return; }
     saveSecret(r.value.bounty.id, 'posterSecret', r.value.posterSecret);
     setMade({ id: r.value.bounty.id, secret: r.value.posterSecret });
+    onLockChange?.(true);
     form.reset(); onPosted();
   }
   if (made) return (
     <div className={styles.stack}>
-      <SecretNotice title="Keep your poster secret" secret={made.secret}
-        body="You need it to approve and pay, or to cancel. It is shown once. This browser also remembers it." onDone={() => setMade(null)} />
+      <SecretNotice title="Save your poster secret now" secret={made.secret}
+        body="Save this before you leave. You need it to approve and pay, or to cancel, and it is shown only once. This browser also remembers it."
+        onDone={() => { setMade(null); onLockChange?.(false); onFinish?.(); }} />
       <Button variant="outline" asChild><Link href={`/bounties/${encodeURIComponent(made.id)}`}>Open your bounty</Link></Button>
     </div>
   );
@@ -85,15 +92,9 @@ export function BoardScreen() {
   const paid = board?.bounties.filter((b) => b.status === 'paid') ?? [];
 
   return (
-    <main className="creator">
+    <PageShell>
       <header>
-        <div className="creator-top">
-          <Brand />
-          <div className="creator-context">
-            <Link href="/routes" className="creator-nav">All routes</Link>
-            <Link href="/" className="creator-nav">Teach a route</Link>
-          </div>
-        </div>
+        <SiteHeader current="bounties" />
         <div className="route-title"><h1>Route bounties</h1></div>
         <p className="notice">Ask for a route. Someone teaches it, you approve it, and they get paid. Rewards use Capital One Nessie sandbox money, not real dollars.</p>
         {board && (
@@ -123,6 +124,6 @@ export function BoardScreen() {
           {board.payments.enabled && <PostForm board={board} onPosted={() => void load()} />}
         </div>
       )}
-    </main>
+    </PageShell>
   );
 }

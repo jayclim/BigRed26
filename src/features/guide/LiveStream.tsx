@@ -124,7 +124,7 @@ export function LiveStream({ routeId, exitHref }: { routeId: string; exitHref: s
       <div className="guide-layout">
         <section className="guide" aria-label={name ?? t.loading}>
           <div className="guide-top">
-            <Brand compact />
+            <Brand compact href="/" />
             <div className="controls">
               <label className={picker.picker}>
                 <span>{t.language}</span>

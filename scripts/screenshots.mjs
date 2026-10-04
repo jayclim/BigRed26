@@ -59,12 +59,22 @@ async function browser(extra) {
 // The isolated server seeds the fictional test route demo-route (BREADCRUMB_TEST_FIXTURES=1), so the creator shots have a route.
 const p = await browser(['--use-fake-ui-for-media-stream']);
 await p.size(1280, 900);
-await p.go('/?route=demo-route');
+await p.go('/teach?route=demo-route');
 await p.shot('01-creator-draft', true);
-await p.eval(`document.querySelectorAll('.review input').forEach((i) => i.click())`);
-await sleep(300);
 await p.click('Approve version 1');
 await p.shot('02-creator-approved');
+
+// The landing page: hero, then the route and bounty dashboard. /teach with no route starts a new route from a video.
+await p.go('/');
+await p.shot('06-landing-desktop');
+await p.eval(`document.querySelector('#routes').scrollIntoView({ behavior: 'instant' })`);
+await sleep(300);
+await p.shot('07-dashboard-desktop');
+await p.size(390, 844, true);
+await p.go('/');
+await p.shot('08-landing-mobile', true);
+await p.go('/teach');
+await p.shot('09-teach-new-mobile', true);
 
 // /follow/<id> opens the Gemini Live voice guide. Live stays disabled here (no Gemini key), so this is its honest "not enabled" state.
 await p.size(390, 844, true);

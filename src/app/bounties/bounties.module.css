@@ -2,7 +2,7 @@
 .stats div { min-width: 0; border-left: 2px solid var(--rule); padding-left: var(--space-3); }
 .stats dt { font-size: var(--type-xs); color: var(--muted); }
 .stats dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
-.layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 22rem); gap: var(--space-8); align-items: start; }
+.layout { margin-top: 28px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 22rem); gap: var(--space-8); align-items: start; }
 .stack { display: grid; gap: var(--space-4); min-width: 0; }
 .section { display: grid; gap: var(--space-3); min-width: 0; }
 .section h2 { font-size: var(--type-lg); font-weight: 600; margin: 0; }
@@ -26,3 +26,18 @@
 .ids dd { margin: 0; }
 @media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 480px) { .card, .form, .secret { padding: var(--space-3); } }
+
+/* Creator-style page chrome: white cards with the page's soft shadow. */
+:global(.creator) .card, :global(.creator) .form { background: var(--paper); border-color: var(--rule); border-radius: 20px; box-shadow: var(--card-shadow, none); }
+:global(.creator) .card { padding: var(--space-4) var(--space-6); }
+:global(.creator) .secret { border-radius: 20px; }
+
+/* Post-bounty modal. The form inside is flat; the dialog is the card. */
+.dialog { width: min(34rem, calc(100vw - 24px)); max-height: calc(100dvh - 24px); margin: auto; padding: var(--space-4) var(--space-6) var(--space-6); border: 0; border-radius: 24px; background: var(--paper); color: var(--ink); box-shadow: 0 30px 80px -20px rgb(20 25 28 / .45); overflow: auto; overscroll-behavior: contain; }
+.dialog::backdrop { background: rgb(16 27 34 / .55); }
+.dialog .form { border: 0; box-shadow: none; padding: 0; background: transparent; }
+.dialog .form h2 { display: none; }
+.dialogBar { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }
+.dialogTitle { margin: 0; font-size: var(--type-lg); font-weight: 800; letter-spacing: -.02em; }
+@media (max-width: 480px) { .dialog { padding: var(--space-3) var(--space-4) var(--space-4); margin-bottom: 12px; } }
+@media (max-width: 480px) { :global(.creator) .card { padding: var(--space-3) var(--space-4); } }

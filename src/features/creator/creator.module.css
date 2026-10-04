@@ -41,7 +41,7 @@
   color-scheme: light;
 }
 /* Links rendered as buttons keep the button variant's text color. */
-.page :global(a:not([data-slot='button'])) { color: var(--cyan-ink); }
+.page :global(a:not([data-slot='button']):not([data-plain])) { color: var(--cyan-ink); }
 
 /* Static glow: three soft radial gradients at the top. No animation. */
 .glow { position: absolute; inset: 0 0 auto; height: 620px; overflow: hidden; pointer-events: none; }
@@ -187,4 +187,20 @@
   .page :global(.step :is(textarea, select, input:not([type='checkbox']):not([type='file']))) { font-size: 1rem; }
   .page :global(.approve-bar) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px 16px max(12px, env(safe-area-inset-bottom)); }
   .page :global(.approve-bar > span), .page :global(.approve-bar > .notice) { grid-column: 1 / -1; }
+}
+
+/* Route details: name, start and destination, editable while the route is a draft. */
+.page :global(.creator-route > .route-details) { margin-bottom: 28px; padding-bottom: 24px; border-bottom: 1px solid var(--rule-soft); }
+.page :global(.route-details h2) { font-size: 1.0625rem; font-weight: 800; }
+
+/* Route cards and bounty cards on the site pages share the creator's white cards. */
+.page :global(.route-card) { border-radius: 20px; background: var(--paper); border-color: var(--rule); box-shadow: var(--card-shadow); padding: 20px 22px; }
+.page :global(.route-card h2), .page :global(.route-card h3) { font-weight: 800; letter-spacing: -.015em; margin: 0; font-size: 1.0625rem; overflow-wrap: anywhere; }
+.page :global(.route-card-compact) { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px 16px; padding: 14px 18px; }
+.page :global(.route-card-compact > div) { display: grid; gap: 6px; min-width: 0; }
+.page :global(.route-card-compact .meta) { overflow-wrap: anywhere; }
+.page :global(.route-links code) { border-radius: 12px; border-color: var(--rule); }
+@media (max-width: 480px) {
+  .page :global(.route-card) { padding: 16px; }
+  .page :global(.route-card-compact) { grid-template-columns: minmax(0, 1fr); }
 }

@@ -1,13 +1,16 @@
-'use client';
-import { use } from 'react';
 import { redirect } from 'next/navigation';
-import { CreatorScreen } from '@/features/creator/CreatorScreen.tsx';
-import { httpCore } from '@/client/httpCore.ts';
+import { LandingScreen } from '@/features/landing/LandingScreen.tsx';
 
-// `/?route=<id>` opens a stored route in the creator. `/` has no default route, so it opens the route dashboard (/routes).
-export default function Page({ searchParams }: { searchParams: Promise<{ route?: string | string[] }> }) {
-  const { route } = use(searchParams);
-  const routeId = typeof route === 'string' ? route : '';
-  if (!routeId) redirect('/routes');
-  return <CreatorScreen core={httpCore} routeId={routeId} followPath={`/follow/${encodeURIComponent(routeId)}`} />;
+// The iMessage agent's number or address is shown only when the operator sets it. It is public contact data, never a secret.
+const CONTACT = /^(\+?[\d\s().-]{7,24}|[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,})$/;
+const agentContact = () => {
+  const value = process.env.BREADCRUMB_AGENT_CONTACT?.trim();
+  return value && CONTACT.test(value) ? value : null;
+};
+
+// `/` is the landing page. Old creator links (`/?route=<id>`) go to the creator at /teach.
+export default async function Page({ searchParams }: { searchParams: Promise<{ route?: string | string[] }> }) {
+  const { route } = await searchParams;
+  if (typeof route === 'string' && route) redirect(`/teach?route=${encodeURIComponent(route)}`);
+  return <LandingScreen agentContact={agentContact()} />;
 }
