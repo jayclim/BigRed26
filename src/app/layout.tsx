@@ -5,7 +5,7 @@ import '@/ui/clay.css';
 import { lookScript } from '@/ui/LookToggle';
 
 export const metadata: Metadata = {
-  title: 'Breadcrumb (mock)',
+  title: 'Breadcrumb',
   description: 'Record a route once. Let the next visitor follow it through their camera.',
 };
 export const viewport: Viewport = { width: 'device-width', initialScale: 1 };

@@ -14,7 +14,7 @@ export const createMemory = (): Memory => ({ map: new Map() });
 /** Links are built only here, from an id that exists and is approved. The model never writes them. */
 export function buildLinks(baseUrl: string, routeId: string): Links {
   const path = `/follow/${encodeURIComponent(routeId)}`;
-  return { stream: `${baseUrl}${path}?mode=stream`, classic: `${baseUrl}${path}` };
+  return { stream: `${baseUrl}${path}?mode=stream`, classic: `${baseUrl}${path}?mode=live` };
 }
 
 /** The configured public URL as `origin + path`, or null. It must be an absolute https URL with no credentials, query or fragment.

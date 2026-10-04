@@ -41,7 +41,7 @@ const config = { apiKey: KEY };
 const reply = (routeId: string | null, candidates: string[] = [], text = 'Sure.') => ({ routeId, candidates, reply: text });
 const memory = () => createMemory();
 const deps = (fetchImpl: typeof fetch | undefined, extra: Partial<HandleDeps> = {}): HandleDeps => ({ core, memory: memory(), baseUrl: BASE, config: fetchImpl ? config : {}, fetchImpl, ...extra });
-const links = (id: string) => ({ stream: `${BASE}/follow/${id}?mode=stream`, classic: `${BASE}/follow/${id}` });
+const links = (id: string) => ({ stream: `${BASE}/follow/${id}?mode=stream`, classic: `${BASE}/follow/${id}?mode=live` });
 const urls = (text: string) => text.match(/https?:\/\/\S+/gu) ?? [];
 
 // Catalog: approved routes only (newest approved version), no drafts, nothing inherited.
@@ -83,7 +83,7 @@ for (const phrase of ['I want to go to the AEP study room', 'hey where is the ae
 {
   const r = await handleMessage('c1', 'I want to go to the AEP study room', deps(grok(reply('aep-study', [], 'Heading to the AEP study room.'))));
   assert.equal(r.routeId, 'aep-study'); assert.equal(r.matcher, 'grok');
-  assert.deepEqual(urls(r.reply), [`${BASE}/follow/aep-study?mode=stream`, `${BASE}/follow/aep-study`]); // live link first, then classic
+  assert.deepEqual(urls(r.reply), [`${BASE}/follow/aep-study?mode=stream`, `${BASE}/follow/aep-study?mode=live`]); // live link first, then classic
   assert.ok(r.reply.includes('Heading to the AEP study room.'));
 }
 
@@ -184,7 +184,7 @@ for (const [name, f] of [
     const r = await handleMessage('c8', evil, deps(grok(trick)));
     assert.ok(!/evil\.example/u.test(r.reply), JSON.stringify(trick));
     assert.ok(urls(r.reply).every((u) => u.startsWith(`${BASE}/follow/`)), JSON.stringify(trick));
-    assert.ok(r.links === null || (r.links.stream.startsWith(`${BASE}/follow/`) && APPROVED.some((id) => r.links!.classic === `${BASE}/follow/${id}`)));
+    assert.ok(r.links === null || (r.links.stream.startsWith(`${BASE}/follow/`) && APPROVED.some((id) => r.links!.classic === `${BASE}/follow/${id}?mode=live`)));
   }
   // The same message through the keyword path carries no foreign link either.
   const r = await handleMessage('c8', evil, deps(undefined));
@@ -233,7 +233,7 @@ for (const [name, f] of [
 }
 
 // Link building and base URL.
-assert.deepEqual(buildLinks('https://a.test', 'a b/c'), { stream: 'https://a.test/follow/a%20b%2Fc?mode=stream', classic: 'https://a.test/follow/a%20b%2Fc' });
+assert.deepEqual(buildLinks('https://a.test', 'a b/c'), { stream: 'https://a.test/follow/a%20b%2Fc?mode=stream', classic: 'https://a.test/follow/a%20b%2Fc?mode=live' });
 assert.equal(baseUrlFor('https://pub.example.test/'), 'https://pub.example.test');
 assert.equal(baseUrlFor(' https://pub.example.test/base/ '), 'https://pub.example.test/base');
 for (const bad of [undefined, '', '  ', 'javascript:alert(1)', 'not a url', 'pub.example.test', 'http://pub.example.test', 'http://localhost:3000', 'ftp://pub.example.test',

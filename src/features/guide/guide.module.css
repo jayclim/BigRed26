@@ -91,9 +91,6 @@
 .nodeLabel[data-s='current'], .nodeLabel[data-s='arrived'] { font-weight: 700; }
 .nodeLabel[data-s='todo'] { color: var(--todo-text); }
 
-/* Mock panel stays secondary below the guide. */
-.page :global(.mock-panel) { border-top: 1px dashed var(--night-rule); border-left: 0; margin-top: 0; padding: 24px 0 0; }
-.page :global(.scene) { border-radius: 12px; }
 
 @media (min-width: 900px) {
   .page :global(.guide-layout) { grid-template-columns: minmax(0, 1fr); padding: 24px 32px; gap: 32px; }
@@ -114,8 +111,6 @@
   .cue[data-axis='col'] { gap: 8px; }
   .nodeLabel { font-size: 13px; }
   .edgeDot { width: 7px; height: 7px; }
-  .page :global(.mock-panel) { padding-top: 24px; }
-  .page :global(.scene-grid) { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
 }
 @media (max-width: 899px) {
   .page :global(.stage) { min-height: 240px; }

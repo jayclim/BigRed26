@@ -4,18 +4,24 @@ import { resolve } from 'node:path';
 import type { CoreAdapter, Result, Route } from '../../../contracts/contracts.ts';
 import fixture from '../../../contracts/fixture.v1.json';
 import actionFixture from '../../../contracts/fixture.actions.v1.json';
-import { fixtureRecognizer } from './actionFixture.ts';
+import { fixtureRecognizer } from '../testing/actionFixture.ts';
 import { createCore, emptyState } from './core.ts';
 import { liveRecognitionEnabled, liveRecognizer } from '../recognition/gemini.ts';
 import { loadState, persistState } from './store.ts';
 
 const file = resolve(process.env.BREADCRUMB_DATA_FILE ?? '.data/store.json');
 
+// Test-only switch, set by scripts/isolated-server.mjs. Production and normal dev never set it, so a new store starts
+// empty and the `mock` mode stays unregistered (starting such a session fails with PROVIDER_UNAVAILABLE).
+const testFixtures = process.env.BREADCRUMB_TEST_FIXTURES === '1';
+
 function seed() {
   const state = emptyState();
-  // The kit's fictional example starts as an unreviewed draft so the creator flow begins at review.
-  state.routes[fixture.route.id] = [{ ...(fixture.route as Route), status: 'draft' }];
-  state.routes[actionFixture.route.id] = [structuredClone(actionFixture.route) as Route];
+  if (testFixtures) {
+    // Fictional routes for HTTP and browser checks only. The first starts as an unreviewed draft.
+    state.routes[fixture.route.id] = [{ ...(fixture.route as Route), status: 'draft' }];
+    state.routes[actionFixture.route.id] = [structuredClone(actionFixture.route) as Route];
+  }
   return state;
 }
 
@@ -33,7 +39,7 @@ function build(): CoreAdapter {
     persist: (state) => persistState(file, state),
     // Live needs BREADCRUMB_GEMINI_RECOGNITION=1 and GEMINI_API_KEY. Absent = live start fails honestly, no fallback.
     // Replay has no recognizer yet. ponytail: flags are read once at process start.
-    recognizers: { mock: fixtureRecognizer, ...(liveRecognitionEnabled() ? { live: liveRecognizer } : {}) },
+    recognizers: { ...(testFixtures ? { mock: fixtureRecognizer } : {}), ...(liveRecognitionEnabled() ? { live: liveRecognizer } : {}) },
   });
 }
 

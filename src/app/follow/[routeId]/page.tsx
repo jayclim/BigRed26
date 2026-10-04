@@ -17,7 +17,7 @@ export default function Page({ params, searchParams }: {
     void serverVoiceEnabled().then((enabled) => { if (live) setGenerated(enabled); });
     return () => { live = false; };
   }, []);
-  // ?mode=stream is the Gemini Live voice guide. Other modes stay with GuideScreen, which reads them itself.
-  if (mode === 'stream') return <LiveStream routeId={routeId} exitHref="/" />;
-  return <GuideScreen core={httpCore} routeId={routeId} exitHref="/" voice={generated ? httpVoice : undefined} />;
+  // The Gemini Live voice guide is the default. ?mode=live opens the camera check-view guide.
+  if (mode === 'live') return <GuideScreen core={httpCore} routeId={routeId} exitHref="/routes" voice={generated ? httpVoice : undefined} />;
+  return <LiveStream routeId={routeId} exitHref="/routes" />;
 }

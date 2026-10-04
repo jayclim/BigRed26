@@ -20,7 +20,7 @@ html[data-look='clay'] .creator .creator-glow::before {
     radial-gradient(35% 45% at 62% 50%, rgb(242 184 135 / .34), transparent 70%),
     radial-gradient(30% 40% at 50% 70%, rgb(196 160 230 / .20), transparent 70%);
 }
-html[data-look='clay'] .creator :is(.media-upload, .route-preview, .creator-test-tools, .share) {
+html[data-look='clay'] .creator :is(.media-upload, .route-preview, .share) {
   border: 0; border-radius: 32px; box-shadow: var(--card-shadow);
 }
 html[data-look='clay'] .creator .media-upload { background: var(--paper); }
@@ -69,7 +69,6 @@ html[data-look='clay'] .guide-page .ctl {
   box-shadow: 4px 5px 10px rgb(0 0 0 / .35), -3px -3px 8px rgb(255 220 200 / .05), inset 1px 1px 2px rgb(255 230 210 / .10);
 }
 html[data-look='clay'] .guide-page .ctl:active { box-shadow: inset 3px 3px 6px rgb(0 0 0 / .35), inset -2px -2px 5px rgb(255 230 210 / .06); }
-html[data-look='clay'] .guide-page .mock-panel .scene { border-radius: 16px; }
 
 /* The creator's look toggle reads like the neighboring text link. */
 button.creator-nav { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }

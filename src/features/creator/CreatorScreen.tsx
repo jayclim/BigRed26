@@ -9,7 +9,6 @@ import type { Checkpoint, CoreAdapter, Direction, Id, Result, Route } from '@con
 import { DIRECTION_TEXT } from '@/ui/Arrow.tsx';
 import { Brand } from '@/ui/Brand.tsx';
 import { LookToggle } from '@/ui/LookToggle.tsx';
-import actionFixture from '@contracts/fixture.actions.v1.json';
 import { RouteMap } from '@/features/guide/RouteMap.tsx';
 import { ActionEditor } from './ActionEditor.tsx';
 import { VideoUpload } from './VideoUpload.tsx';
@@ -18,7 +17,7 @@ import styles from './creator.module.css';
 export interface CreatorScreenProps {
   core: CoreAdapter;
   routeId: Id;
-  /** Path of the visitor guide for this route, e.g. /follow/demo-route */
+  /** Path of the visitor guide for this route, e.g. /follow/my-route */
   followPath: string;
 }
 
@@ -115,7 +114,6 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
   if (!route) return <main className={`creator ${styles.page}`}><div className={styles.inner}>{msg ? <p className="notice error">{msg.text}</p> : <p>Loading route…</p>}</div></main>;
 
   const approved = route.status === 'approved';
-  const fixtureRoute = route.id === 'demo-route' || route.id === actionFixture.route.id;
   // Keep notices in flow until their exit completes; never animate their height.
   const noticeMotion = {
     initial: reduceMotion ? false as const : { opacity: 0, y: 4 },
@@ -166,18 +164,6 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
 
   const shareUrl = `${origin}${guidePath}`;
 
-  const loadActionFixture = () => {
-    clearExtraction();
-    return run(async () => {
-      let r = await core.getRoute(actionFixture.route.id);
-      // Explicit fixture selection can add this draft to an older store. No existing route is changed.
-      if (!r.ok && r.error.code === 'NOT_FOUND') r = await core.saveDraft(actionFixture.route as Route);
-      if (!r.ok) return setMsg({ kind: 'error', text: r.error.message });
-      setRoute(r.value); setSaved(true);
-      setGuidePath(`/follow/${r.value.id}`);
-    });
-  };
-
   return (
     <main className={`creator ${styles.page}`}>
       {/* Static decorative glow; no motion. */}
@@ -187,7 +173,7 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
         <div className="creator-top">
           <Brand />
           <div className={styles.topRight}>
-            <div className="creator-context"><Link href="/routes" className="creator-nav">All routes</Link><LookToggle className="creator-nav" /><span>Teach a route</span>{fixtureRoute && <Badge variant="outline" className="mock-badge">Mock route</Badge>}</div>
+            <div className="creator-context"><Link href="/routes" className="creator-nav">All routes</Link><LookToggle className="creator-nav" /><span>Teach a route</span></div>
             <AnimatePresence initial={false} mode="wait">
               <motion.span key={`${route.status}-${saved}`} {...noticeMotion}>
                 <Badge variant={approved ? 'success' : 'secondary'} className="status" data-status={route.status}>
@@ -204,9 +190,7 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
           <div><dt>Start</dt><dd>{route.startDescription}</dd></div>
           <div><dt>Destination</dt><dd>{route.destinationLabel}</dd></div>
         </dl>
-        <p className="notice">{fixtureRoute
-          ? 'Fictional mock fixture; no video was recorded. Review each step, then approve. Fixture success is not field or terrain-safety evidence.'
-          : approved ? 'Route from your video. You approved this version.' : 'Draft from your video. Review the steps; nothing is approved yet.'}</p>
+        <p className="notice">{approved ? 'Route from your video. You approved this version.' : 'Draft from your video. Review the steps; nothing is approved yet.'}</p>
       </header>
 
       <div className={styles.prompt}>
@@ -312,7 +296,7 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
       </ol>
 
         </section>
-        <aside className="creator-sidebar" aria-label="Route preview and testing tools">
+        <aside className="creator-sidebar" aria-label="Route preview">
           <div className={`route-preview ${styles.preview}`}>
             <RouteMap checkpoints={route.checkpoints} current={-1} guiding={false} flow={false} reduced={!!reduceMotion}
               statuses={route.checkpoints.map(() => (approved ? 'approved' : 'draft'))}
@@ -321,11 +305,6 @@ export function CreatorScreen({ core, routeId, followPath }: CreatorScreenProps)
               ? `Drawn from the checkpoints of approved version ${route.version}.`
               : 'Drawn from the current draft checkpoints. This draft is not approved.'}</p>
           </div>
-          {route.id !== actionFixture.route.id && <div className="creator-test-tools">
-            <h2>Testing tools</h2>
-            <p>Explore a fictional route with doors, stairs and an elevator.</p>
-            <Button variant="ghost" disabled={busy || !saved} onClick={loadActionFixture}>Review detailed-action mock fixture</Button>
-          </div>}
         </aside>
       </div>
       </div>

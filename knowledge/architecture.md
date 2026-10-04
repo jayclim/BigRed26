@@ -1,6 +1,6 @@
 # Architecture and route knowledge
 
-Status: engineering direction plus inspected mock implementation, 2026-10-03. Action-aware progression is implemented and checked in mock mode. HTTP listener, rendered UI and real-device gates remain unverified in this worker sandbox. Recheck source before editing.
+Status: engineering direction plus inspected implementation, 2026-10-04. Action-aware progression is implemented and checked with injected test recognizers. The product has no mock mode: the `mock` mode value stays in the contract only as a test-double key (see Test doubles). HTTP listener, rendered UI and real-device gates remain unverified in this worker sandbox. Recheck source before editing.
 
 ## Two kinds of knowledge
 
@@ -12,7 +12,7 @@ Gemini is planned to interpret teaching footage and visitor images. It proposes 
 
 One Next.js/React TypeScript app. Creator/guide components consume adapters. API handlers validate requests, call `CoreAdapter` and return `Result<T>`. Executable definitions live in `contracts/contracts.ts` and `contracts/schemas.ts`; original kit definitions remain provenance. Read actual signatures before implementing callers.
 
-Core logic lives in `src/server/core/`; provider secrets stay server-side. Voice and messaging belong in their server adapter directories when implemented. Register providers through the lead, not UI features. Sponsor availability must not block the mock guide.
+Core logic lives in `src/server/core/`; provider secrets stay server-side. Voice and messaging belong in their server adapter directories when implemented. Register providers through the lead, not UI features. A missing provider flag or key must make its feature report that it is unavailable. It must never switch to synthetic data.
 
 Local JSON persistence is a first-build choice for one Node process, unsuitable for multiple workers/serverless instances. Keep read/write failures explicit; never silently replace unreadable existing data with a fresh fixture. Add transactional shared storage when deployment requires concurrency.
 
@@ -31,7 +31,7 @@ The creator previews the selected local file and reports `extraction: 'pending'`
 - Restrict candidates using progress. A recognized landmark does not establish orientation: turns require confirmed approach evidence.
 - Unknown views, unsupported observations and provider failure never create guessed turns. Uncertain/reorient/off-route show no arrow. Arrival requires destination evidence, never elapsed time.
 - Locale changes preserve location and direction. Speech cancels obsolete clips and deduplicates instructions without blocking the camera.
-- Live, replay and mock remain explicit through input, guidance, events and presentation. No silent fallback. Camera preview plus synthetic observations is still mock.
+- Input mode stays explicit through guidance, events and presentation. Production registers only `live`, and only when enabled. A mode with no recognizer fails with `PROVIDER_UNAVAILABLE`. No silent fallback.
 - Validate requests and provider outputs at runtime. Captured text and model responses are data, not instructions. Any manual advancement must be visibly manual and logged.
 
 ## Camera boundary
@@ -40,7 +40,7 @@ Localhost works on this computer. A separate phone needs a reachable secure orig
 
 ## Action-aware route steps
 
-**Implemented in mock, 2026-10-03:** amendment 3 adds optional `Checkpoint.action` with kind, named target, side, target floor, ordered English/Spanish steps and completion. A spatial direction is optional for an action. Schema version remains 1. The legacy fixture and stored routes receive no fabricated actions or evidence. Approval requires complete bilingual action text and a target floor for elevators. Destinations have no action or direction.
+**Implemented, checked with test recognizers, 2026-10-03:** amendment 3 adds optional `Checkpoint.action` with kind, named target, side, target floor, ordered English/Spanish steps and completion. A spatial direction is optional for an action. Schema version remains 1. The legacy fixture and stored routes receive no fabricated actions or evidence. Approval requires complete bilingual action text and a target floor for elevators. Destinations have no action or direction.
 
 Recognizing an action selects the active step. Repeated recognition of that step does not complete it. Observation evidence must name the action target through a case-insensitive substring match. The current/next candidate window and approach checks still apply. False approach evidence gives reorient with no arrow. Unknown or lost views retain the active action with uncertainty and no arrow. Time cannot complete an action.
 
@@ -54,8 +54,14 @@ Creator review edits action fields and both locales of ordered steps/completion.
 
 After a failed manual response and on locale refresh, the guide reads server guidance and session progress. Server progress selects the manual button even when guidance is uncertain. Reorientation toward the next checkpoint does not advance that button. A stale refresh cannot undo newer progress. If the session advances between the reads, the guide clears the older instruction.
 
-The separate `action-fixture` draft contains B214 versus B215, Lift A to Floor 3, a target-floor landing and the right side of Rock R1. Its observations are synthetic and remain labeled mock. Existing stores are not migrated; explicit creator fixture selection can add this new draft. It does not alter existing routes.
+The separate `action-fixture` draft contains B214 versus B215, Lift A to Floor 3, a target-floor landing and the right side of Rock R1. Its observations are synthetic and exist for tests only. The creator no longer offers it. It is seeded only by the test server flag (see Test doubles).
 
 **Observed checks:** core regression checks and TypeScript pass. A supplemental Webpack build with a temporary local font response compiles the API and UI. Compiled route handlers pass direct Request/Response checks for route save/approve and manual completion. Normal build fails on the existing Google font fetch; HTTP listeners and Turbopack's font mock evaluator fail with sandbox port-binding errors. Full results and remaining checks are in the detailed-route-actions build receipt.
 
-**Limits:** substring target matching is a route constraint, not a visual recognizer or calibrated safety measure. No real extraction, matching, field, terrain-safety, phone camera/audio or accessibility evidence is established. Approved text does not establish that a surface is traversable or climbable. Bilingual reorientation still embeds the contract's English-only approach description. The mock build does not satisfy the independent second-phone gate.
+**Limits:** substring target matching is a route constraint, not a visual recognizer or calibrated safety measure. No real extraction, matching, field, terrain-safety, phone camera/audio or accessibility evidence is established. Approved text does not establish that a surface is traversable or climbable. Bilingual reorientation still embeds the contract's English-only approach description. Test-double checks do not satisfy the independent second-phone gate.
+
+## Test doubles
+
+Removed from the product, 2026-10-04: the guide's mock mode, mock panel and synthetic-observation buttons, the creator's mock badge and testing tools, the `/` default of `demo-route`, and fixture seeding of new stores. `/follow/<id>` opens the Gemini Live voice guide; `?mode=live` opens the camera check-view guide. `/` without `?route=` redirects to `/routes`.
+
+Kept for tests: `src/server/testing/` holds the synthetic recognizers (`mock:<checkpoint>:<kind>` media ids) and the fictional fixtures stay in `contracts/`. Unit checks inject them into `createCore`. `src/server/core/instance.ts` registers them under the `mock` mode and seeds the fixtures only when `BREADCRUMB_TEST_FIXTURES=1`. Only `scripts/isolated-server.mjs` sets this flag. Without it a new store is empty and a `mock` session returns `PROVIDER_UNAVAILABLE`. `Mode` and `ModeSchema` keep the `mock` value to avoid a contract break. Existing stores that already hold `demo-route` or `action-fixture` keep them; no migration deletes data.
