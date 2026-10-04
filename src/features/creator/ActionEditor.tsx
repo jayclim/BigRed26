@@ -25,7 +25,7 @@ export function ActionEditor({ action, disabled, onChange }: {
       </label>
       {action && <>
         <label>Target sign, label or landmark
-          <Input value={action.target} maxLength={500} onChange={(e) => patch({ target: e.target.value })} />
+          <Input value={action.target} maxLength={500} className="disabled:opacity-100 disabled:bg-secondary" onChange={(e) => patch({ target: e.target.value })} />
         </label>
         <div className="langs">
           <label>Side from the recorded approach
@@ -34,7 +34,7 @@ export function ActionEditor({ action, disabled, onChange }: {
             </select>
           </label>
           <label>Target floor
-            <Input value={action.targetFloor ?? ''} maxLength={200} onChange={(e) => patch({ targetFloor: e.target.value || null })} />
+            <Input value={action.targetFloor ?? ''} maxLength={200} className="disabled:opacity-100 disabled:bg-secondary" onChange={(e) => patch({ targetFloor: e.target.value || null })} />
           </label>
         </div>
         <ol className="action-edit-steps">
@@ -42,7 +42,7 @@ export function ActionEditor({ action, disabled, onChange }: {
             <div className="langs">
               {LOCALES.map((locale) => <label key={locale}>
                 Step {i + 1} · {locale === 'en' ? 'English' : 'Spanish'}
-                <Textarea lang={locale} maxLength={500} value={step[locale]} onChange={(e) => patch({
+                <Textarea lang={locale} maxLength={500} value={step[locale]} className="disabled:opacity-100 disabled:bg-secondary" onChange={(e) => patch({
                   steps: action.steps.map((s, index) => index === i ? { ...s, [locale]: e.target.value } : s),
                 })} />
               </label>)}
@@ -60,7 +60,7 @@ export function ActionEditor({ action, disabled, onChange }: {
         <div className="langs">
           {LOCALES.map((locale) => <label key={locale}>
             Completion condition · {locale === 'en' ? 'English' : 'Spanish'}
-            <Textarea lang={locale} maxLength={500} value={action.completion[locale]}
+            <Textarea lang={locale} maxLength={500} value={action.completion[locale]} className="disabled:opacity-100 disabled:bg-secondary"
               onChange={(e) => patch({ completion: { ...action.completion, [locale]: e.target.value } })} />
           </label>)}
         </div>
